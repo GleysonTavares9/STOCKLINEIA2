@@ -1,0 +1,5 @@
+{
+  "name": "Mureka AI Music Generator",
+  "description": "An application to generate song lyrics and music from a user prompt, inspired by modern AI music platforms.",
+  "requestFramePermissions": []
+}

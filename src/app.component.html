@@ -1,0 +1,24 @@
+<div class="min-h-screen bg-zinc-950 text-gray-300 flex flex-col">
+  <main class="flex-grow pb-24">
+    <router-outlet></router-outlet>
+  </main>
+
+  <!-- Bottom Navigation -->
+  <nav class="fixed bottom-0 left-0 right-0 bg-zinc-900 border-t border-zinc-800 p-2 flex justify-around items-center z-20">
+    <a routerLink="/library" routerLinkActive="text-pink-400" class="flex flex-col items-center justify-center w-1/4 text-zinc-400 transition-colors py-2">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 14v3m4-3v3m4-3v3M3 21h18M3 10h18M3 7l9-4 9 4M4 10h16v11H4V10z" /></svg>
+      <span class="text-xs tracking-wide">Biblioteca</span>
+    </a>
+    
+    <div class="w-1/4 flex justify-center">
+      <a routerLink="/create" class="-mt-8 flex items-center justify-center w-16 h-16 bg-gradient-to-br from-pink-500 to-orange-400 rounded-full shadow-lg shadow-pink-500/30 text-white transform hover:scale-110 transition-transform">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" viewBox="0 0 20 20" fill="currentColor"><path d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" /></svg>
+      </a>
+    </div>
+
+    <a routerLink="/top-charts" routerLinkActive="text-pink-400" class="flex flex-col items-center justify-center w-1/4 text-zinc-400 transition-colors py-2">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
+      <span class="text-xs tracking-wide">Top Músicas</span>
+    </a>
+  </nav>
+</div>
