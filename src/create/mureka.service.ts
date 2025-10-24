@@ -104,7 +104,6 @@ export class MurekaService {
       const body = {
         title: title,
         lyrics: lyrics,
-        model: 'auto',
         prompt: style
       };
 
@@ -133,14 +132,84 @@ export class MurekaService {
     }
   }
 
+  /**
+   * Recursively searches through a data structure to find a plausible audio URL.
+   * It collects all URLs, prioritizes them based on common audio-related keys and
+   * file extensions, and returns the best candidate.
+   * @param data The data structure (object, array, primitive) to search.
+   * @returns The best candidate URL found, or null if none is found.
+   */
+  private findUrlInResponse(data: any): string | null {
+    const urls: string[] = [];
+    const visited = new WeakSet(); // Prevent infinite loops in circular structures
+
+    const collectUrls = (current: any) => {
+      if (!current || typeof current !== 'object') {
+        if (typeof current === 'string' && current.startsWith('http')) {
+          urls.push(current);
+        }
+        return;
+      }
+      
+      if (visited.has(current)) {
+        return;
+      }
+      visited.add(current);
+
+      if (Array.isArray(current)) {
+        for (const item of current) {
+          collectUrls(item);
+        }
+      } else { // It's an object
+        // Prioritize common keys by checking them first and adding their values to the front
+        const prioritizedKeys = ['output', 'url', 'audio_url', 'uri', 'audio', 'link', 'public_url'];
+        for (const key of prioritizedKeys) {
+          const value = current[key];
+          if (value && typeof value === 'string' && value.startsWith('http')) {
+            urls.unshift(value); // Prepend to prioritize
+          }
+        }
+        
+        // Also check all other keys
+        for (const key in current) {
+          if (Object.prototype.hasOwnProperty.call(current, key)) {
+            // Avoid re-processing prioritized keys we just checked
+            if (!prioritizedKeys.includes(key)) {
+                collectUrls(current[key]);
+            }
+          }
+        }
+      }
+    };
+
+    collectUrls(data);
+
+    if (urls.length === 0) {
+      return null;
+    }
+
+    // Create a unique set of URLs, preserving the prioritized order
+    const uniqueUrls = [...new Set(urls)];
+
+    // 1. Prefer URLs with common audio extensions.
+    const audioExtensionRegex = /\.(mp3|wav|ogg|m4a|flac|aac)(\?.*)?$/i;
+    const audioUrl = uniqueUrls.find(u => audioExtensionRegex.test(u));
+    if (audioUrl) {
+      return audioUrl;
+    }
+
+    // 2. If no audio extension, return the first URL found (which may have been prioritized by key).
+    return uniqueUrls[0];
+  }
+
   private pollForStatus(taskId: string, attempts = 0): void {
-    const MAX_POLL_ATTEMPTS = 36; // Timeout after 36 * 5s = 3 minutes
+    const MAX_POLL_ATTEMPTS = 48; // Timeout after 48 * 5s = 4 minutes
     if (attempts >= MAX_POLL_ATTEMPTS) {
        this.history.update(current => 
         current.map(item => item.id === taskId ? { 
           ...item, 
           status: 'failed', 
-          error: 'O tempo para gerar a música esgotou.' 
+          error: 'O processo demorou mais que o esperado e foi interrompido.' 
         } : item)
       );
       return;
@@ -164,30 +233,37 @@ export class MurekaService {
           this.http.get<MurekaQueryResponse>(`${this.MUREKA_API_BASE_URL}/song/query/${taskId}`, { headers })
         );
 
+        // 1. Aggressively search for the audio URL on every poll response.
+        const audioUrl = this.findUrlInResponse(res);
+
+        if (audioUrl) {
+          // URL FOUND! This is our primary success condition. Stop polling.
+          this.history.update(current => 
+            current.map(item => item.id === taskId ? { 
+              ...item, 
+              status: 'succeeded', 
+              audioUrl: audioUrl
+            } : item)
+          );
+          return; // IMPORTANT: Stop polling
+        }
+
+        // 2. If no URL was found, proceed with status-based logic.
         const murekaStatus = res.status;
         
         if (murekaStatus === 'succeeded') {
-          const audioUrl = res.choices?.[0]?.url;
-
-          if (audioUrl && typeof audioUrl === 'string') {
-            this.history.update(current => 
-              current.map(item => item.id === taskId ? { 
-                ...item, 
-                status: 'succeeded', 
-                audioUrl: audioUrl
-              } : item)
-            );
-          } else {
-            console.error('Mureka task succeeded, but a valid audio URL was not found in the response choices.', res);
-            this.history.update(current => 
-              current.map(item => item.id === taskId ? { 
-                ...item, 
-                status: 'failed', 
-                error: 'A música foi gerada com sucesso, mas o formato da resposta da API era inesperado.' 
-              } : item)
-            );
-          }
+          // The API says it succeeded, but we couldn't find a URL.
+          // This is a failure from our app's perspective. Stop polling and show an error.
+          console.error(`Mureka task ${taskId} succeeded, but no audio URL was found in the final payload.`, res);
+          this.history.update(current => 
+            current.map(item => item.id === taskId ? { 
+              ...item, 
+              status: 'failed', 
+              error: 'A música foi gerada, mas não foi possível encontrar o link do áudio na resposta da API.' 
+            } : item)
+          );
         } else if (['failed', 'timeouted', 'cancelled'].includes(murekaStatus)) {
+           // The API explicitly reports a failure.
            this.history.update(current => 
             current.map(item => item.id === taskId ? { 
               ...item, 
@@ -196,6 +272,7 @@ export class MurekaService {
             } : item)
           );
         } else { // 'preparing', 'queued', 'running', 'streaming'
+          // No URL yet and still processing. Continue polling.
           this.pollForStatus(taskId, attempts + 1);
         }
 
