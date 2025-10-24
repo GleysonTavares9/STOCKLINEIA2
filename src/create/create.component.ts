@@ -1,7 +1,8 @@
 import { Component, ChangeDetectionStrategy, signal, inject, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { GeminiService } from '../services/gemini.service';
-import { MurekaService } from '../services/mureka.service';
+// Fix: Corrected the import path for MurekaService to point to the local file.
+import { MurekaService } from './mureka.service';
 
 @Component({
   selector: 'app-create',
@@ -67,7 +68,8 @@ export class CreateComponent {
       const result = await this.geminiService.generateLyrics(this.lyricsDescription());
       this.lyrics.set(result);
     } catch (e) {
-      this.lyricsError.set('Houve um erro ao gerar a letra. Por favor, tente novamente.');
+      const message = e instanceof Error ? e.message : 'Ocorreu um erro desconhecido. Por favor, tente novamente.';
+      this.lyricsError.set(message);
       console.error(e);
     } finally {
       this.generatingLyrics.set(false);

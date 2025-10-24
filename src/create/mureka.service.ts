@@ -1,6 +1,7 @@
 import { Injectable, signal, inject } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
+import { environment } from '../config';
 
 export interface HistoryItem {
   id: string; // Mureka Task ID
@@ -31,11 +32,18 @@ interface MurekaQueryResponse {
 export class MurekaService {
   private readonly http = inject(HttpClient);
   private readonly MUREKA_API_BASE_URL = 'https://api.mureka.ai/v1';
-  private readonly apiKey = 'op_mfsjty5x8ki4FpjGBDz36a9QFsXhtB7';
+  private readonly apiKey: string | undefined;
 
   history = signal<HistoryItem[]>([]);
 
-  constructor() {}
+  constructor() {
+    // Prioritize environment variable, but fall back to config file for demo purposes.
+    this.apiKey = process.env.MUREKA_API_KEY || environment.murekaApiKey;
+
+    if (!this.apiKey) {
+      console.error('Chave da API da Mureka não encontrada. Configure MUREKA_API_KEY no ambiente ou em src/config.ts.');
+    }
+  }
 
   /**
    * Extracts a specific error message from an API error response.
@@ -62,15 +70,15 @@ export class MurekaService {
 
   async generateMusic(title: string, style: string, lyrics: string): Promise<void> {
     if (!this.apiKey) {
-      const error = 'API key is not configured. This is required for both Gemini and Mureka services.';
-      console.error(error);
+      const error = 'O serviço Mureka não foi inicializado. Verifique se a chave da API (MUREKA_API_KEY) está configurada corretamente.';
+      console.error('Mureka API key is not configured. This is required for music generation.');
       this.history.update(current => [{
         id: `local_error_${Date.now()}`,
         title,
         style,
         lyrics,
         status: 'failed',
-        error: 'A chave da API não foi encontrada. Verifique a configuração do ambiente.',
+        error,
         createdAt: new Date(),
       }, ...current]);
       return;
@@ -94,6 +102,7 @@ export class MurekaService {
       });
       
       const body = {
+        title: title,
         lyrics: lyrics,
         model: 'auto',
         prompt: style
@@ -138,6 +147,17 @@ export class MurekaService {
     }
     
     setTimeout(async () => {
+       if (!this.apiKey) {
+             this.history.update(current => 
+              current.map(item => item.id === taskId ? { 
+                ...item, 
+                status: 'failed', 
+                error: 'A chave da API não pôde ser lida durante a verificação.' 
+              } : item)
+            );
+            return;
+          }
+
       try {
         const headers = new HttpHeaders({ 'Authorization': `Bearer ${this.apiKey}` });
         const res = await firstValueFrom(

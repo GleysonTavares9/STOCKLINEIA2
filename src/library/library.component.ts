@@ -1,6 +1,7 @@
 import { Component, ChangeDetectionStrategy, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { MurekaService } from '../services/mureka.service';
+// Fix: Corrected the import path for MurekaService to point to its actual location in the 'create' directory.
+import { MurekaService } from '../create/mureka.service';
 
 @Component({
   selector: 'app-library',
