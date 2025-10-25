@@ -10,9 +10,16 @@
           As credenciais do Supabase não foram configuradas. A autenticação está desativada até que o problema seja resolvido.
         </p>
         <div class="bg-zinc-900 text-left p-4 rounded-lg font-mono text-sm w-full">
-          <p class="text-zinc-400 mb-2">// Instruções:</p>
+          <p class="text-zinc-400 mb-2">// Para desenvolvimento local:</p>
           <p class="mb-2">1. Abra o arquivo <code class="bg-zinc-700 text-pink-400 px-1 py-0.5 rounded">src/config.ts</code>.</p>
-          <p>2. Preencha as variáveis <code class="bg-zinc-700 text-pink-400 px-1 py-0.5 rounded">supabaseUrl</code> e <code class="bg-zinc-700 text-pink-400 px-1 py-0.5 rounded">supabaseKey</code>.</p>
+          <p class="mb-4">2. Preencha as variáveis <code class="bg-zinc-700 text-pink-400 px-1 py-0.5 rounded">supabaseUrl</code> e <code class="bg-zinc-700 text-pink-400 px-1 py-0.5 rounded">supabaseKey</code>.</p>
+
+          <p class="text-zinc-400 mb-2">// Para produção (Vercel, etc.):</p>
+          <p class="mb-2 text-zinc-300">Configure as seguintes variáveis de ambiente no painel da sua plataforma de hospedagem:</p>
+          <ul class="list-disc list-inside ml-2 space-y-1">
+            <li><code class="bg-zinc-700 text-pink-400 px-1 py-0.5 rounded">SUPABASE_URL</code></li>
+            <li><code class="bg-zinc-700 text-pink-400 px-1 py-0.5 rounded">SUPABASE_ANON_KEY</code></li>
+          </ul>
         </div>
       </div>
     }

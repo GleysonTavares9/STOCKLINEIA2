@@ -8,7 +8,9 @@
       @if (!isMurekaConfigured()) {
         <p class="mb-2">A chave da API da Mureka não foi configurada. A geração de música está desativada.</p>
       }
-      <p class="mt-4 text-sm">Por favor, adicione suas chaves de API no arquivo <code class="bg-yellow-700/30 text-white px-1 py-0.5 rounded">src/config.ts</code> para habilitar todas as funcionalidades.</p>
+      <p class="mt-4 text-sm">
+        Para corrigir, adicione suas chaves de API. <strong>Localmente:</strong> edite o arquivo <code class="bg-yellow-700/30 text-white px-1 py-0.5 rounded">src/config.ts</code>. <strong>Em produção (Vercel):</strong> configure as variáveis de ambiente <code class="bg-yellow-700/30 text-white px-1 py-0.5 rounded">GEMINI_API_KEY</code> e/ou <code class="bg-yellow-700/30 text-white px-1 py-0.5 rounded">MUREKA_API_KEY</code>.
+      </p>
     </div>
   }
   <div class="space-y-8">
