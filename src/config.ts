@@ -17,7 +17,7 @@
  * Este aplicativo está configurado para ler as chaves de variáveis de ambiente no momento da compilação.
  * Para que a implantação funcione, você DEVE configurar as seguintes variáveis
  * no painel de controle da sua plataforma de hospedagem:
- * 
+ * ⅚
  * - `MUREKA_API_KEY`: Sua chave secreta da Mureka AI.
  * - `GEMINI_API_KEY`: Sua chave secreta do Google Gemini.
  * - `SUPABASE_URL`: A URL do seu projeto Supabase.
