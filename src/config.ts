@@ -13,40 +13,36 @@
  * 
  * --------------------------------------------------------------------------
  * 
- * **INSTRUÇÕES SUPABASE:**
- * 1. Vá para o painel do seu projeto Supabase > "Project Settings" > "API".
- * 2. Copie a "Project URL" e a "Project API key" (anon).
- * 3. Cole-as nos campos `supabaseUrl` e `supabaseKey` abaixo.
+ * **INSTRUÇÕES PARA AMBIENTES DE IMPLANTAÇÃO (Vercel, Netlify, etc.):**
+ * Este aplicativo está configurado para ler as chaves de variáveis de ambiente no momento da compilação.
+ * Para que a implantação funcione, você DEVE configurar as seguintes variáveis
+ * no painel de controle da sua plataforma de hospedagem:
  * 
- * **INSTRUÇÕES STRIPE (ESSENCIAL):**
- * 1. Vá para o seu Painel Stripe: https://dashboard.stripe.com/apikeys
- * 2. Encontre sua "Chave publicável". Ela SEMPRE começa com `pk_test_` ou `pk_live_`.
- * 3. Copie a chave publicável e cole-a no campo `stripePublishableKey` abaixo.
+ * - `MUREKA_API_KEY`: Sua chave secreta da Mureka AI.
+ * - `GEMINI_API_KEY`: Sua chave secreta do Google Gemini.
+ * - `SUPABASE_URL`: A URL do seu projeto Supabase.
+ * - `SUPABASE_ANON_KEY`: A chave anônima (public) do seu projeto Supabase.
+ * - `STRIPE_PUBLISHABLE_KEY`: Sua chave publicável (pk_...) do Stripe.
  * 
- * **INSTRUÇÕES MUREKA & GEMINI (PARA DESENVOLVIMENTO):**
- * Para fazer o aplicativo funcionar sem um backend, você precisará adicionar suas chaves de API aqui.
- * Lembre-se: Isso é INSEGURO para produção. Para um aplicativo real, você deve criar um backend
- * (como Funções Supabase Edge) para proteger essas chaves.
- * 1. Obtenha sua chave de API da Mureka e cole-a em `murekaApiKey`.
- * 2. Obtenha sua chave de API do Google Gemini e cole-a em `geminiApiKey`.
+ * A exposição de MUREKA_API_KEY e GEMINI_API_KEY no frontend é INSEGURA para produção.
+ * Para um aplicativo real, mova a lógica que usa essas chaves para um backend seguro,
+ * como as Funções Edge do Supabase.
  * 
  */
+
+// Permite o acesso a `process.env` que é preenchido por ferramentas de build (como no Vercel).
+// As variáveis de ambiente devem ser definidas nas configurações do seu provedor de hospedagem.
+declare var process: any;
+
 export const environment = {
-  // ATENÇÃO: Adicionar chaves aqui é apenas para desenvolvimento e é INSEGURO para produção.
-  murekaApiKey: 'COLE_SUA_CHAVE_MUREKA_API_AQUI',
-  geminiApiKey: 'COLE_SUA_CHAVE_GEMINI_API_AQUI',
+  // ATENÇÃO: As chaves são lidas das variáveis de ambiente. 
+  // Os valores abaixo são apenas para fallback e para evitar erros se as variáveis não estiverem definidas.
+  murekaApiKey: process.env.MUREKA_API_KEY || 'COLE_SUA_CHAVE_MUREKA_API_AQUI',
+  geminiApiKey: process.env.GEMINI_API_KEY || 'COLE_SUA_CHAVE_GEMINI_API_AQUI',
   
-  supabaseUrl: 'YOUR_SUPABASE_URL',
-  supabaseKey: 'YOUR_SUPABASE_ANON_KEY',
+  supabaseUrl: process.env.SUPABASE_URL || 'YOUR_SUPABASE_URL',
+  supabaseKey: process.env.SUPABASE_ANON_KEY || 'YOUR_SUPABASE_ANON_KEY',
   
-  // !!! AÇÃO NECESSÁRIA: Substitua o valor abaixo pela sua chave publicável REAL do Stripe. !!!
-  // O valor atual é um exemplo para remover a mensagem de erro, mas não funcionará para pagamentos reais.
-  // 
-  // 1. Vá para o seu Painel Stripe: https://dashboard.stripe.com/apikeys
-  // 2. Copie sua "Chave publicável" (ex: pk_test_51... ou pk_live_...).
-  // 3. Cole a chave completa aqui, substituindo todo o texto entre as aspas.
-  //
   // ATENÇÃO: Use APENAS a chave publicável (pk_...), NUNCA a chave secreta (sk_...).
-  //
-  stripePublishableKey: 'COLE_SUA_CHAVE_PUBLICAVEL_AQUI' // <-- SUBSTITUA PELA SUA CHAVE PUBLICÁVEL (pk_...). NUNCA a chave secreta (sk_...).
+  stripePublishableKey: process.env.STRIPE_PUBLISHABLE_KEY || 'COLE_SUA_CHAVE_PUBLICAVEL_AQUI'
 };
