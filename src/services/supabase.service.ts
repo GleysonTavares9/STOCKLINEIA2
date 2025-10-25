@@ -45,6 +45,7 @@ export class SupabaseService {
   private supabase: SupabaseClient | null = null;
   
   readonly isConfigured = signal<boolean>(true);
+  readonly authReady = signal<boolean>(false);
   currentUser = signal<User | null>(null);
   currentUserProfile = signal<Profile | null>(null);
 
@@ -57,6 +58,7 @@ export class SupabaseService {
 
     if (isUrlMissing || isKeyMissing) {
       this.isConfigured.set(false);
+      this.authReady.set(true); // Ready to show the config error
       return;
     }
     
@@ -70,6 +72,7 @@ export class SupabaseService {
       } else {
         this.currentUserProfile.set(null);
       }
+      this.authReady.set(true);
     });
   }
 

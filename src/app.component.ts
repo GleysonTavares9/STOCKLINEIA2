@@ -14,6 +14,7 @@ export class AppComponent {
   private readonly supabaseService = inject(SupabaseService);
   private readonly router = inject(Router);
 
+  authReady = this.supabaseService.authReady;
   isSupabaseConfigured = this.supabaseService.isConfigured;
   currentUser = this.supabaseService.currentUser;
   currentUserProfile = this.supabaseService.currentUserProfile;
