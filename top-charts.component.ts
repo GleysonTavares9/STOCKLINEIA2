@@ -1,12 +1,13 @@
 import { Component, ChangeDetectionStrategy, inject, signal } from '@angular/core';
-import { SupabaseService, Music } from '../services/supabase.service';
+// FIX: Corrected import path for SupabaseService. The component is at root, so we need to go into `src`.
+import { SupabaseService, Music } from './src/services/supabase.service';
 import { CommonModule } from '@angular/common';
 
 @Component({
   selector: 'app-top-charts',
   standalone: true,
   imports: [CommonModule],
-  templateUrl: './top-charts.component.html',
+  templateUrl: './src/top-charts/top-charts.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class TopChartsComponent {

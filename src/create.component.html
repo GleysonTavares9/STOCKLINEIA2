@@ -1,16 +1,4 @@
 <div class="max-w-3xl mx-auto p-4 md:p-8 text-white">
-  @if (!isGeminiConfigured() || !isMurekaConfigured()) {
-    <div class="mb-8 p-6 rounded-2xl bg-yellow-900/30 border border-yellow-700 text-yellow-300 text-center">
-      <h2 class="font-bold text-lg mb-2">Configuração de API Necessária</h2>
-      @if (!isGeminiConfigured()) {
-        <p class="mb-2">A chave da API do Google Gemini não foi configurada. A geração de letras está desativada.</p>
-      }
-      @if (!isMurekaConfigured()) {
-        <p class="mb-2">A chave da API da Mureka não foi configurada. A geração de música está desativada.</p>
-      }
-      <p class="mt-4 text-sm">Por favor, adicione suas chaves de API no arquivo <code class="bg-yellow-700/30 text-white px-1 py-0.5 rounded">src/config.ts</code> para habilitar todas as funcionalidades.</p>
-    </div>
-  }
   <div class="space-y-8">
     <!-- LETRA DA MÚSICA -->
     <div class="bg-[#1A181A] p-6 rounded-2xl border border-zinc-800">
@@ -54,9 +42,9 @@
             rows="2"
             placeholder="Descreva sua ideia para gerar a letra com IA..."
             class="w-full p-2 bg-transparent border-none rounded-md text-gray-200 placeholder-zinc-500 focus:ring-0 resize-none"
-            [disabled]="generatingLyrics() || !isGeminiConfigured()"></textarea>
+            [disabled]="generatingLyrics()"></textarea>
             <div class="flex justify-end mt-2">
-               <button (click)="generateLyrics()" [disabled]="generatingLyrics() || lyricsDescription().trim().length === 0 || !isGeminiConfigured()" class="flex items-center justify-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-zinc-700 rounded-full transition-colors duration-300 hover:bg-zinc-600 disabled:bg-zinc-800 disabled:text-zinc-500 disabled:cursor-not-allowed">
+               <button (click)="generateLyrics()" [disabled]="generatingLyrics() || lyricsDescription().trim().length === 0" class="flex items-center justify-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-zinc-700 rounded-full transition-colors duration-300 hover:bg-zinc-600 disabled:bg-zinc-800 disabled:text-zinc-500 disabled:cursor-not-allowed">
                   <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clip-rule="evenodd" /></svg>
                   @if (generatingLyrics()) {
                     <svg class="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>

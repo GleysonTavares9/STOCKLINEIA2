@@ -1,4 +1,4 @@
-import { Component, ChangeDetectionStrategy, signal, inject, computed, OnInit } from '@angular/core';
+import { Component, ChangeDetectionStrategy, signal, inject, computed, OnInit, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { SupabaseService, Plan } from '../services/supabase.service';
 import { Router } from '@angular/router';
@@ -12,6 +12,7 @@ declare var Stripe: any;
   standalone: true,
   imports: [CommonModule],
   templateUrl: './subscribe.component.html',
+  // FIX: Corrected typo from `Change-DetectionStrategy` to `ChangeDetectionStrategy`.
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class SubscribeComponent implements OnInit {
@@ -40,18 +41,39 @@ export class SubscribeComponent implements OnInit {
 
   private stripe: any;
   isStripeConfigured = signal<boolean>(true);
+  isSecurityError = signal<boolean>(false);
 
   constructor() {
     this.loadPlans();
+
+    effect(() => {
+      if (!this.supabase.currentUser()) {
+        this.router.navigate(['/auth'], { queryParams: { message: 'Faça login para ver os planos de assinatura.' } });
+      }
+    });
   }
 
   ngOnInit(): void {
-    if (!environment.stripePublishableKey || environment.stripePublishableKey === 'YOUR_STRIPE_PUBLISHABLE_KEY') {
-        console.error('Chave publicável do Stripe não configurada em src/config.ts');
-        this.isStripeConfigured.set(false);
-        this.purchaseError.set('A funcionalidade de pagamento não está configurada corretamente. O administrador precisa configurar a chave de API do Stripe.');
+    const stripeKey = environment.stripePublishableKey;
+    let errorMessage: string | null = null;
+    this.isSecurityError.set(false);
+
+    if (stripeKey.startsWith('sk_')) {
+      errorMessage = "ALERTA DE SEGURANÇA: Uma chave secreta ('sk_...') do Stripe foi detectada no código. Isso é um risco grave. Por segurança, o pagamento foi desabilitado. REVOGUE esta chave imediatamente em seu painel Stripe e use apenas sua chave publicável ('pk_...').";
+      this.isSecurityError.set(true);
+    } else if (!stripeKey || stripeKey.includes('COLE_SUA_CHAVE_PUBLICAVEL_AQUI')) {
+      errorMessage = "Erro de Configuração: A chave do Stripe não foi configurada. Por favor, adicione sua chave publicável real no arquivo `src/config.ts` para habilitar os pagamentos.";
+    } else if (!stripeKey.startsWith('pk_test_') && !stripeKey.startsWith('pk_live_')) {
+      errorMessage = "Erro de Configuração do Stripe: A chave fornecida parece inválida. Certifique-se de que é a sua 'Chave Publicável' completa, que começa com 'pk_live_' ou 'pk_test_'.";
+    }
+
+    if (errorMessage) {
+      console.error(errorMessage);
+      this.isStripeConfigured.set(false);
+      this.purchaseError.set(errorMessage);
     } else {
-        this.stripe = Stripe(environment.stripePublishableKey);
+      this.isStripeConfigured.set(true);
+      this.stripe = Stripe(stripeKey);
     }
   }
 

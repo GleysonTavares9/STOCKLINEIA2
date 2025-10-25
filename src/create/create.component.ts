@@ -23,6 +23,10 @@ export class CreateComponent {
   readonly currentUser = this.supabaseService.currentUser;
   readonly currentUserProfile = this.supabaseService.currentUserProfile;
 
+  // Config signals
+  readonly isGeminiConfigured = this.geminiService.isConfigured;
+  readonly isMurekaConfigured = this.murekaService.isConfigured;
+
   // Form signals
   songTitle = signal<string>('');
   songStyle = signal<string>('');
@@ -40,6 +44,7 @@ export class CreateComponent {
   canGenerateMusic = computed(() => {
     const profile = this.currentUserProfile();
     return (
+      this.isMurekaConfigured() &&
       profile != null && profile.credits > 0 &&
       this.songTitle().trim().length > 0 &&
       this.songStyle().trim().length > 0 &&
@@ -57,7 +62,7 @@ export class CreateComponent {
   }
 
   async generateLyrics(): Promise<void> {
-    if (!this.lyricsDescription() || this.generatingLyrics()) {
+    if (!this.lyricsDescription() || this.generatingLyrics() || !this.isGeminiConfigured()) {
       return;
     }
 
