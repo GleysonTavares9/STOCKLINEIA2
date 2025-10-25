@@ -3,13 +3,13 @@ import { SupabaseService, Song } from '../services/supabase.service';
 import { CommonModule } from '@angular/common';
 
 @Component({
-  selector: 'app-feed',
+  selector: 'app-top-charts',
   standalone: true,
   imports: [CommonModule],
-  templateUrl: './feed.component.html',
+  templateUrl: './top-charts.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class FeedComponent {
+export class TopChartsComponent {
   private readonly supabase = inject(SupabaseService);
   
   publicSongs = signal<Song[]>([]);

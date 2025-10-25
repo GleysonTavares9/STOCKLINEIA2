@@ -30,20 +30,9 @@ export class SupabaseService {
     const supabaseUrl = environment.supabaseUrl;
     const supabaseKey = environment.supabaseKey;
 
-    if (!supabaseUrl || supabaseUrl === 'YOUR_SUPABASE_URL' || !supabaseKey || supabaseKey === 'YOUR_SUPABASE_ANON_KEY') {
+    if (!supabaseUrl || supabaseKey === 'YOUR_SUPABASE_ANON_KEY') {
       this.isConfigured.set(false);
-      console.error(`
-      --------------------------------------------------
-      ERRO DE CONFIGURAÇÃO DO SUPABASE
-      --------------------------------------------------
-      A URL e a Chave do Supabase não foram configuradas.
-      Por favor, edite o arquivo 'src/config.ts' e
-      substitua 'YOUR_SUPABASE_URL' e 'YOUR_SUPABASE_ANON_KEY'
-      pelos seus dados reais do projeto Supabase.
-      O aplicativo não funcionará corretamente até que
-      isso seja feito.
-      --------------------------------------------------
-      `);
+      console.error("Supabase URL or Key not configured. Please check src/config.ts");
       return;
     }
     
@@ -52,36 +41,46 @@ export class SupabaseService {
     this.supabase.auth.onAuthStateChange((event, session) => {
       this.currentUser.set(session?.user ?? null);
     });
-    
-    // Check for session on startup
-    this.supabase.auth.getSession().then(({ data }) => {
-        this.currentUser.set(data.session?.user ?? null);
-    });
   }
 
-  async signUp(email: string, password: string): Promise<{ user: User | null; error: AuthError | null }> {
-    if (!this.supabase) return { user: null, error: new AuthError('Supabase client not initialized. Check configuration in src/config.ts') };
-    const { data, error } = await this.supabase.auth.signUp({ email, password });
-    return { user: data.user, error };
+  async signOut(): Promise<void> {
+    if (!this.supabase) return;
+    await this.supabase.auth.signOut();
+    this.currentUser.set(null);
   }
 
-  async signInWithEmail(email: string, password: string): Promise<{ user: User | null; error: AuthError | null }> {
-    if (!this.supabase) return { user: null, error: new AuthError('Supabase client not initialized. Check configuration in src/config.ts') };
+  async signInWithEmail(email: string, password: string): Promise<{ user: User | null, error: AuthError | null }> {
+    if (!this.supabase) {
+      return { user: null, error: { name: 'InitializationError', message: 'Supabase client not initialized.' } as AuthError };
+    }
     const { data, error } = await this.supabase.auth.signInWithPassword({ email, password });
     return { user: data.user, error };
   }
 
-  async signOut(): Promise<{ error: AuthError | null }> {
-    if (!this.supabase) return { error: new AuthError('Supabase client not initialized. Check configuration in src/config.ts') };
-    return this.supabase.auth.signOut();
+  async signUp(email: string, password: string): Promise<{ user: User | null, error: AuthError | null }> {
+    if (!this.supabase) {
+      return { user: null, error: { name: 'InitializationError', message: 'Supabase client not initialized.' } as AuthError };
+    }
+    const { data, error } = await this.supabase.auth.signUp({ email, password });
+    return { user: data.user, error };
   }
 
-  // Database Methods
+  async signInWithGoogle(): Promise<{ error: AuthError | null }> {
+    if (!this.supabase) {
+      console.error('Supabase client not initialized.');
+      return { error: { name: 'InitializationError', message: 'Supabase client not initialized.' } as AuthError };
+    }
+    const { error } = await this.supabase.auth.signInWithOAuth({
+      provider: 'google',
+    });
+    return { error };
+  }
 
-  async addSong(songData: Pick<Song, 'title' | 'style' | 'lyrics' | 'status' | 'error'>): Promise<Song | null> {
-    if (!this.supabase) return null;
+  // == Database Methods ==
+  
+  async addSong(songData: Omit<Song, 'id' | 'user_id' | 'user_email' | 'created_at'>): Promise<Song | null> {
     const user = this.currentUser();
-    if (!user) return null;
+    if (!this.supabase || !user) return null;
 
     const { data, error } = await this.supabase
       .from('songs')
@@ -100,15 +99,16 @@ export class SupabaseService {
     return data as Song;
   }
 
-  async updateSong(id: string, updates: Partial<Song>): Promise<Song | null> {
+  async updateSong(songId: string, updates: Partial<Song>): Promise<Song | null> {
     if (!this.supabase) return null;
+
     const { data, error } = await this.supabase
       .from('songs')
       .update(updates)
-      .eq('id', id)
+      .eq('id', songId)
       .select()
       .single();
-
+    
     if (error) {
       console.error('Error updating song:', error);
       return null;
@@ -118,6 +118,7 @@ export class SupabaseService {
 
   async getSongsForUser(userId: string): Promise<Song[]> {
     if (!this.supabase) return [];
+    
     const { data, error } = await this.supabase
       .from('songs')
       .select('*')
@@ -130,16 +131,16 @@ export class SupabaseService {
     }
     return data as Song[];
   }
-
+  
   async getAllPublicSongs(): Promise<Song[]> {
     if (!this.supabase) return [];
+    
     const { data, error } = await this.supabase
       .from('songs')
       .select('*')
-      // Only show completed songs in the public feed
-      .eq('status', 'succeeded')
+      .eq('status', 'succeeded') // Only show completed songs
       .order('created_at', { ascending: false })
-      .limit(50); // Limit to latest 50 songs for performance
+      .limit(50);
 
     if (error) {
       console.error('Error fetching public songs:', error);

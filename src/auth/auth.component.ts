@@ -1,4 +1,4 @@
-import { Component, ChangeDetectionStrategy, signal, inject, effect } from '@angular/core';
+import { Component, ChangeDetectionStrategy, signal, inject, effect, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, ActivatedRoute } from '@angular/router';
 import { SupabaseService } from '../services/supabase.service';
@@ -18,9 +18,29 @@ export class AuthComponent {
   authMode = signal<'signIn' | 'signUp'>('signIn');
   email = signal('');
   password = signal('');
+  confirmPassword = signal('');
   loading = signal(false);
   errorMessage = signal<string | null>(null);
   infoMessage = signal<string | null>(null);
+
+  passwordsMatch = computed(() => {
+    if (this.authMode() === 'signUp') {
+      return this.password() === this.confirmPassword();
+    }
+    return true;
+  });
+
+  canSubmit = computed(() => {
+    if (this.loading()) return false;
+    if (!this.email()) return false;
+    if (!this.password()) return false;
+
+    if (this.authMode() === 'signUp') {
+      return this.passwordsMatch() && !!this.confirmPassword();
+    }
+    return true;
+  });
+
 
   constructor() {
     // If user is already logged in, redirect away from auth page
@@ -42,10 +62,29 @@ export class AuthComponent {
     this.authMode.update(mode => (mode === 'signIn' ? 'signUp' : 'signIn'));
     this.errorMessage.set(null);
     this.infoMessage.set(null);
+    this.email.set('');
+    this.password.set('');
+    this.confirmPassword.set('');
+  }
+
+  async handleGoogleSignIn(): Promise<void> {
+    this.loading.set(true);
+    this.errorMessage.set(null);
+    const { error } = await this.supabase.signInWithGoogle();
+    if (error) {
+      this.errorMessage.set(this.translateAuthError(error.message));
+    }
+    // On success, Supabase handles the redirect. On failure, stop loading.
+    this.loading.set(false);
   }
 
   async handleAuth(event: Event): Promise<void> {
     event.preventDefault();
+    if (this.authMode() === 'signUp' && !this.passwordsMatch()) {
+        this.errorMessage.set('As senhas não coincidem.');
+        return;
+    }
+
     this.loading.set(true);
     this.errorMessage.set(null);
     this.infoMessage.set(null);
@@ -61,6 +100,8 @@ export class AuthComponent {
         if (this.authMode() === 'signUp') {
             this.infoMessage.set('Cadastro realizado! Por favor, verifique seu e-mail para confirmar sua conta.');
             this.authMode.set('signIn'); // Switch to sign in view
+            this.password.set('');
+            this.confirmPassword.set('');
         } else {
             // Successful sign in, the effect will redirect
         }
@@ -82,6 +123,9 @@ export class AuthComponent {
     if (message.includes('Password should be at least 6 characters')) {
         return 'A senha deve ter no mínimo 6 caracteres.';
     }
-    return 'Ocorreu um erro durante a autenticação.';
+    if (message.includes('Unable to validate email address')) {
+        return 'Formato de e-mail inválido.';
+    }
+    return 'Ocorreu um erro durante a autenticação. Verifique suas credenciais.';
   }
 }
