@@ -3,7 +3,7 @@ import { Routes } from '@angular/router';
 export const routes: Routes = [
   {
     path: '',
-    redirectTo: 'create',
+    redirectTo: 'feed',
     pathMatch: 'full'
   },
   {
@@ -21,5 +21,9 @@ export const routes: Routes = [
   {
     path: 'feed',
     loadComponent: () => import('./feed/feed.component').then(m => m.FeedComponent)
+  },
+  {
+    path: 'subscribe',
+    loadComponent: () => import('./subscribe/subscribe.component').then(m => m.SubscribeComponent)
   }
 ];

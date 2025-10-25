@@ -2,14 +2,14 @@ import { Component, ChangeDetectionStrategy, signal, inject, computed, effect } 
 import { CommonModule } from '@angular/common';
 import { GeminiService } from '../services/gemini.service';
 import { MurekaService } from './mureka.service';
-import { SupabaseService, Song } from '../services/supabase.service';
-import { Router } from '@angular/router';
+import { SupabaseService } from '../services/supabase.service';
+import { Router, RouterLink } from '@angular/router';
 
 
 @Component({
   selector: 'app-create',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, RouterLink],
   templateUrl: './create.component.html',
   styleUrls: ['./create.component.css'],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -21,53 +21,39 @@ export class CreateComponent {
   private readonly router = inject(Router);
 
   readonly currentUser = this.supabaseService.currentUser;
+  readonly currentUserProfile = this.supabaseService.currentUserProfile;
 
-  currentStep = signal<number>(1); // 1: Info, 2: Lyrics, 3: Result
-
-  // Step 1
+  // Form signals
   songTitle = signal<string>('');
   songStyle = signal<string>('');
-  
-  // Step 2
+  lyrics = signal<string>('');
+  vocalGender = signal<'male' | 'female'>('female');
+  isInstrumental = signal<boolean>(false);
+
+  // Lyrics generation state
   lyricsDescription = signal<string>('');
   generatingLyrics = signal<boolean>(false);
-  lyrics = signal<string>('');
   lyricsError = signal<string | null>(null);
 
-  // Step 3
-  copySuccess = signal(false);
+  isGeneratingMusic = signal<boolean>(false);
 
-  currentJob = computed<Song | null>(() => {
-    if (this.currentStep() === 3) {
-      // The current job is the one most recently added to the user's song list.
-      return this.murekaService.userSongs()?.[0] ?? null;
-    }
-    return null;
+  canGenerateMusic = computed(() => {
+    const profile = this.currentUserProfile();
+    return (
+      profile != null && profile.credits > 0 &&
+      this.songTitle().trim().length > 0 &&
+      this.songStyle().trim().length > 0 &&
+      (this.lyrics().trim().length > 0 || this.isInstrumental()) &&
+      !this.isGeneratingMusic()
+    );
   });
-
-  lyricsFormatted = computed(() => this.currentJob()?.lyrics?.replace(/\n/g, '<br>') || this.lyrics().replace(/\n/g, '<br>'));
-  canProceedToStep2 = computed(() => this.songTitle().trim().length > 0 && this.songStyle().trim().length > 0);
-  canProceedToStep3 = computed(() => this.lyrics().trim().length > 0);
 
   constructor() {
     effect(() => {
       if (!this.currentUser()) {
-        // If user logs out or session expires, redirect to auth page
         this.router.navigate(['/auth'], { queryParams: { message: 'Faça login para criar músicas.' } });
       }
     });
-  }
-
-  nextStep(): void {
-    if (this.currentStep() < 3) {
-      this.currentStep.update(step => step + 1);
-    }
-  }
-
-  previousStep(): void {
-    if (this.currentStep() > 1) {
-      this.currentStep.update(step => step - 1);
-    }
   }
 
   async generateLyrics(): Promise<void> {
@@ -92,48 +78,35 @@ export class CreateComponent {
   }
 
   async startMusicGenerationWorkflow(): Promise<void> {
-    if (!this.canProceedToStep3() || !this.currentUser()) {
+    const profile = this.currentUserProfile();
+    if (!this.canGenerateMusic() || !profile) {
       return;
     }
     
-    this.nextStep(); 
+    this.isGeneratingMusic.set(true);
 
-    await this.murekaService.generateMusic(this.songTitle(), this.songStyle(), this.lyrics());
-  }
+    try {
+        const newCreditCount = profile.credits - 1;
+        await this.supabaseService.updateUserCredits(profile.id, newCreditCount);
 
-  async shareSong(job: Song): Promise<void> {
-    if (!job.audio_url) return;
+        const lyricsToUse = this.isInstrumental() ? 'Instrumental' : this.lyrics();
+        const fullStyle = `${this.songStyle()}, ${this.vocalGender()} vocal`;
 
-    const shareData = {
-      title: `Música gerada por IA: ${job.title}`,
-      text: `Ouça a música "${job.title}" que eu criei com Mureka AI!`,
-      url: job.audio_url,
-    };
+        await this.murekaService.generateMusic(this.songTitle(), fullStyle, lyricsToUse);
 
-    if (navigator.share) {
-      try {
-        await navigator.share(shareData);
-      } catch (err) {
-        console.log('Web Share API não foi concluída.', err);
-      }
-    } else {
-      try {
-        await navigator.clipboard.writeText(job.audio_url);
-        this.copySuccess.set(true);
-        setTimeout(() => this.copySuccess.set(false), 2000); 
-      } catch (err) {
-        console.error('Falha ao copiar link para a área de transferência:', err);
-        alert('Não foi possível copiar o link. Por favor, copie-o manualmente.');
-      }
+        this.router.navigate(['/library']);
+        
+        setTimeout(() => {
+          this.songTitle.set('');
+          this.songStyle.set('');
+          this.lyrics.set('');
+          this.isInstrumental.set(false);
+          this.lyricsDescription.set('');
+          this.isGeneratingMusic.set(false);
+        }, 500);
+    } catch (error) {
+        console.error("Failed to generate music or update credits", error);
+        this.isGeneratingMusic.set(false);
     }
-  }
-
-  reset(): void {
-    this.currentStep.set(1);
-    this.songTitle.set('');
-    this.songStyle.set('');
-    this.lyricsDescription.set('');
-    this.lyrics.set('');
-    this.lyricsError.set(null);
   }
 }

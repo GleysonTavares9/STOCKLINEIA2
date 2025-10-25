@@ -2,20 +2,41 @@ import { Injectable, signal } from '@angular/core';
 import { createClient, SupabaseClient, User, AuthError } from '@supabase/supabase-js';
 import { environment } from '../config';
 
-// Define the structure of a Song object, matching the database table
-export interface Song {
+// Define the structure of a Music object, matching the 'musics' table
+export interface Music {
   id: string; // UUID from DB
-  mureka_id?: string; // Mureka Task ID
+  task_id?: string; // Mureka Task ID, from 'task_id' column
   user_id: string;
-  user_email?: string;
+  user_email?: string; // Populated from a join with profiles
   title: string;
   style: string;
-  lyrics: string;
+  description: string; // The 'lyrics' are stored in this column
   status: 'processing' | 'succeeded' | 'failed';
-  audio_url?: string;
-  error?: string;
+  audio_url: string; // This is NOT NULL in the DB
+  metadata?: { error?: string };
   created_at: string; // ISO string
 }
+
+export interface Profile {
+  id: string; // Corresponds to user_id
+  email?: string;
+  credits: number;
+}
+
+export interface Plan {
+  id: string;
+  name: string;
+  description: string | null;
+  price: number;
+  credits: number;
+  features: string[]; // JSONB in DB, assuming array of strings
+  is_active: boolean;
+  is_credit_pack: boolean;
+  is_popular: boolean;
+  price_id: string | null;
+  valid_days: number | null;
+}
+
 
 @Injectable({
   providedIn: 'root',
@@ -25,6 +46,7 @@ export class SupabaseService {
   
   readonly isConfigured = signal<boolean>(true);
   currentUser = signal<User | null>(null);
+  currentUserProfile = signal<Profile | null>(null);
 
   constructor() {
     const supabaseUrl = environment.supabaseUrl;
@@ -38,9 +60,31 @@ export class SupabaseService {
     
     this.supabase = createClient(supabaseUrl, supabaseKey);
 
-    this.supabase.auth.onAuthStateChange((event, session) => {
-      this.currentUser.set(session?.user ?? null);
+    this.supabase.auth.onAuthStateChange(async (event, session) => {
+      const user = session?.user ?? null;
+      this.currentUser.set(user);
+      if (user) {
+        await this.fetchUserProfile(user.id);
+      } else {
+        this.currentUserProfile.set(null);
+      }
     });
+  }
+
+  async fetchUserProfile(userId: string): Promise<void> {
+    if (!this.supabase) return;
+    const { data, error } = await this.supabase
+      .from('profiles')
+      .select('id, email, credits')
+      .eq('id', userId)
+      .single();
+    
+    if (error) {
+      console.error('Error fetching user profile:', error.message);
+      this.currentUserProfile.set(null);
+    } else {
+      this.currentUserProfile.set(data as Profile);
+    }
   }
 
   async signOut(): Promise<void> {
@@ -62,7 +106,28 @@ export class SupabaseService {
       return { user: null, error: { name: 'InitializationError', message: 'Supabase client not initialized.' } as AuthError };
     }
     const { data, error } = await this.supabase.auth.signUp({ email, password });
+    if (data.user) {
+      await this.createProfileForUser(data.user);
+    }
     return { user: data.user, error };
+  }
+  
+  async createProfileForUser(user: User): Promise<void> {
+    if (!this.supabase || !user.email) return;
+
+    const { error } = await this.supabase
+      .from('profiles')
+      .insert({
+        id: user.id,
+        email: user.email,
+        credits: 2 // Start with 2 free credits
+      });
+    
+    if (error) {
+      console.error('Error creating profile for new user:', error.message);
+    } else {
+      await this.fetchUserProfile(user.id);
+    }
   }
 
   async signInWithGoogle(): Promise<{ error: AuthError | null }> {
@@ -78,74 +143,185 @@ export class SupabaseService {
 
   // == Database Methods ==
   
-  async addSong(songData: Omit<Song, 'id' | 'user_id' | 'user_email' | 'created_at'>): Promise<Song | null> {
+  async addMusic(musicData: { title: string, style: string, lyrics: string, status: 'processing' | 'succeeded' | 'failed', error?: string }): Promise<Music | null> {
     const user = this.currentUser();
     if (!this.supabase || !user) return null;
 
     const { data, error } = await this.supabase
-      .from('songs')
+      .from('musics')
       .insert({
-        ...songData,
+        title: musicData.title,
+        style: musicData.style,
+        description: musicData.lyrics,
+        status: musicData.status,
         user_id: user.id,
-        user_email: user.email,
+        audio_url: '', // Satisfy NOT NULL constraint on creation
+        metadata: musicData.error ? { error: musicData.error } : {},
       })
       .select()
       .single();
 
     if (error) {
-      console.error('Error adding song:', error);
+      console.error('Error adding music:', error.message);
       return null;
     }
-    return data as Song;
+    return data as Music;
   }
 
-  async updateSong(songId: string, updates: Partial<Song>): Promise<Song | null> {
+  async updateMusic(musicId: string, updates: { mureka_id?: string, status?: 'processing' | 'succeeded' | 'failed', audio_url?: string, error?: string }): Promise<Music | null> {
     if (!this.supabase) return null;
 
-    const { data, error } = await this.supabase
-      .from('songs')
-      .update(updates)
-      .eq('id', songId)
+    const { mureka_id, error, ...rest } = updates;
+    const dbUpdates: { [key: string]: any } = { ...rest };
+
+    if (mureka_id) {
+        dbUpdates.task_id = mureka_id;
+    }
+    if (error) {
+        dbUpdates.metadata = { error };
+    }
+    
+    const { data, error: updateError } = await this.supabase
+      .from('musics')
+      .update(dbUpdates)
+      .eq('id', musicId)
       .select()
       .single();
     
-    if (error) {
-      console.error('Error updating song:', error);
+    if (updateError) {
+      console.error('Error updating music:', updateError.message);
       return null;
     }
-    return data as Song;
+    return data as Music;
   }
 
-  async getSongsForUser(userId: string): Promise<Song[]> {
+  async updateUserCredits(userId: string, newCreditCount: number): Promise<Profile | null> {
+    if (!this.supabase) return null;
+    
+    const { data, error } = await this.supabase
+      .from('profiles')
+      .update({ credits: newCreditCount })
+      .eq('id', userId)
+      .select()
+      .single();
+      
+    if (error) {
+      console.error('Error updating user credits:', error.message);
+      return null;
+    }
+    
+    this.currentUserProfile.set(data as Profile);
+    return data as Profile;
+  }
+
+  async getMusicForUser(userId: string): Promise<Music[]> {
     if (!this.supabase) return [];
     
     const { data, error } = await this.supabase
-      .from('songs')
+      .from('musics')
       .select('*')
       .eq('user_id', userId)
       .order('created_at', { ascending: false });
 
     if (error) {
-      console.error('Error fetching user songs:', error);
+      console.error('Error fetching user music:', error.message);
       return [];
     }
-    return data as Song[];
+    return (data as Music[]) || [];
   }
   
-  async getAllPublicSongs(): Promise<Song[]> {
+  async getAllPublicMusic(): Promise<Music[]> {
     if (!this.supabase) return [];
     
-    const { data, error } = await this.supabase
-      .from('songs')
+    // 1. Fetch public music without the problematic join
+    const { data: musicData, error: musicError } = await this.supabase
+      .from('musics')
       .select('*')
-      .eq('status', 'succeeded') // Only show completed songs
+      .eq('status', 'succeeded')
       .order('created_at', { ascending: false })
       .limit(50);
 
-    if (error) {
-      console.error('Error fetching public songs:', error);
+    if (musicError) {
+      console.error('Error fetching public music:', musicError.message);
       return [];
     }
-    return data as Song[];
+
+    if (!musicData || musicData.length === 0) {
+      return [];
+    }
+
+    // 2. Extract unique user IDs
+    const userIds = [...new Set(musicData.map(m => m.user_id).filter(id => !!id))];
+
+    if (userIds.length === 0) {
+      return musicData as Music[];
+    }
+    
+    // 3. Fetch corresponding profiles
+    const { data: profilesData, error: profilesError } = await this.supabase
+      .from('profiles')
+      .select('id, email')
+      .in('id', userIds);
+
+    if (profilesError) {
+      console.error('Error fetching profiles:', profilesError.message);
+      // Return music data without emails if profiles can't be fetched
+      return musicData as Music[];
+    }
+
+    // 4. Create a map for efficient lookup
+    const emailMap = new Map(profilesData.map(p => [p.id, p.email]));
+
+    // 5. Combine music data with user emails
+    return musicData.map((item: any) => ({
+        ...item,
+        user_email: emailMap.get(item.user_id),
+    })) as Music[];
+  }
+
+  async getPlans(): Promise<Plan[]> {
+    if (!this.supabase) return [];
+    
+    const { data, error } = await this.supabase
+      .from('plans')
+      .select('*')
+      .eq('is_active', true)
+      .neq('id', 'free') // Exclude the free plan from purchasable plans
+      .order('price', { ascending: true });
+
+    if (error) {
+      console.error('Error fetching plans:', error.message);
+      return [];
+    }
+    
+    if (!data) {
+      return [];
+    }
+
+    // Defensively parse 'features' which is stored as a JSON string.
+    return (data as any[]).map(plan => {
+      let parsedFeatures: string[] = [];
+      if (typeof plan.features === 'string') {
+        try {
+          const parsed = JSON.parse(plan.features);
+          if (Array.isArray(parsed)) {
+            parsedFeatures = parsed;
+          } else if (typeof parsed === 'object' && parsed !== null) {
+            // Handle the object structure like in the "free" plan
+            if (Array.isArray(parsed.features)) {
+              parsedFeatures.push(...parsed.features);
+            }
+            if (Array.isArray(parsed.limitations)) {
+              // Prefix limitations for clarity in the UI
+              parsedFeatures.push(...parsed.limitations.map((l: string) => `Limitação: ${l}`));
+            }
+          }
+        } catch (e) {
+          console.error(`Failed to parse features for plan ${plan.id}:`, plan.features);
+          // In case of error, we leave features as an empty array
+        }
+      }
+      return { ...plan, features: parsedFeatures };
+    }) as Plan[];
   }
 }

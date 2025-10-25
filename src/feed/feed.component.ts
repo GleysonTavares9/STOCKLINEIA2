@@ -1,5 +1,5 @@
-import { Component, ChangeDetectionStrategy, inject, signal } from '@angular/core';
-import { SupabaseService, Song } from '../services/supabase.service';
+import { Component, ChangeDetectionStrategy, inject, signal, computed } from '@angular/core';
+import { SupabaseService, Music } from '../services/supabase.service';
 import { CommonModule } from '@angular/common';
 
 @Component({
@@ -12,18 +12,45 @@ import { CommonModule } from '@angular/common';
 export class FeedComponent {
   private readonly supabase = inject(SupabaseService);
   
-  publicSongs = signal<Song[]>([]);
+  publicMusic = signal<Music[]>([]);
+  
+  trendingMusic = computed(() => this.publicMusic().slice(0, 4));
+
+  groupedMusic = computed(() => {
+    const music = this.publicMusic().slice(4); // Use the rest of the music
+    if (!music.length) return [];
+    
+    const groups: { [style: string]: Music[] } = {};
+    const styleOrder: string[] = [];
+
+    music.forEach(song => {
+        // Simple grouping by first tag
+        const mainStyleRaw = song.style.split(',')[0].trim();
+        if (!mainStyleRaw) return;
+        
+        const mainStyle = mainStyleRaw.toLowerCase();
+        const capitalizedStyle = mainStyle.charAt(0).toUpperCase() + mainStyle.slice(1);
+        
+        if (!groups[capitalizedStyle]) {
+            groups[capitalizedStyle] = [];
+            styleOrder.push(capitalizedStyle);
+        }
+        groups[capitalizedStyle].push(song);
+    });
+    
+    return styleOrder.map(style => ({ style, songs: groups[style] }));
+  });
+
 
   constructor() {
-    this.loadPublicSongs();
+    this.loadPublicMusic();
   }
 
-  async loadPublicSongs() {
-    const songs = await this.supabase.getAllPublicSongs();
-    this.publicSongs.set(songs);
+  async loadPublicMusic() {
+    const songs = await this.supabase.getAllPublicMusic();
+    this.publicMusic.set(songs);
   }
 
-  // Helper to mask part of the email for privacy
   maskEmail(email?: string): string {
     if (!email) return 'Anônimo';
     const [user, domain] = email.split('@');

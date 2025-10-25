@@ -16,7 +16,7 @@ export class LibraryComponent {
   private readonly supabaseService = inject(SupabaseService);
   private readonly router = inject(Router);
   
-  history = this.murekaService.userSongs;
+  history = this.murekaService.userMusic;
   currentUser = this.supabaseService.currentUser;
 
   constructor() {

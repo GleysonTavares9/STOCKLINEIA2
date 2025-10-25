@@ -1,5 +1,5 @@
 import { Component, ChangeDetectionStrategy, inject, signal } from '@angular/core';
-import { SupabaseService, Song } from '../services/supabase.service';
+import { SupabaseService, Music } from '../services/supabase.service';
 import { CommonModule } from '@angular/common';
 
 @Component({
@@ -12,15 +12,15 @@ import { CommonModule } from '@angular/common';
 export class TopChartsComponent {
   private readonly supabase = inject(SupabaseService);
   
-  publicSongs = signal<Song[]>([]);
+  publicMusic = signal<Music[]>([]);
 
   constructor() {
-    this.loadPublicSongs();
+    this.loadPublicMusic();
   }
 
-  async loadPublicSongs() {
-    const songs = await this.supabase.getAllPublicSongs();
-    this.publicSongs.set(songs);
+  async loadPublicMusic() {
+    const songs = await this.supabase.getAllPublicMusic();
+    this.publicMusic.set(songs);
   }
 
   // Helper to mask part of the email for privacy

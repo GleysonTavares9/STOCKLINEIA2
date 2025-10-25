@@ -1,47 +1,74 @@
-<header class="p-4 border-b border-zinc-800 sticky top-0 bg-zinc-950/80 backdrop-blur-sm z-10">
-  <div class="max-w-5xl mx-auto">
-    <h1 class="text-2xl font-bold text-white tracking-wider">Minhas Músicas</h1>
-  </div>
-</header>
+<div class="max-w-5xl mx-auto px-4 pt-8 md:px-8">
+  <h1 class="text-3xl font-bold text-white tracking-tight">Biblioteca</h1>
+</div>
 
 <main class="max-w-5xl mx-auto p-4 md:p-8">
+  <!-- Tabs and Search -->
+  <div class="flex flex-col sm:flex-row justify-between items-center gap-4 mb-8">
+    <div class="border border-zinc-800 bg-[#1A181A] rounded-full p-1 flex items-center text-sm">
+      <button class="px-6 py-2 rounded-full bg-white text-black font-semibold">Minhas músicas</button>
+      <button class="px-6 py-2 rounded-full text-zinc-400 hover:text-white">Músicas que você gostou</button>
+    </div>
+    <div class="relative w-full sm:w-auto">
+      <input type="search" placeholder="Digite o título da música..." class="w-full sm:w-64 bg-[#1A181A] border border-zinc-800 rounded-full py-2.5 pl-10 pr-4 text-white placeholder-zinc-500 focus:ring-2 focus:ring-purple-500 focus:border-purple-500">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd" /></svg>
+    </div>
+  </div>
+
   @if (!history()?.length) {
     <div class="text-center py-20 px-4">
       <svg xmlns="http://www.w3.org/2000/svg" class="mx-auto h-16 w-16 text-zinc-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1">
         <path stroke-linecap="round" stroke-linejoin="round" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 6l12-3" />
       </svg>
       <h2 class="mt-4 text-xl font-semibold text-zinc-300">Nenhuma música criada ainda</h2>
-      <p class="mt-2 text-zinc-500">Clique no botão '+' para começar a criar sua primeira música.</p>
+      <p class="mt-2 text-zinc-500">Vá para a aba 'Criar' para começar a fazer sua primeira música.</p>
     </div>
   } @else {
-    <div class="space-y-4">
+    <div class="space-y-3">
       @for (item of history(); track item.id) {
-        <div class="bg-zinc-900 rounded-lg overflow-hidden flex flex-col sm:flex-row items-center gap-4 p-4 border border-zinc-800 hover:border-zinc-700 transition-colors">
+        <div class="bg-[#1A181A] rounded-lg flex items-center gap-4 p-3 border border-zinc-800 hover:border-zinc-700 transition-colors">
           <img src="https://picsum.photos/seed/music-{{item.title}}/128/128" alt="Album Art" class="w-16 h-16 rounded-md object-cover flex-shrink-0">
-          <div class="flex-grow text-center sm:text-left">
-            <h3 class="font-bold text-white">{{ item.title }}</h3>
-            <p class="text-sm text-zinc-400">{{ item.style }}</p>
-             <p class="text-xs text-zinc-500 mt-1">{{ item.created_at | date:'medium' }}</p>
+          
+          <div class="flex-grow">
+            <h3 class="font-semibold text-white flex items-center gap-2">{{ item.title }} <span class="text-xs font-bold text-purple-400 bg-purple-900/50 px-2 py-0.5 rounded-md">V7</span></h3>
+            <p class="text-sm text-zinc-400 truncate max-w-xs">{{ item.style }}</p>
           </div>
-          <div class="flex-shrink-0 px-3 py-1 text-xs font-medium rounded-full flex items-center gap-2"
-            [class.bg-green-900/50]="item.status === 'succeeded'" [class.text-green-300]="item.status === 'succeeded'"
-            [class.bg-red-900/50]="item.status === 'failed'" [class.text-red-300]="item.status === 'failed'"
-            [class.bg-blue-900/50]="item.status === 'processing'" [class.text-blue-300]="item.status === 'processing'">
-            
-            @switch (item.status) {
+          
+          <div class="text-sm text-zinc-500 hidden md:block">
+            {{ item.created_at | date:'dd/MM/yyyy' }}
+          </div>
+          
+          <div class="flex-shrink-0">
+             @switch (item.status) {
               @case ('succeeded') {
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" /></svg>
-                <span>Sucesso</span>
+                @if (item.audio_url) {
+                  <audio controls [src]="item.audio_url" class="h-10"></audio>
+                }
               }
               @case ('failed') {
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" /></svg>
-                <span>Falhou</span>
+                <div class="flex flex-col items-center justify-center">
+                  <div title="{{ item.metadata?.error }}" class="flex items-center gap-2 text-red-400 text-sm px-3 py-1.5 bg-red-900/30 rounded-lg cursor-help">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" /></svg>
+                    <span>Falhou</span>
+                  </div>
+                  @if (item.metadata?.error) {
+                    <p class="text-xs text-zinc-500 mt-1 max-w-xs text-center truncate" [title]="item.metadata.error">
+                      {{ item.metadata.error }}
+                    </p>
+                  }
+                </div>
               }
               @case ('processing') {
-                <svg class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                <span>Processando</span>
+                <div class="flex items-center gap-2 text-blue-300 text-sm px-3 py-2 bg-blue-900/30 rounded-lg">
+                  <svg class="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                  <span>Processando</span>
+                </div>
               }
             }
+          </div>
+
+          <div class="flex items-center gap-2">
+            <button class="p-2 text-zinc-400 hover:text-white hover:bg-zinc-700 rounded-full transition-colors"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" /></svg></button>
           </div>
         </div>
       }

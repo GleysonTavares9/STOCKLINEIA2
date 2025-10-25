@@ -1,4 +1,4 @@
-import { Component, ChangeDetectionStrategy, inject } from '@angular/core';
+import { Component, ChangeDetectionStrategy, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterOutlet, RouterLink, RouterLinkActive } from '@angular/router';
 import { SupabaseService } from './services/supabase.service';
@@ -16,8 +16,15 @@ export class AppComponent {
 
   isSupabaseConfigured = this.supabaseService.isConfigured;
   currentUser = this.supabaseService.currentUser;
+  currentUserProfile = this.supabaseService.currentUserProfile;
+  isProfileMenuOpen = signal(false);
+
+  toggleProfileMenu(): void {
+    this.isProfileMenuOpen.update(v => !v);
+  }
 
   async signOut() {
+    this.isProfileMenuOpen.set(false);
     await this.supabaseService.signOut();
     this.router.navigate(['/auth']);
   }

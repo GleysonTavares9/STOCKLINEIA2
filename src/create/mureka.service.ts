@@ -2,7 +2,7 @@ import { Injectable, signal, inject, effect, untracked } from '@angular/core';
 import { HttpClient, HttpHeaders, HttpErrorResponse } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import { environment } from '../config';
-import { SupabaseService, Song } from '../services/supabase.service';
+import { SupabaseService, Music } from '../services/supabase.service';
 
 interface MurekaGenerateResponse {
   id: string;
@@ -24,7 +24,7 @@ export class MurekaService {
   private readonly MUREKA_API_BASE_URL = 'https://api.mureka.ai/v1';
   private readonly apiKey: string | undefined;
 
-  userSongs = signal<Song[]>([]);
+  userMusic = signal<Music[]>([]);
 
   constructor() {
     this.apiKey = process.env.MUREKA_API_KEY || environment.murekaApiKey;
@@ -33,16 +33,16 @@ export class MurekaService {
       console.error('Chave da API da Mureka não encontrada. Configure MUREKA_API_KEY no ambiente ou em src/config.ts.');
     }
 
-    // Load user songs when auth state changes
+    // Load user music when auth state changes
     effect(() => {
       const user = this.supabase.currentUser();
       if (user) {
         untracked(async () => {
-          const songs = await this.supabase.getSongsForUser(user.id);
-          this.userSongs.set(songs);
+          const music = await this.supabase.getMusicForUser(user.id);
+          this.userMusic.set(music);
         });
       } else {
-        this.userSongs.set([]);
+        this.userMusic.set([]);
       }
     });
   }
@@ -78,28 +78,28 @@ export class MurekaService {
     if (!this.apiKey) {
       const errorMsg = 'O serviço Mureka não foi inicializado. Verifique a chave da API (MUREKA_API_KEY).';
       console.error(errorMsg);
-      const newSong = await this.supabase.addSong({ title, style, lyrics, status: 'failed', error: errorMsg });
-      if(newSong) this.userSongs.update(current => [newSong, ...current]);
+      const newMusic = await this.supabase.addMusic({ title, style, lyrics, status: 'failed', error: errorMsg });
+      if(newMusic) this.userMusic.update(current => [newMusic, ...current]);
       return;
     }
 
-    let songRecord: Song | null = null;
+    let musicRecord: Music | null = null;
     try {
       // 1. Create a record in our DB to track the job
-      songRecord = await this.supabase.addSong({
+      musicRecord = await this.supabase.addMusic({
         title,
         style,
         lyrics,
         status: 'processing',
       });
 
-      if (!songRecord) {
+      if (!musicRecord) {
         throw new Error('Falha ao criar o registro da música no banco de dados.');
       }
 
       // 2. Immediately update the local state to show the user it's processing
-      const finalSongRecord = songRecord;
-      this.userSongs.update(current => [finalSongRecord, ...current]);
+      const finalMusicRecord = musicRecord;
+      this.userMusic.update(current => [finalMusicRecord, ...current]);
 
       // 3. Make the API call to Mureka
       const headers = new HttpHeaders({
@@ -120,38 +120,38 @@ export class MurekaService {
 
       const taskId = generateResponse.id;
 
-      // 4. Update our song record with the Mureka task ID
-      await this.supabase.updateSong(finalSongRecord.id, { mureka_id: taskId });
+      // 4. Update our music record with the Mureka task ID
+      await this.supabase.updateMusic(finalMusicRecord.id, { mureka_id: taskId });
       
       // 5. Start polling for the result in the background.
-      this.pollForResult(finalSongRecord.id, taskId);
+      this.pollForResult(finalMusicRecord.id, taskId);
 
     } catch (error) {
       console.error('Erro ao iniciar a geração da música:', error);
       const errorMessage = this.getApiErrorMessage(error, 'Ocorreu um erro desconhecido ao iniciar a geração.');
 
-      if (songRecord) {
-        const updatedSong = await this.supabase.updateSong(songRecord.id, { status: 'failed', error: errorMessage });
-        if (updatedSong) {
-            this.userSongs.update(songs => songs.map(s => s.id === updatedSong.id ? updatedSong : s));
+      if (musicRecord) {
+        const updatedMusic = await this.supabase.updateMusic(musicRecord.id, { status: 'failed', error: errorMessage });
+        if (updatedMusic) {
+            this.userMusic.update(music => music.map(s => s.id === updatedMusic.id ? updatedMusic : s));
         }
       } else {
-         const newFailedSong = await this.supabase.addSong({ title, style, lyrics, status: 'failed', error: errorMessage });
-         if (newFailedSong) {
-            this.userSongs.update(current => [newFailedSong, ...current]);
+         const newFailedMusic = await this.supabase.addMusic({ title, style, lyrics, status: 'failed', error: errorMessage });
+         if (newFailedMusic) {
+            this.userMusic.update(current => [newFailedMusic, ...current]);
          }
       }
     }
   }
 
-  private async pollForResult(songId: string, taskId: string): Promise<void> {
+  private async pollForResult(musicId: string, taskId: string): Promise<void> {
     const poll = async (retries: number): Promise<void> => {
       if (retries <= 0) {
         console.error(`Polling timeout for task ${taskId}`);
         const errorMsg = 'O tempo para gerar a música esgotou.';
-        const updatedSong = await this.supabase.updateSong(songId, { status: 'failed', error: errorMsg });
-        if (updatedSong) {
-            this.userSongs.update(songs => songs.map(s => s.id === updatedSong.id ? updatedSong : s));
+        const updatedMusic = await this.supabase.updateMusic(musicId, { status: 'failed', error: errorMsg });
+        if (updatedMusic) {
+            this.userMusic.update(music => music.map(s => s.id === updatedMusic.id ? updatedMusic : s));
         }
         return;
       }
@@ -173,15 +173,15 @@ export class MurekaService {
           if (!audioUrl) {
             throw new Error('API retornou sucesso, mas a URL do áudio não foi encontrada.');
           }
-          const updatedSong = await this.supabase.updateSong(songId, { status: 'succeeded', audio_url: audioUrl });
-           if (updatedSong) {
-            this.userSongs.update(songs => songs.map(s => s.id === updatedSong.id ? updatedSong : s));
+          const updatedMusic = await this.supabase.updateMusic(musicId, { status: 'succeeded', audio_url: audioUrl });
+           if (updatedMusic) {
+            this.userMusic.update(music => music.map(s => s.id === updatedMusic.id ? updatedMusic : s));
           }
         } else if (status === 'failed' || status === 'timeouted' || status === 'cancelled') {
           const reason = queryResponse.failed_reason || 'A geração falhou por um motivo desconhecido.';
-          const updatedSong = await this.supabase.updateSong(songId, { status: 'failed', error: reason });
-           if (updatedSong) {
-            this.userSongs.update(songs => songs.map(s => s.id === updatedSong.id ? updatedSong : s));
+          const updatedMusic = await this.supabase.updateMusic(musicId, { status: 'failed', error: reason });
+           if (updatedMusic) {
+            this.userMusic.update(music => music.map(s => s.id === updatedMusic.id ? updatedMusic : s));
           }
         } else {
           // 'preparing', 'queued', 'running', 'streaming' -> continue polling
@@ -191,9 +191,9 @@ export class MurekaService {
       } catch (error) {
         console.error(`Error polling for task ${taskId}:`, error);
          const errorMessage = this.getApiErrorMessage(error, 'Erro ao verificar o status da música.');
-         const updatedSong = await this.supabase.updateSong(songId, { status: 'failed', error: errorMessage });
-          if (updatedSong) {
-            this.userSongs.update(songs => songs.map(s => s.id === updatedSong.id ? updatedSong : s));
+         const updatedMusic = await this.supabase.updateMusic(musicId, { status: 'failed', error: errorMessage });
+          if (updatedMusic) {
+            this.userMusic.update(music => music.map(s => s.id === updatedMusic.id ? updatedMusic : s));
           }
       }
     };

@@ -1,17 +1,3 @@
-.step-container {
-  animation: fadeIn 0.5s ease-in-out;
-}
-
-@keyframes fadeIn {
-  from { 
-    opacity: 0; 
-    transform: translateY(10px); 
-  }
-  to { 
-    opacity: 1; 
-    transform: translateY(0); 
-  }
-}
 
 /* Waveform animation for music generation loading */
 .waveform {
@@ -46,31 +32,4 @@
   0% { transform: scaleY(0.1); }
   50% { transform: scaleY(1); }
   100% { transform: scaleY(0.1); }
-}
-
-/* Custom Audio Player Styles */
-/* Removed the old filter-based style and applied a more integrated theme */
-.custom-audio-player {
-  width: 100%;
-  /* Use the brand's pink for sliders and progress bars */
-  accent-color: #ec4899; /* pink-500 */
-}
-
-/* Style the main control panel for a cohesive look in Webkit browsers */
-.custom-audio-player::-webkit-media-controls-panel {
-  background-color: #27272a; /* zinc-800 */
-  border-radius: 8px;
-  padding: 4px;
-}
-
-/* Ensure time text is readable against the dark background */
-.custom-audio-player::-webkit-media-controls-current-time-display,
-.custom-audio-player::-webkit-media-controls-time-remaining-display {
-  color: #d4d4d8; /* zinc-300 */
-}
-
-/* Make the icons (play, mute, etc.) white to contrast with the dark panel */
-.custom-audio-player::-webkit-media-controls-play-button,
-.custom-audio-player::-webkit-media-controls-mute-button {
-  filter: brightness(0) invert(1);
 }

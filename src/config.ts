@@ -17,12 +17,18 @@
  * 3. Encontre a "Project API key" do tipo "anon" (pública).
  * 4. Copie e cole a chave "anon" no campo `supabaseKey` abaixo.
  * 
- * **NÃO USE a chave `service_role` (secreta) aqui. Ela é apenas para o backend.**
+ * **INSTRUÇÕES STRIPE:**
+ * 1. Vá para o painel do seu Stripe Dashboard.
+ * 2. Navegue até "Desenvolvedores" > "Chaves de API".
+ * 3. Encontre sua "Chave publicável" (geralmente começa com `pk_test_` ou `pk_live_`).
+ * 4. Copie e cole a chave no campo `stripePublishableKey` abaixo.
+ * 
+ * **NÃO USE a chave `service_role` (secreta) do Supabase aqui. Ela é apenas para o backend.**
+ * **NÃO USE sua chave secreta do Stripe aqui.**
  */
 export const environment = {
   murekaApiKey: 'op_mfsjty5x8ki4FpjGBDz36a9QFsXhtB7',
   supabaseUrl: 'https://mranwpmfdqvuucgppiem.supabase.co',
-  // A chave anterior era a chave secreta (service_role), o que é um risco de segurança.
-  // Substitua o placeholder abaixo pela sua chave PÚBLICA (anon) do Supabase.
-  supabaseKey: 'sb_publishable_YXbOMuJZzp4z1QAy2ts8Hw_cIlZK59b'
+  supabaseKey: 'sb_publishable_YXbOMuJZzp4z1QAy2ts8Hw_cIlZK59b',
+  stripePublishableKey: 'YOUR_STRIPE_PUBLISHABLE_KEY' // Adicione sua chave publicável do Stripe aqui
 };
