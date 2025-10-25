@@ -15,6 +15,8 @@ export class AuthComponent {
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
   
+  isSupabaseConfigured = this.supabase.isConfigured;
+
   authMode = signal<'signIn' | 'signUp'>('signIn');
   email = signal('');
   password = signal('');
@@ -114,6 +116,9 @@ export class AuthComponent {
   }
 
   private translateAuthError(message: string): string {
+    if (message.includes('Supabase client not initialized')) {
+        return 'A configuração do Supabase está ausente. Verifique o arquivo `src/config.ts`.';
+    }
     if (message.includes('Invalid login credentials')) {
         return 'E-mail ou senha inválidos.';
     }

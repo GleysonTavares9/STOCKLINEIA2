@@ -52,7 +52,10 @@ export class SupabaseService {
     const supabaseUrl = environment.supabaseUrl;
     const supabaseKey = environment.supabaseKey;
 
-    if (!supabaseUrl || supabaseKey === 'YOUR_SUPABASE_ANON_KEY') {
+    const isUrlMissing = !supabaseUrl || supabaseUrl.trim() === '' || supabaseUrl === 'YOUR_SUPABASE_URL';
+    const isKeyMissing = !supabaseKey || supabaseKey.trim() === '' || supabaseKey === 'YOUR_SUPABASE_ANON_KEY';
+
+    if (isUrlMissing || isKeyMissing) {
       this.isConfigured.set(false);
       console.error("Supabase URL or Key not configured. Please check src/config.ts");
       return;

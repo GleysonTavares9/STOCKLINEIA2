@@ -1,5 +1,22 @@
 <div class="min-h-full flex flex-col items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
   <div class="max-w-md w-full space-y-8">
+    @if (!isSupabaseConfigured()) {
+      <div class="bg-red-900/50 text-white flex flex-col items-center justify-center p-6 text-center rounded-2xl border-2 border-red-700">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 mx-auto text-red-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+        </svg>
+        <h1 class="text-2xl font-bold mb-3">Erro de Configuração do Backend</h1>
+        <p class="text-red-200 mb-5">
+          As credenciais do Supabase não foram configuradas. A autenticação está desativada até que o problema seja resolvido.
+        </p>
+        <div class="bg-zinc-900 text-left p-4 rounded-lg font-mono text-sm w-full">
+          <p class="text-zinc-400 mb-2">// Instruções:</p>
+          <p class="mb-2">1. Abra o arquivo <code class="bg-zinc-700 text-pink-400 px-1 py-0.5 rounded">src/config.ts</code>.</p>
+          <p>2. Preencha as variáveis <code class="bg-zinc-700 text-pink-400 px-1 py-0.5 rounded">supabaseUrl</code> e <code class="bg-zinc-700 text-pink-400 px-1 py-0.5 rounded">supabaseKey</code>.</p>
+        </div>
+      </div>
+    }
+
     <div>
       <h2 class="mt-6 text-center text-3xl font-extrabold text-white">
         @if (authMode() === 'signIn') {
@@ -10,7 +27,7 @@
       </h2>
       <p class="mt-2 text-center text-sm text-zinc-400">
         ou 
-        <button (click)="toggleMode()" class="font-medium text-pink-400 hover:text-pink-300">
+        <button (click)="toggleMode()" [disabled]="!isSupabaseConfigured()" class="font-medium text-pink-400 hover:text-pink-300 disabled:text-zinc-500 disabled:cursor-not-allowed">
           @if (authMode() === 'signIn') {
             faça seu cadastro
           } @else {
@@ -35,9 +52,9 @@
     <div class="space-y-6">
       <button 
         (click)="handleGoogleSignIn()"
-        [disabled]="loading()"
+        [disabled]="loading() || !isSupabaseConfigured()"
         type="button" 
-        class="w-full inline-flex justify-center items-center py-3 px-4 border border-zinc-700 rounded-md shadow-sm bg-zinc-800 text-sm font-medium text-gray-300 hover:bg-zinc-700 disabled:opacity-50 transition-colors">
+        class="w-full inline-flex justify-center items-center py-3 px-4 border border-zinc-700 rounded-md shadow-sm bg-zinc-800 text-sm font-medium text-gray-300 hover:bg-zinc-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
         <svg class="w-5 h-5 mr-3" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 18 19">
           <path fill-rule="evenodd" d="M8.842 18.083a8.8 8.8 0 0 1-8.65-8.948 8.841 8.841 0 0 1 8.8-8.652h.153a8.464 8.464 0 0 1 5.7 2.257l-2.193 2.038A5.27 5.27 0 0 0 9.09 3.4a5.882 5.882 0 0 0-.2 11.76h.124a5.091 5.091 0 0 0 5.248-4.057L14.3 11H9V8h8.342A8.823 8.823 0 0 1 9.09 18.102a8.8 8.8 0 0 1-.248-.02Z" clip-rule="evenodd"/>
         </svg>
@@ -69,7 +86,8 @@
             required
             [value]="email()"
             (input)="email.set($event.target.value)"
-            class="appearance-none rounded-none relative block w-full px-3 py-3 border border-zinc-700 bg-zinc-800 text-gray-200 placeholder-zinc-500 rounded-t-md focus:outline-none focus:ring-pink-500 focus:border-pink-500 focus:z-10 sm:text-sm" 
+            [disabled]="!isSupabaseConfigured()"
+            class="appearance-none rounded-none relative block w-full px-3 py-3 border border-zinc-700 bg-zinc-800 text-gray-200 placeholder-zinc-500 rounded-t-md focus:outline-none focus:ring-pink-500 focus:border-pink-500 focus:z-10 sm:text-sm disabled:opacity-50" 
             placeholder="Endereço de e-mail">
         </div>
         <div>
@@ -82,7 +100,8 @@
             required
             [value]="password()"
             (input)="password.set($event.target.value)"
-            class="appearance-none rounded-none relative block w-full px-3 py-3 border border-zinc-700 bg-zinc-800 text-gray-200 placeholder-zinc-500 focus:outline-none focus:ring-pink-500 focus:border-pink-500 focus:z-10 sm:text-sm"
+            [disabled]="!isSupabaseConfigured()"
+            class="appearance-none rounded-none relative block w-full px-3 py-3 border border-zinc-700 bg-zinc-800 text-gray-200 placeholder-zinc-500 focus:outline-none focus:ring-pink-500 focus:border-pink-500 focus:z-10 sm:text-sm disabled:opacity-50"
             [class.rounded-b-md]="authMode() === 'signIn'"
             placeholder="Senha">
         </div>
@@ -96,7 +115,8 @@
               required
               [value]="confirmPassword()"
               (input)="confirmPassword.set($event.target.value)"
-              class="appearance-none rounded-none relative block w-full px-3 py-3 border bg-zinc-800 text-gray-200 placeholder-zinc-500 rounded-b-md focus:outline-none focus:ring-pink-500 focus:border-pink-500 focus:z-10 sm:text-sm"
+              [disabled]="!isSupabaseConfigured()"
+              class="appearance-none rounded-none relative block w-full px-3 py-3 border bg-zinc-800 text-gray-200 placeholder-zinc-500 rounded-b-md focus:outline-none focus:ring-pink-500 focus:border-pink-500 focus:z-10 sm:text-sm disabled:opacity-50"
               [class.border-red-500]="!!confirmPassword() && !passwordsMatch()"
               [class.border-zinc-700]="!confirmPassword() || passwordsMatch()"
               placeholder="Confirmar Senha">
@@ -111,7 +131,7 @@
       <div>
         <button 
           type="submit" 
-          [disabled]="!canSubmit()"
+          [disabled]="!canSubmit() || !isSupabaseConfigured()"
           class="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-gradient-to-r from-pink-500 to-orange-400 hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500 focus:ring-offset-zinc-950 disabled:opacity-50 disabled:cursor-not-allowed">
           
           @if(loading()) {
