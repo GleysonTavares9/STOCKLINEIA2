@@ -2,12 +2,12 @@ import { Component, ChangeDetectionStrategy, inject, effect } from '@angular/cor
 import { CommonModule } from '@angular/common';
 import { MurekaService } from '../create/mureka.service';
 import { SupabaseService } from '../services/supabase.service';
-import { Router, RouterLink } from '@angular/router';
+import { Router } from '@angular/router';
 
 @Component({
   selector: 'app-library',
   standalone: true,
-  imports: [CommonModule, RouterLink],
+  imports: [CommonModule],
   templateUrl: './library.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
