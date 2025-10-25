@@ -10,8 +10,12 @@
  * Em produção, sempre utilize variáveis de ambiente (ex: process.env.GOOGLE_AI_API_KEY)
  * e mecanismos seguros de gerenciamento de segredos para proteger suas credenciais.
  * Expor chaves no código é um risco de segurança grave.
+ * 
+ * **INSTRUÇÕES SUPABASE:** Substitua 'YOUR_SUPABASE_URL' e 'YOUR_SUPABASE_ANON_KEY'
+ * pelos valores do seu projeto Supabase.
  */
 export const environment = {
-  googleApiKey: 'AIzaSyAdZIGbJf7u-nbFfXzxwtkfdzhi6MMe2bU',
-  murekaApiKey: 'op_mfsjty5x8ki4FpjGBDz36a9QFsXhtB7'
+  murekaApiKey: 'op_mfsjty5x8ki4FpjGBDz36a9QFsXhtB7',
+  supabaseUrl: 'YOUR_SUPABASE_URL',
+  supabaseKey: 'YOUR_SUPABASE_ANON_KEY'
 };

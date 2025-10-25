@@ -1,24 +1,65 @@
-<div class="min-h-screen bg-zinc-950 text-gray-300 flex flex-col">
-  <main class="flex-grow pb-24">
-    <router-outlet></router-outlet>
-  </main>
+@if (isSupabaseConfigured()) {
+  <div class="min-h-screen bg-zinc-950 text-gray-300 flex flex-col">
 
-  <!-- Bottom Navigation -->
-  <nav class="fixed bottom-0 left-0 right-0 bg-zinc-900 border-t border-zinc-800 p-2 flex justify-around items-center z-20">
-    <a routerLink="/library" routerLinkActive="text-pink-400" class="flex flex-col items-center justify-center w-1/4 text-zinc-400 transition-colors py-2">
-      <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 14v3m4-3v3m4-3v3M3 21h18M3 10h18M3 7l9-4 9 4M4 10h16v11H4V10z" /></svg>
-      <span class="text-xs tracking-wide">Biblioteca</span>
-    </a>
-    
-    <div class="w-1/4 flex justify-center">
-      <a routerLink="/create" class="-mt-8 flex items-center justify-center w-16 h-16 bg-gradient-to-br from-pink-500 to-orange-400 rounded-full shadow-lg shadow-pink-500/30 text-white transform hover:scale-110 transition-transform">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" viewBox="0 0 20 20" fill="currentColor"><path d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" /></svg>
+    <!-- Header with User Info -->
+    <header class="fixed top-0 left-0 right-0 bg-zinc-900/80 backdrop-blur-sm border-b border-zinc-800 p-3 z-20">
+      <div class="max-w-7xl mx-auto flex justify-between items-center">
+        <a routerLink="/" class="text-2xl font-bold text-white tracking-wider">MUREKA</a>
+        @if (currentUser(); as user) {
+          <div class="flex items-center gap-3">
+            <span class="text-sm text-zinc-400 hidden sm:inline">{{ user.email }}</span>
+            <button (click)="signOut()" class="px-3 py-1.5 text-xs font-semibold text-zinc-300 bg-zinc-800 rounded-full transition-colors hover:bg-zinc-700">
+              Sair
+            </button>
+          </div>
+        } @else {
+          <a routerLink="/auth" class="px-4 py-2 text-sm font-semibold text-white bg-gradient-to-r from-pink-500 to-orange-400 rounded-full transition-all duration-300 hover:opacity-90">
+            Entrar
+          </a>
+        }
+      </div>
+    </header>
+
+    <main class="flex-grow pt-20 pb-24">
+      <router-outlet></router-outlet>
+    </main>
+
+    <!-- Bottom Navigation -->
+    <nav class="fixed bottom-0 left-0 right-0 bg-zinc-900 border-t border-zinc-800 p-2 flex justify-around items-center z-20">
+      <a routerLink="/library" routerLinkActive="text-pink-400" [class.pointer-events-none]="!currentUser()" [class.text-zinc-600]="!currentUser()" [class.text-zinc-400]="currentUser()" class="flex flex-col items-center justify-center w-1/4 transition-colors py-2">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 6l12-3" /></svg>
+        <span class="text-xs tracking-wide">Minhas Músicas</span>
       </a>
-    </div>
+      
+      <div class="w-1/4 flex justify-center">
+        <a routerLink="/create" [class.pointer-events-none]="!currentUser()" [class.opacity-50]="!currentUser()" class="-mt-8 flex items-center justify-center w-16 h-16 bg-gradient-to-br from-pink-500 to-orange-400 rounded-full shadow-lg shadow-pink-500/30 text-white transform hover:scale-110 transition-transform">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" viewBox="0 0 20 20" fill="currentColor"><path d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" /></svg>
+        </a>
+      </div>
 
-    <a routerLink="/top-charts" routerLinkActive="text-pink-400" class="flex flex-col items-center justify-center w-1/4 text-zinc-400 transition-colors py-2">
-      <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
-      <span class="text-xs tracking-wide">Top Músicas</span>
-    </a>
-  </nav>
-</div>
+      <a routerLink="/feed" routerLinkActive="text-pink-400" class="flex flex-col items-center justify-center w-1/4 text-zinc-400 transition-colors py-2">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2h1a2 2 0 002-2v-1a2 2 0 012-2h1.945M7.884 5.002l.007-.002a4.5 4.5 0 116.218 6.22l.001-.001M16.116 5.002l-.007-.002a4.5 4.5 0 00-6.218 6.22l-.001-.001" /></svg>
+        <span class="text-xs tracking-wide">Feed Global</span>
+      </a>
+    </nav>
+  </div>
+} @else {
+  <div class="min-h-screen bg-zinc-950 text-white flex flex-col items-center justify-center p-8 text-center">
+    <div class="max-w-2xl">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-20 w-20 mx-auto text-red-400 mb-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+      </svg>
+      <h1 class="text-3xl font-bold mb-4">Erro de Configuração</h1>
+      <p class="text-lg text-red-200 mb-6">
+        O aplicativo não pôde se conectar ao backend. É necessário configurar as credenciais do Supabase para continuar.
+      </p>
+      <div class="bg-zinc-900 text-left p-6 rounded-lg font-mono text-sm">
+        <p class="text-zinc-400 mb-2">// Instruções:</p>
+        <p class="mb-4">1. Abra o arquivo <code class="bg-zinc-700 text-pink-400 px-1 py-0.5 rounded">src/config.ts</code>.</p>
+        <p class="mb-4">2. Substitua os valores de <code class="bg-zinc-700 text-pink-400 px-1 py-0.5 rounded">'YOUR_SUPABASE_URL'</code> e <code class="bg-zinc-700 text-pink-400 px-1 py-0.5 rounded">'YOUR_SUPABASE_ANON_KEY'</code> pelas suas credenciais do projeto Supabase.</p>
+        <p class="text-zinc-400">Depois de salvar as alterações, o aplicativo será recarregado automaticamente.</p>
+      </div>
+      <p class="mt-8 text-sm text-red-300">Se você não tem uma conta Supabase, pode criar uma gratuitamente em <a href="https://supabase.com" target="_blank" rel="noopener noreferrer" class="underline hover:text-white">supabase.com</a>.</p>
+    </div>
+  </div>
+}

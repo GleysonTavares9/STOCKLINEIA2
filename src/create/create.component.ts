@@ -1,8 +1,10 @@
-import { Component, ChangeDetectionStrategy, signal, inject, computed } from '@angular/core';
+import { Component, ChangeDetectionStrategy, signal, inject, computed, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { GeminiService } from '../services/gemini.service';
-// Fix: Corrected the import path for MurekaService to point to the local file.
 import { MurekaService } from './mureka.service';
+import { SupabaseService, Song } from '../services/supabase.service';
+import { Router } from '@angular/router';
+
 
 @Component({
   selector: 'app-create',
@@ -11,11 +13,14 @@ import { MurekaService } from './mureka.service';
   templateUrl: './create.component.html',
   styleUrls: ['./create.component.css'],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  // providers array removed to ensure services are singletons
 })
 export class CreateComponent {
-  private geminiService = inject(GeminiService);
-  private murekaService = inject(MurekaService);
+  private readonly geminiService = inject(GeminiService);
+  private readonly murekaService = inject(MurekaService);
+  private readonly supabaseService = inject(SupabaseService);
+  private readonly router = inject(Router);
+
+  readonly currentUser = this.supabaseService.currentUser;
 
   currentStep = signal<number>(1); // 1: Info, 2: Lyrics, 3: Result
 
@@ -29,12 +34,13 @@ export class CreateComponent {
   lyrics = signal<string>('');
   lyricsError = signal<string | null>(null);
 
-  // Step 3 is now driven by the service
-  currentJob = computed(() => {
-    // The current job is the one we just started, which will be the first in the history array.
-    // It's only relevant when we are on the result step (step 3).
+  // Step 3
+  copySuccess = signal(false);
+
+  currentJob = computed<Song | null>(() => {
     if (this.currentStep() === 3) {
-      return this.murekaService.history()?.[0] ?? null;
+      // The current job is the one most recently added to the user's song list.
+      return this.murekaService.userSongs()?.[0] ?? null;
     }
     return null;
   });
@@ -42,6 +48,15 @@ export class CreateComponent {
   lyricsFormatted = computed(() => this.currentJob()?.lyrics?.replace(/\n/g, '<br>') || this.lyrics().replace(/\n/g, '<br>'));
   canProceedToStep2 = computed(() => this.songTitle().trim().length > 0 && this.songStyle().trim().length > 0);
   canProceedToStep3 = computed(() => this.lyrics().trim().length > 0);
+
+  constructor() {
+    effect(() => {
+      if (!this.currentUser()) {
+        // If user logs out or session expires, redirect to auth page
+        this.router.navigate(['/auth'], { queryParams: { message: 'Faça login para criar músicas.' } });
+      }
+    });
+  }
 
   nextStep(): void {
     if (this.currentStep() < 3) {
@@ -77,15 +92,40 @@ export class CreateComponent {
   }
 
   async startMusicGenerationWorkflow(): Promise<void> {
-    if (!this.canProceedToStep3()) {
+    if (!this.canProceedToStep3() || !this.currentUser()) {
       return;
     }
     
-    this.nextStep(); // Advance to the result screen to show loading state
+    this.nextStep(); 
 
-    // Delegate the entire workflow to the service.
-    // The component UI will react to changes in the service's history signal.
-    this.murekaService.generateMusic(this.songTitle(), this.songStyle(), this.lyrics());
+    await this.murekaService.generateMusic(this.songTitle(), this.songStyle(), this.lyrics());
+  }
+
+  async shareSong(job: Song): Promise<void> {
+    if (!job.audio_url) return;
+
+    const shareData = {
+      title: `Música gerada por IA: ${job.title}`,
+      text: `Ouça a música "${job.title}" que eu criei com Mureka AI!`,
+      url: job.audio_url,
+    };
+
+    if (navigator.share) {
+      try {
+        await navigator.share(shareData);
+      } catch (err) {
+        console.log('Web Share API não foi concluída.', err);
+      }
+    } else {
+      try {
+        await navigator.clipboard.writeText(job.audio_url);
+        this.copySuccess.set(true);
+        setTimeout(() => this.copySuccess.set(false), 2000); 
+      } catch (err) {
+        console.error('Falha ao copiar link para a área de transferência:', err);
+        alert('Não foi possível copiar o link. Por favor, copie-o manualmente.');
+      }
+    }
   }
 
   reset(): void {

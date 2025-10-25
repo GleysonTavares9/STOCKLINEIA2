@@ -1,0 +1,87 @@
+<div class="min-h-full flex flex-col items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+  <div class="max-w-md w-full space-y-8">
+    <div>
+      <h2 class="mt-6 text-center text-3xl font-extrabold text-white">
+        @if (authMode() === 'signIn') {
+          Acesse sua conta
+        } @else {
+          Crie sua conta
+        }
+      </h2>
+      <p class="mt-2 text-center text-sm text-zinc-400">
+        ou 
+        <button (click)="toggleMode()" class="font-medium text-pink-400 hover:text-pink-300">
+          @if (authMode() === 'signIn') {
+            faça seu cadastro
+          } @else {
+            entre com sua conta
+          }
+        </button>
+      </p>
+    </div>
+    
+    @if (errorMessage()) {
+      <div class="bg-red-900/30 border border-red-700 text-red-300 px-4 py-3 rounded-lg text-center">
+        {{ errorMessage() }}
+      </div>
+    }
+
+    @if (infoMessage()) {
+      <div class="bg-blue-900/30 border border-blue-700 text-blue-300 px-4 py-3 rounded-lg text-center">
+        {{ infoMessage() }}
+      </div>
+    }
+
+    <form class="mt-8 space-y-6" (submit)="handleAuth($event)">
+      <div class="rounded-md shadow-sm -space-y-px">
+        <div>
+          <label for="email-address" class="sr-only">E-mail</label>
+          <input 
+            id="email-address" 
+            name="email" 
+            type="email" 
+            autocomplete="email" 
+            required
+            [value]="email()"
+            (input)="email.set($event.target.value)"
+            class="appearance-none rounded-none relative block w-full px-3 py-3 border border-zinc-700 bg-zinc-800 text-gray-200 placeholder-zinc-500 rounded-t-md focus:outline-none focus:ring-pink-500 focus:border-pink-500 focus:z-10 sm:text-sm" 
+            placeholder="Endereço de e-mail">
+        </div>
+        <div>
+          <label for="password" class="sr-only">Senha</label>
+          <input 
+            id="password" 
+            name="password" 
+            type="password" 
+            autocomplete="current-password" 
+            required
+            [value]="password()"
+            (input)="password.set($event.target.value)"
+            class="appearance-none rounded-none relative block w-full px-3 py-3 border border-zinc-700 bg-zinc-800 text-gray-200 placeholder-zinc-500 rounded-b-md focus:outline-none focus:ring-pink-500 focus:border-pink-500 focus:z-10 sm:text-sm" 
+            placeholder="Senha">
+        </div>
+      </div>
+
+      <div>
+        <button 
+          type="submit" 
+          [disabled]="loading() || !email() || !password()"
+          class="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-gradient-to-r from-pink-500 to-orange-400 hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500 focus:ring-offset-zinc-950 disabled:opacity-50 disabled:cursor-not-allowed">
+          
+          @if(loading()) {
+            <svg class="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+          } @else {
+            @if (authMode() === 'signIn') {
+              Entrar
+            } @else {
+              Cadastrar
+            }
+          }
+        </button>
+      </div>
+    </form>
+  </div>
+</div>

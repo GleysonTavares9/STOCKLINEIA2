@@ -1,6 +1,6 @@
 <header class="p-4 border-b border-zinc-800 sticky top-0 bg-zinc-950/80 backdrop-blur-sm z-10">
   <div class="max-w-5xl mx-auto">
-    <h1 class="text-2xl font-bold text-white tracking-wider">Biblioteca</h1>
+    <h1 class="text-2xl font-bold text-white tracking-wider">Minhas Músicas</h1>
   </div>
 </header>
 
@@ -21,7 +21,7 @@
           <div class="flex-grow text-center sm:text-left">
             <h3 class="font-bold text-white">{{ item.title }}</h3>
             <p class="text-sm text-zinc-400">{{ item.style }}</p>
-             <p class="text-xs text-zinc-500 mt-1">{{ item.createdAt.toLocaleString() }}</p>
+             <p class="text-xs text-zinc-500 mt-1">{{ item.created_at | date:'medium' }}</p>
           </div>
           <div class="flex-shrink-0 px-3 py-1 text-xs font-medium rounded-full flex items-center gap-2"
             [class.bg-green-900/50]="item.status === 'succeeded'" [class.text-green-300]="item.status === 'succeeded'"

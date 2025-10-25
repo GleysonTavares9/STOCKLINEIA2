@@ -1,16 +1,30 @@
-import { Component, ChangeDetectionStrategy, inject } from '@angular/core';
+import { Component, ChangeDetectionStrategy, inject, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
-// Fix: Corrected the import path for MurekaService to point to its actual location in the 'create' directory.
 import { MurekaService } from '../create/mureka.service';
+import { SupabaseService } from '../services/supabase.service';
+import { Router, RouterLink } from '@angular/router';
 
 @Component({
   selector: 'app-library',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, RouterLink],
   templateUrl: './library.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class LibraryComponent {
-  private murekaService = inject(MurekaService);
-  history = this.murekaService.history;
+  private readonly murekaService = inject(MurekaService);
+  private readonly supabaseService = inject(SupabaseService);
+  private readonly router = inject(Router);
+  
+  history = this.murekaService.userSongs;
+  currentUser = this.supabaseService.currentUser;
+
+  constructor() {
+    effect(() => {
+      // If user logs out, redirect to auth page.
+      if (!this.currentUser()) {
+        this.router.navigate(['/auth']);
+      }
+    });
+  }
 }

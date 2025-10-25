@@ -7,6 +7,10 @@ export const routes: Routes = [
     pathMatch: 'full'
   },
   {
+    path: 'auth',
+    loadComponent: () => import('./auth/auth.component').then(m => m.AuthComponent)
+  },
+  {
     path: 'create',
     loadComponent: () => import('./create/create.component').then(m => m.CreateComponent)
   },
@@ -15,7 +19,7 @@ export const routes: Routes = [
     loadComponent: () => import('./library/library.component').then(m => m.LibraryComponent)
   },
   {
-    path: 'top-charts',
-    loadComponent: () => import('./top-charts/top-charts.component').then(m => m.TopChartsComponent)
+    path: 'feed',
+    loadComponent: () => import('./feed/feed.component').then(m => m.FeedComponent)
   }
 ];
