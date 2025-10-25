@@ -12,7 +12,6 @@ export class GeminiService {
   constructor() {
     const apiKey = environment.geminiApiKey;
     if (!apiKey || apiKey === 'COLE_SUA_CHAVE_GEMINI_API_AQUI') {
-      console.error("Chave da API Gemini não configurada. Por favor, adicione-a em `src/config.ts`.");
       this.isConfigured.set(false);
       return;
     }

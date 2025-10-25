@@ -31,7 +31,6 @@ export class MurekaService {
   constructor() {
     this.murekaApiKey = environment.murekaApiKey;
     if (!this.murekaApiKey || this.murekaApiKey === 'COLE_SUA_CHAVE_MUREKA_API_AQUI') {
-      console.error("Chave da API Mureka não configurada. Por favor, adicione-a em `src/config.ts`.");
       this.isConfigured.set(false);
     }
 

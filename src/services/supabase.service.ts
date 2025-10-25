@@ -57,7 +57,6 @@ export class SupabaseService {
 
     if (isUrlMissing || isKeyMissing) {
       this.isConfigured.set(false);
-      console.error("Supabase URL or Key not configured. Please check src/config.ts");
       return;
     }
     
