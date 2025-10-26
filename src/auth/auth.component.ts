@@ -15,7 +15,7 @@ export class AuthComponent {
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
   
-  isSupabaseConfigured = this.supabase.isConfigured;
+  readonly isSupabaseConfigured = this.supabase.isConfigured;
 
   authMode = signal<'signIn' | 'signUp'>('signIn');
   email = signal('');

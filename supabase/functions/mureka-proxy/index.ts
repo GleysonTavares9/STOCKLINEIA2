@@ -22,6 +22,8 @@ serve(async (req) => {
     return new Response('ok', { headers: CORS_HEADERS });
   }
 
+  console.log(`Mureka Proxy received a ${req.method} request for ${req.url}`);
+
   try {
     // 1. Get all required variables and headers, and validate them upfront.
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
@@ -30,7 +32,7 @@ serve(async (req) => {
     const authorization = req.headers.get('Authorization');
 
     if (!supabaseUrl || !supabaseAnonKey) {
-      console.error('SUPABASE_URL or SUPABASE_ANON_KEY environment variable not set on the server.');
+      console.error('CRITICAL: SUPABASE_URL or SUPABASE_ANON_KEY environment variable not set on the server.');
       return new Response(JSON.stringify({ error: 'Supabase environment variables not configured on the server.' }), {
         status: 500,
         headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
@@ -38,7 +40,7 @@ serve(async (req) => {
     }
 
     if (!murekaApiKey) {
-      console.error('MUREKA_API_KEY environment variable not set');
+      console.error('CRITICAL: MUREKA_API_KEY environment variable not set as a secret in Supabase.');
       return new Response(JSON.stringify({ error: 'Mureka API key not configured on the server.' }), {
         status: 500,
         headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
@@ -46,6 +48,7 @@ serve(async (req) => {
     }
 
     if (!authorization) {
+      console.warn('Proxy request rejected: Authorization header is missing.');
       return new Response(JSON.stringify({ error: 'Authorization header is missing' }), {
         status: 401,
         headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
@@ -62,17 +65,20 @@ serve(async (req) => {
     // 3. Verify that the user is authenticated.
     const { data: { user } } = await supabaseClient.auth.getUser();
     if (!user) {
+      console.warn('Proxy request rejected: Invalid or expired user session token.');
       return new Response(JSON.stringify({ error: 'Authentication required' }), {
         status: 401,
         headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
       });
     }
+    console.log(`User ${user.id} authenticated. Proceeding to proxy request.`);
 
     // 4. Forward the request to the actual Mureka API.
     const url = new URL(req.url);
     const proxyPathRegex = /^\/functions\/v1\/mureka-proxy/;
     const murekaPath = url.pathname.replace(proxyPathRegex, '');
     const targetUrl = `${MUREKA_API_URL}${murekaPath}${url.search}`;
+    console.log(`Forwarding request to Mureka API: ${targetUrl}`);
 
     const murekaHeaders = {
         'Content-Type': 'application/json',
@@ -86,6 +92,8 @@ serve(async (req) => {
         // This is more robust and efficient for a proxy.
         body: (req.method === 'POST' || req.method === 'PUT') ? req.body : null,
     });
+    
+    console.log(`Received response from Mureka with status: ${murekaResponse.status}`);
     
     // 5. Return Mureka's response back to the client application.
     const responseData = await murekaResponse.text();
@@ -101,7 +109,7 @@ serve(async (req) => {
     });
 
   } catch (error) {
-    console.error('Error in Mureka proxy function:', error);
+    console.error('FATAL: Error in Mureka proxy function:', error);
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500,
       headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
