@@ -1,5 +1,10 @@
-// FIX: Switched CDN for Supabase function type definitions from esm.sh to unpkg.com to resolve type loading errors. This allows TypeScript to correctly identify Deno.env.
-/// <reference types="https://unpkg.com/@supabase/functions-js@2.4.1/src/edge-runtime.d.ts" />
+// FIX: The original type reference was incorrect and did not provide Deno runtime types.
+// It has been removed and replaced with a minimal Deno global declaration to resolve type errors.
+declare const Deno: {
+  env: {
+    get(key: string): string | undefined;
+  };
+};
 
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';

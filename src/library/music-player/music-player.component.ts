@@ -1,4 +1,4 @@
-import { Component, ChangeDetectionStrategy, input, output } from '@angular/core';
+import { Component, ChangeDetectionStrategy, input, output, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Music } from '../../services/supabase.service';
 
@@ -12,7 +12,29 @@ import { Music } from '../../services/supabase.service';
 })
 export class MusicPlayerComponent {
   music = input.required<Music>();
+  playlist = input.required<Music[]>();
+  
   close = output<void>();
+  changeSong = output<Music>();
+
+  currentIndex = computed(() => this.playlist().findIndex(item => item.id === this.music().id));
+  
+  canPlayPrevious = computed(() => this.currentIndex() > 0);
+  canPlayNext = computed(() => this.currentIndex() < this.playlist().length - 1);
+
+  playPrevious(): void {
+    if (this.canPlayPrevious()) {
+      const newIndex = this.currentIndex() - 1;
+      this.changeSong.emit(this.playlist()[newIndex]);
+    }
+  }
+
+  playNext(): void {
+    if (this.canPlayNext()) {
+      const newIndex = this.currentIndex() + 1;
+      this.changeSong.emit(this.playlist()[newIndex]);
+    }
+  }
 
   closePlayer(): void {
     this.close.emit();

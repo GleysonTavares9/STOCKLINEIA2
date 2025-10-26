@@ -39,14 +39,14 @@
           role="button"
           tabindex="0"
           class="bg-[#1A181A] rounded-lg flex items-center gap-4 p-3 border border-zinc-800 transition-all duration-200 group"
-          [class.hover:border-teal-500]="item.status === 'succeeded'"
-          [class.hover:bg-zinc-900/50]="item.status === 'succeeded'"
-          [class.cursor-pointer]="item.status === 'succeeded'"
-          [class.cursor-default]="item.status !== 'succeeded'">
+          [class.hover:border-teal-500]="item.status === 'succeeded' && !!item.audio_url"
+          [class.hover:bg-zinc-900/50]="item.status === 'succeeded' && !!item.audio_url"
+          [class.cursor-pointer]="item.status === 'succeeded' && !!item.audio_url"
+          [class.cursor-default]="item.status !== 'succeeded' || !item.audio_url">
           
           <div class="relative flex-shrink-0">
             <img src="https://picsum.photos/seed/music-{{item.title}}/128/128" alt="Album Art" class="w-16 h-16 rounded-md object-cover">
-            @if (item.status === 'succeeded') {
+            @if (item.status === 'succeeded' && item.audio_url) {
               <div class="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-white" viewBox="0 0 20 20" fill="currentColor">
                   <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd" />
@@ -67,12 +67,19 @@
           <div class="flex-shrink-0 w-48 flex items-center justify-center">
              @switch (item.status) {
               @case ('succeeded') {
-                <div class="flex items-center gap-2 text-green-400 text-sm">
-                   <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                     <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
-                   </svg>
-                   <span>Pronto</span>
-                 </div>
+                @if (item.audio_url) {
+                   <div class="flex items-center gap-2 text-green-400 text-sm">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                      <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                    </svg>
+                    <span>Pronto</span>
+                  </div>
+                } @else {
+                  <div title="A música foi processada, mas o áudio não foi encontrado." class="flex items-center gap-2 text-yellow-400 text-sm px-3 py-1.5 bg-yellow-900/30 rounded-lg cursor-help">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M8.257 3.099c.636-1.21 2.242-1.21 2.878 0l5.394 10.273c.636 1.21-.21 2.628-1.439 2.628H4.292c-1.229 0-2.075-1.418-1.439-2.628L8.257 3.099zM9 12a1 1 0 112 0 1 1 0 01-2 0zm1-4a1 1 0 011 1v2a1 1 0 11-2 0V9a1 1 0 011-1z" clip-rule="evenodd" /></svg>
+                    <span>Erro de áudio</span>
+                  </div>
+                }
               }
               @case ('failed') {
                 <div class="flex flex-col items-center justify-center">
@@ -110,5 +117,9 @@
 </main>
 
 @if(selectedMusic(); as music) {
-  <app-music-player [music]="music" (close)="closePlayer()" />
+  <app-music-player 
+    [music]="music" 
+    [playlist]="playlist()"
+    (close)="closePlayer()"
+    (changeSong)="selectMusic($event)" />
 }

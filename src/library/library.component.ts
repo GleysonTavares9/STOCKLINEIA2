@@ -22,6 +22,9 @@ export class LibraryComponent {
   
   hasFailedMusic = computed(() => this.history().some(item => item.status === 'failed'));
   
+  // Filter out any songs that shouldn't be in the playlist (e.g. still processing)
+  playlist = computed(() => this.history().filter(m => m.status === 'succeeded' && m.audio_url));
+
   selectedMusic = signal<Music | null>(null);
 
   constructor() {

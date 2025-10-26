@@ -170,6 +170,7 @@ export class SupabaseService {
         description: musicData.lyrics,
         status: musicData.status,
         user_id: user.id,
+        is_public: true, // Default all new music to public
         audio_url: '', // Satisfy NOT NULL constraint on creation
         metadata: musicData.error ? { error: musicData.error } : {},
       })
@@ -273,11 +274,12 @@ export class SupabaseService {
   async getAllPublicMusic(): Promise<Music[]> {
     if (!this.supabase) return [];
     
-    // 1. Fetch public music without the problematic join
+    // 1. Fetch public music
     const { data: musicData, error: musicError } = await this.supabase
       .from('musics')
       .select('*')
       .eq('status', 'succeeded')
+      .eq('is_public', true)
       .order('created_at', { ascending: false })
       .limit(50);
 
