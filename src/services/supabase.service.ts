@@ -323,9 +323,19 @@ export class SupabaseService {
   }
 
   async getPlans(): Promise<Plan[]> {
-    if (!this.supabase) return [];
+    const supabaseUrl = environment.supabaseUrl;
+    const supabaseKey = environment.supabaseKey;
+
+    if (!this.isConfigured()) {
+        console.warn('Supabase not configured, cannot fetch plans.');
+        return [];
+    }
     
-    const { data, error } = await this.supabase
+    // Use a dedicated anonymous client to fetch public plans.
+    // This avoids RLS issues if the user is logged in and the policy only allows 'anon' role.
+    const anonClient = createClient(supabaseUrl, supabaseKey);
+    
+    const { data, error } = await anonClient
       .from('plans')
       .select('*')
       .eq('is_active', true)
@@ -341,7 +351,7 @@ export class SupabaseService {
       return [];
     }
 
-    // Defensively parse 'features' which is stored as a JSON string.
+    // Defensively parse 'features' which is stored as a JSON string or is already an array.
     return (data as any[]).map(plan => {
       let parsedFeatures: string[] = [];
       if (typeof plan.features === 'string') {
@@ -349,21 +359,14 @@ export class SupabaseService {
           const parsed = JSON.parse(plan.features);
           if (Array.isArray(parsed)) {
             parsedFeatures = parsed;
-          } else if (typeof parsed === 'object' && parsed !== null) {
-            // Handle the object structure like in the "free" plan
-            if (Array.isArray(parsed.features)) {
-              parsedFeatures.push(...parsed.features);
-            }
-            if (Array.isArray(parsed.limitations)) {
-              // Prefix limitations for clarity in the UI
-              parsedFeatures.push(...parsed.limitations.map((l: string) => `Limitação: ${l}`));
-            }
           }
         } catch (e) {
           console.error(`Failed to parse features for plan ${plan.id}:`, plan.features);
-          // In case of error, we leave features as an empty array
         }
+      } else if (Array.isArray(plan.features)) {
+        parsedFeatures = plan.features;
       }
+      
       return { ...plan, features: parsedFeatures };
     }) as Plan[];
   }
