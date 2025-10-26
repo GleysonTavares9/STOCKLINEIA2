@@ -34,7 +34,7 @@
       </h2>
       <p class="mt-2 text-center text-sm text-zinc-400">
         ou 
-        <button (click)="toggleMode()" [disabled]="!isSupabaseConfigured()" class="font-medium text-pink-400 hover:text-pink-300 disabled:text-zinc-500 disabled:cursor-not-allowed">
+        <button (click)="toggleMode()" [disabled]="!isSupabaseConfigured()" class="font-medium text-teal-400 hover:text-teal-300 disabled:text-zinc-500 disabled:cursor-not-allowed">
           @if (authMode() === 'signIn') {
             faça seu cadastro
           } @else {
@@ -94,7 +94,7 @@
             [value]="email()"
             (input)="email.set($event.target.value)"
             [disabled]="!isSupabaseConfigured()"
-            class="appearance-none rounded-none relative block w-full px-3 py-3 border border-zinc-700 bg-zinc-800 text-gray-200 placeholder-zinc-500 rounded-t-md focus:outline-none focus:ring-pink-500 focus:border-pink-500 focus:z-10 sm:text-sm disabled:opacity-50" 
+            class="appearance-none rounded-none relative block w-full px-3 py-3 border border-zinc-700 bg-zinc-800 text-gray-200 placeholder-zinc-500 rounded-t-md focus:outline-none focus:ring-teal-500 focus:border-teal-500 focus:z-10 sm:text-sm disabled:opacity-50" 
             placeholder="Endereço de e-mail">
         </div>
         <div>
@@ -108,7 +108,7 @@
             [value]="password()"
             (input)="password.set($event.target.value)"
             [disabled]="!isSupabaseConfigured()"
-            class="appearance-none rounded-none relative block w-full px-3 py-3 border border-zinc-700 bg-zinc-800 text-gray-200 placeholder-zinc-500 focus:outline-none focus:ring-pink-500 focus:border-pink-500 focus:z-10 sm:text-sm disabled:opacity-50"
+            class="appearance-none rounded-none relative block w-full px-3 py-3 border border-zinc-700 bg-zinc-800 text-gray-200 placeholder-zinc-500 focus:outline-none focus:ring-teal-500 focus:border-teal-500 focus:z-10 sm:text-sm disabled:opacity-50"
             [class.rounded-b-md]="authMode() === 'signIn'"
             placeholder="Senha">
         </div>
@@ -123,7 +123,7 @@
               [value]="confirmPassword()"
               (input)="confirmPassword.set($event.target.value)"
               [disabled]="!isSupabaseConfigured()"
-              class="appearance-none rounded-none relative block w-full px-3 py-3 border bg-zinc-800 text-gray-200 placeholder-zinc-500 rounded-b-md focus:outline-none focus:ring-pink-500 focus:border-pink-500 focus:z-10 sm:text-sm disabled:opacity-50"
+              class="appearance-none rounded-none relative block w-full px-3 py-3 border bg-zinc-800 text-gray-200 placeholder-zinc-500 rounded-b-md focus:outline-none focus:ring-teal-500 focus:border-teal-500 focus:z-10 sm:text-sm disabled:opacity-50"
               [class.border-red-500]="!!confirmPassword() && !passwordsMatch()"
               [class.border-zinc-700]="!confirmPassword() || passwordsMatch()"
               placeholder="Confirmar Senha">
@@ -139,7 +139,7 @@
         <button 
           type="submit" 
           [disabled]="!canSubmit() || !isSupabaseConfigured()"
-          class="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-gradient-to-r from-pink-500 to-orange-400 hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500 focus:ring-offset-zinc-950 disabled:opacity-50 disabled:cursor-not-allowed">
+          class="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-teal-600 hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500 focus:ring-offset-zinc-950 disabled:opacity-50 disabled:cursor-not-allowed">
           
           @if(loading()) {
             <svg class="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">

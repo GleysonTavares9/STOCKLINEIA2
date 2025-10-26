@@ -22,7 +22,7 @@
             <img src="https://picsum.photos/seed/music-{{song.title}}/400/225" alt="Album Art" class="w-full h-40 object-cover">
             @if (song.status === 'succeeded' && song.audio_url) {
                 <div class="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                    <a [href]="song.audio_url" target="_blank" class="w-14 h-14 bg-pink-500/80 rounded-full flex items-center justify-center text-white backdrop-blur-sm transform hover:scale-110 transition-transform">
+                    <a [href]="song.audio_url" target="_blank" class="w-14 h-14 bg-teal-500/80 rounded-full flex items-center justify-center text-white backdrop-blur-sm transform hover:scale-110 transition-transform">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" viewBox="0 0 20 20" fill="currentColor">
                             <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd" />
                         </svg>
