@@ -34,13 +34,22 @@ export class GeminiService {
     }
 
     try {
-      const fullPrompt = `Gere uma letra de música completa baseada na seguinte ideia: "${prompt}". A letra deve ter uma estrutura clara, incluindo versos, refrão e talvez uma ponte. O tom deve ser consistente com a ideia apresentada.`;
+      // Improved prompt to strictly request only the lyrics.
+      const fullPrompt = `Gere uma letra de música baseada na seguinte ideia: "${prompt}".
+
+REGRAS ESTRITAS DE FORMATAÇÃO DA RESPOSTA:
+1.  **NÃO** inclua um título.
+2.  **NÃO** inclua marcadores de seção como "[Verso 1]", "[Refrão]", etc.
+3.  **NÃO** inclua introduções, explicações ou qualquer texto que não seja parte da letra da música.
+4.  Responda APENAS com o texto bruto da letra.`;
       
       const response = await this.gemini.models.generateContent({
         model: 'gemini-2.5-flash',
         contents: fullPrompt,
         config: {
-            systemInstruction: 'Você é um talentoso compositor de músicas. Sua especialidade é criar letras poéticas, emocionantes e cativantes que contam uma história.',
+            // Updated system instruction to be more forceful about formatting.
+            systemInstruction: `Você é um compositor de músicas profissional. Sua tarefa é criar letras poéticas e bem estruturadas.
+Você DEVE seguir TODAS as regras de formatação da resposta solicitadas pelo usuário, sem exceções. Sua resposta deve conter APENAS a letra da música.`,
             temperature: 0.7,
             topP: 0.95,
         }
@@ -51,7 +60,7 @@ export class GeminiService {
         throw new Error('A resposta da API do Gemini está vazia.');
       }
 
-      return text;
+      return text.trim(); // A simple trim should be sufficient with the improved prompt.
     } catch (error) {
       console.error('Erro ao gerar letras via Gemini API:', error);
       const errorMessage = this.getApiErrorMessage(error);

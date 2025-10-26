@@ -29,6 +29,7 @@ export class CreateComponent {
   // Form signals
   songTitle = signal<string>('');
   selectedStyles = signal(new Set<string>());
+  customStyle = signal<string>('');
   lyrics = signal<string>('');
   vocalGender = signal<'male' | 'female'>('female');
   isInstrumental = signal<boolean>(false);
@@ -49,7 +50,7 @@ export class CreateComponent {
     return (
       profile != null && profile.credits > 0 &&
       this.songTitle().trim().length > 0 &&
-      this.selectedStyles().size > 0 &&
+      (this.selectedStyles().size > 0 || this.customStyle().trim().length > 0) &&
       (this.lyrics().trim().length > 0 || this.isInstrumental()) &&
       !this.isGeneratingMusic()
     );
@@ -110,10 +111,12 @@ export class CreateComponent {
         await this.supabaseService.updateUserCredits(profile.id, newCreditCount);
 
         const styleParts = Array.from(this.selectedStyles());
+        if (this.customStyle().trim()) {
+          styleParts.push(this.customStyle().trim());
+        }
 
         if (this.isInstrumental()) {
-          // FIX: Explicitly cast `s` to a string before calling `toLowerCase` to resolve the TypeScript error.
-          if (!styleParts.some(s => (s as string).toLowerCase() === 'instrumental')) {
+          if (!styleParts.some(s => s.toLowerCase() === 'instrumental')) {
             styleParts.push('Instrumental');
           }
           const fullStyle = styleParts.join(', ');
@@ -129,6 +132,7 @@ export class CreateComponent {
         setTimeout(() => {
           this.songTitle.set('');
           this.selectedStyles.set(new Set());
+          this.customStyle.set('');
           this.lyrics.set('');
           this.isInstrumental.set(false);
           this.lyricsDescription.set('');

@@ -88,8 +88,8 @@
                     <span>Falhou</span>
                   </div>
                   @if (item.metadata?.error) {
-                    <p class="text-xs text-zinc-500 mt-1 max-w-xs text-center truncate" [title]="item.metadata.error">
-                      {{ item.metadata.error }}
+                    <p class="text-xs text-zinc-500 mt-1 max-w-xs text-center truncate" [title]="item.metadata?.error">
+                      {{ item.metadata?.error }}
                     </p>
                   }
                 </div>

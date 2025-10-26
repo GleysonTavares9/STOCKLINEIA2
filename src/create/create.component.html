@@ -43,13 +43,16 @@
         
         <div class="text-center my-4 text-zinc-500 text-sm">ou</div>
 
-        <div class="bg-zinc-900 p-4 rounded-lg">
+        <div class="bg-zinc-900 p-4 rounded-lg border border-teal-500/30 relative mt-5">
+           <div class="absolute -top-3 left-4 bg-zinc-900 px-2">
+            <span class="text-xs font-semibold text-teal-400 tracking-wider">✨ GERAR COM IA</span>
+          </div>
           <textarea 
             id="lyrics-description"
             [value]="lyricsDescription()"
             (input)="lyricsDescription.set($event.target.value)"
             rows="2"
-            placeholder="Descreva sua ideia para gerar a letra com IA..."
+            placeholder="Descreva sua ideia para gerar a letra..."
             class="w-full p-2 bg-transparent border-none rounded-md text-gray-200 placeholder-zinc-500 focus:ring-0 resize-none"
             [disabled]="generatingLyrics() || !isGeminiConfigured()"></textarea>
             <div class="flex justify-end mt-2">
@@ -95,7 +98,14 @@
           </button>
         }
       </div>
-      <p class="text-xs text-zinc-500 mt-4">Selecione um ou mais estilos para sua música.</p>
+      <p class="text-xs text-zinc-500 mt-4">Selecione um ou mais estilos para sua música ou descreva abaixo.</p>
+      <textarea 
+          id="custom-style"
+          [value]="customStyle()"
+          (input)="customStyle.set($event.target.value)"
+          rows="2"
+          placeholder="Ou descreva seu próprio estilo (ex: 'calmo, violão, batida lo-fi')"
+          class="w-full mt-4 p-3 bg-zinc-900 border border-zinc-700 rounded-md text-gray-200 placeholder-zinc-500 focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition"></textarea>
     </div>
 
     <!-- OPÇÕES AVANÇADAS -->
