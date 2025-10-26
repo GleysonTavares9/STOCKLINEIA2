@@ -58,6 +58,7 @@ export class CreateComponent {
 
   constructor() {
     effect(() => {
+      if (!this.supabaseService.authReady()) return;
       if (!this.currentUser()) {
         this.router.navigate(['/auth'], { queryParams: { message: 'Faça login para criar músicas.' } });
       }
@@ -109,17 +110,19 @@ export class CreateComponent {
         await this.supabaseService.updateUserCredits(profile.id, newCreditCount);
 
         const styleParts = Array.from(this.selectedStyles());
-        let lyricsToUse = this.lyrics();
 
         if (this.isInstrumental()) {
-          lyricsToUse = ''; // Instrumental tracks should have empty lyrics
-          styleParts.push('Instrumental'); // Add 'Instrumental' as a style tag
+          // FIX: Explicitly cast `s` to a string before calling `toLowerCase` to resolve the TypeScript error.
+          if (!styleParts.some(s => (s as string).toLowerCase() === 'instrumental')) {
+            styleParts.push('Instrumental');
+          }
+          const fullStyle = styleParts.join(', ');
+          await this.murekaService.generateInstrumental(this.songTitle(), fullStyle);
         } else {
           styleParts.push(`${this.vocalGender()} vocal`);
+          const fullStyle = styleParts.join(', ');
+          await this.murekaService.generateMusic(this.songTitle(), fullStyle, this.lyrics());
         }
-        const fullStyle = styleParts.join(', ');
-
-        await this.murekaService.generateMusic(this.songTitle(), fullStyle, lyricsToUse);
 
         this.router.navigate(['/library']);
         
