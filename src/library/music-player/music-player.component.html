@@ -1,0 +1,52 @@
+<div (click)="closePlayer()" class="fixed inset-0 bg-black/80 backdrop-blur-lg z-50 flex items-center justify-center p-4 animate-fade-in">
+  <div (click)="onContentClick($event)" class="bg-gradient-to-br from-[#1A181A] to-zinc-900 w-full max-w-4xl h-[90vh] max-h-[700px] rounded-2xl border border-zinc-800 shadow-2xl shadow-purple-900/20 flex flex-col md:flex-row overflow-hidden animate-slide-up">
+    
+    <!-- Left side: Album Art & Controls -->
+    <div class="w-full md:w-1/2 lg:w-5/12 p-8 flex flex-col items-center justify-between bg-black/20 flex-shrink-0 relative">
+      <button (click)="closePlayer()" class="absolute top-4 right-4 text-zinc-500 hover:text-white transition-colors p-2 rounded-full bg-black/20 z-10">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+      </button>
+
+      <div class="text-center w-full">
+        <h2 class="text-3xl font-bold text-white tracking-tight">{{ music().title }}</h2>
+        <p class="text-purple-400 mt-1">{{ music().style }}</p>
+      </div>
+
+      <img src="https://picsum.photos/seed/player-{{music().title}}/500/500" alt="Album Art" class="w-full max-w-[300px] aspect-square rounded-2xl object-cover my-6 shadow-lg shadow-black/50">
+      
+      <div class="w-full">
+        <audio controls autoplay [src]="music().audio_url" class="w-full"></audio>
+        
+        <div class="flex items-center justify-center gap-6 mt-6">
+          <button (click)="downloadMusic()" title="Baixar música" class="flex flex-col items-center gap-2 text-zinc-400 hover:text-white transition-colors">
+            <div class="w-12 h-12 flex items-center justify-center bg-zinc-800 rounded-full hover:bg-zinc-700">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+            </div>
+            <span class="text-xs">Baixar</span>
+          </button>
+          <button (click)="shareMusic()" title="Compartilhar música" class="flex flex-col items-center gap-2 text-zinc-400 hover:text-white transition-colors">
+            <div class="w-12 h-12 flex items-center justify-center bg-zinc-800 rounded-full hover:bg-zinc-700">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8.684 13.342C8.886 12.938 9 12.482 9 12s-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.368a3 3 0 105.367 2.684 3 3 0 00-5.367-2.684z" /></svg>
+            </div>
+            <span class="text-xs">Compartilhar</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right side: Lyrics -->
+    <div class="w-full md:w-1/2 lg:w-7/12 p-8 flex flex-col bg-black/10">
+      <h3 class="text-xl font-semibold text-white mb-4 flex-shrink-0">Letra da música</h3>
+      @if (music().description && music().description.trim().length > 0) {
+        <div class="flex-grow overflow-y-auto pr-4 lyrics-container">
+          <pre class="text-zinc-300 whitespace-pre-wrap text-base leading-relaxed font-sans">{{ music().description }}</pre>
+        </div>
+      } @else {
+        <div class="flex-grow flex items-center justify-center text-center bg-black/10 rounded-lg">
+          <p class="text-zinc-500">Esta é uma faixa instrumental.</p>
+        </div>
+      }
+    </div>
+
+  </div>
+</div>

@@ -223,7 +223,8 @@ export class MurekaService {
     const { error } = await this.supabase.deleteMusic(musicId);
     if (error) {
       console.error('Error deleting music:', error.message);
-      // In a real app, you might want to show a user-facing error.
+      // Throw the error so the UI layer can catch it and notify the user.
+      throw new Error(error.message || 'Falha ao apagar a música.');
     } else {
       this.userMusic.update(music => music.filter(s => s.id !== musicId));
     }
@@ -236,6 +237,8 @@ export class MurekaService {
     const { error } = await this.supabase.deleteFailedMusicForUser(user.id);
     if (error) {
         console.error('Error clearing failed music:', error.message);
+        // Throw the error so the UI layer can catch it.
+        throw new Error(error.message || 'Falha ao limpar as músicas com falha.');
     } else {
         this.userMusic.update(music => music.filter(s => s.status !== 'failed'));
     }
