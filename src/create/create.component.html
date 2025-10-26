@@ -83,27 +83,39 @@
 
     <!-- ESTILO -->
     <div class="bg-[#1A181A] p-6 rounded-2xl border border-zinc-800">
-        <h2 class="text-xl font-semibold mb-4">Estilo</h2>
-        <textarea 
-            id="song-style"
-            [value]="songStyle()"
-            (input)="songStyle.set($event.target.value)"
-            rows="3"
-            placeholder="Insira o estilo, o humor, o instrumento, etc. para controlar a música gerada (ex: pop, dançante, sintetizador)"
-            class="w-full p-3 bg-zinc-900 border border-zinc-700 rounded-md text-gray-200 placeholder-zinc-500 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition"></textarea>
+      <h2 class="text-xl font-semibold mb-4">Estilo</h2>
+      <div class="flex flex-wrap gap-3">
+        @for (style of musicStyles; track style) {
+          <button 
+            (click)="toggleStyle(style)"
+            class="px-4 py-2 text-sm font-medium border rounded-full transition-colors"
+            [class.bg-purple-600]="selectedStyles().has(style)"
+            [class.border-purple-600]="selectedStyles().has(style)"
+            [class.text-white]="selectedStyles().has(style)"
+            [class.bg-zinc-800]="!selectedStyles().has(style)"
+            [class.border-zinc-700]="!selectedStyles().has(style)"
+            [class.text-zinc-300]="!selectedStyles().has(style)"
+            [class.hover:border-purple-500]="!selectedStyles().has(style)">
+            {{ style }}
+          </button>
+        }
+      </div>
+      <p class="text-xs text-zinc-500 mt-4">Selecione um ou mais estilos para sua música.</p>
     </div>
 
     <!-- OPÇÕES AVANÇADAS -->
     <div class="bg-[#1A181A] p-6 rounded-2xl border border-zinc-800">
       <h2 class="text-xl font-semibold mb-4">Opções avançadas</h2>
       <div class="space-y-6">
-        <div>
-          <label class="block text-sm font-medium text-zinc-300 mb-2">Gênero Vocal</label>
-          <div class="grid grid-cols-2 gap-4">
-            <button (click)="vocalGender.set('female')" [class.bg-purple-600]="vocalGender() === 'female'" [class.border-purple-600]="vocalGender() === 'female'" [class.text-white]="vocalGender() === 'female'" class="w-full text-center p-3 border border-zinc-700 bg-zinc-900 rounded-md transition-all hover:border-purple-500">Fêmea</button>
-            <button (click)="vocalGender.set('male')" [class.bg-purple-600]="vocalGender() === 'male'" [class.border-purple-600]="vocalGender() === 'male'" [class.text-white]="vocalGender() === 'male'" class="w-full text-center p-3 border border-zinc-700 bg-zinc-900 rounded-md transition-all hover:border-purple-500">Macho</button>
+        @if (!isInstrumental()) {
+          <div>
+            <label class="block text-sm font-medium text-zinc-300 mb-2">Gênero Vocal</label>
+            <div class="grid grid-cols-2 gap-4">
+              <button (click)="vocalGender.set('female')" [class.bg-purple-600]="vocalGender() === 'female'" [class.border-purple-600]="vocalGender() === 'female'" [class.text-white]="vocalGender() === 'female'" class="w-full text-center p-3 border border-zinc-700 bg-zinc-900 rounded-md transition-all hover:border-purple-500">Feminino</button>
+              <button (click)="vocalGender.set('male')" [class.bg-purple-600]="vocalGender() === 'male'" [class.border-purple-600]="vocalGender() === 'male'" [class.text-white]="vocalGender() === 'male'" class="w-full text-center p-3 border border-zinc-700 bg-zinc-900 rounded-md transition-all hover:border-purple-500">Masculino</button>
+            </div>
           </div>
-        </div>
+        }
         <div>
           <label for="song-title" class="block text-sm font-medium text-zinc-300 mb-2">Título</label>
           <input 

@@ -29,10 +29,13 @@ export class CreateComponent {
 
   // Form signals
   songTitle = signal<string>('');
-  songStyle = signal<string>('');
+  selectedStyles = signal(new Set<string>());
   lyrics = signal<string>('');
   vocalGender = signal<'male' | 'female'>('female');
   isInstrumental = signal<boolean>(false);
+
+  // Style options
+  readonly musicStyles = ['Pop', 'Rock', 'Sertanejo', 'Eletrônica', 'Hip Hop', 'Funk', 'Acústico', 'Ambiente', 'Clássico', 'MPB', 'Samba', 'Forró', 'R&B', 'Reggae', 'Lo-fi'];
 
   // Lyrics generation state
   lyricsDescription = signal<string>('');
@@ -47,7 +50,7 @@ export class CreateComponent {
       this.isMurekaConfigured() &&
       profile != null && profile.credits > 0 &&
       this.songTitle().trim().length > 0 &&
-      this.songStyle().trim().length > 0 &&
+      this.selectedStyles().size > 0 &&
       (this.lyrics().trim().length > 0 || this.isInstrumental()) &&
       !this.isGeneratingMusic()
     );
@@ -58,6 +61,17 @@ export class CreateComponent {
       if (!this.currentUser()) {
         this.router.navigate(['/auth'], { queryParams: { message: 'Faça login para criar músicas.' } });
       }
+    });
+  }
+
+  toggleStyle(style: string): void {
+    this.selectedStyles.update(styles => {
+      if (styles.has(style)) {
+        styles.delete(style);
+      } else {
+        styles.add(style);
+      }
+      return new Set(styles);
     });
   }
 
@@ -95,7 +109,12 @@ export class CreateComponent {
         await this.supabaseService.updateUserCredits(profile.id, newCreditCount);
 
         const lyricsToUse = this.isInstrumental() ? 'Instrumental' : this.lyrics();
-        const fullStyle = `${this.songStyle()}, ${this.vocalGender()} vocal`;
+        
+        const styleParts = Array.from(this.selectedStyles());
+        if (!this.isInstrumental()) {
+            styleParts.push(`${this.vocalGender()} vocal`);
+        }
+        const fullStyle = styleParts.join(', ');
 
         await this.murekaService.generateMusic(this.songTitle(), fullStyle, lyricsToUse);
 
@@ -103,7 +122,7 @@ export class CreateComponent {
         
         setTimeout(() => {
           this.songTitle.set('');
-          this.songStyle.set('');
+          this.selectedStyles.set(new Set());
           this.lyrics.set('');
           this.isInstrumental.set(false);
           this.lyricsDescription.set('');
