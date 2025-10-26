@@ -1,5 +1,5 @@
 import { Injectable, signal } from '@angular/core';
-import { createClient, SupabaseClient, User, AuthError } from '@supabase/supabase-js';
+import { createClient, SupabaseClient, User, AuthError, Session } from '@supabase/supabase-js';
 import { environment } from '../config';
 
 // Define the structure of a Music object, matching the 'musics' table
@@ -53,8 +53,8 @@ export class SupabaseService {
     const supabaseUrl = environment.supabaseUrl;
     const supabaseKey = environment.supabaseKey;
 
-    const isUrlMissing = !supabaseUrl || supabaseUrl.trim() === '' || supabaseUrl === 'YOUR_SUPABASE_URL';
-    const isKeyMissing = !supabaseKey || supabaseKey.trim() === '' || supabaseKey === 'YOUR_SUPABASE_ANON_KEY';
+    const isUrlMissing = !supabaseUrl || supabaseUrl.trim() === '' || supabaseUrl.includes('dummy-project-url');
+    const isKeyMissing = !supabaseKey || supabaseKey.trim() === '' || supabaseKey.includes('dummy-anon-key');
 
     if (isUrlMissing || isKeyMissing) {
       this.isConfigured.set(false);
@@ -74,6 +74,16 @@ export class SupabaseService {
       }
       this.authReady.set(true);
     });
+  }
+
+  async getSession(): Promise<Session | null> {
+    if (!this.supabase) return null;
+    const { data, error } = await this.supabase.auth.getSession();
+    if (error) {
+      console.error('Error getting session:', error.message);
+      return null;
+    }
+    return data.session;
   }
 
   async fetchUserProfile(userId: string): Promise<void> {

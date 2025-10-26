@@ -12,7 +12,6 @@ declare var Stripe: any;
   standalone: true,
   imports: [CommonModule],
   templateUrl: './subscribe.component.html',
-  // FIX: Corrected typo from `Change-DetectionStrategy` to `ChangeDetectionStrategy`.
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class SubscribeComponent implements OnInit {
@@ -61,7 +60,7 @@ export class SubscribeComponent implements OnInit {
     if (stripeKey.startsWith('sk_')) {
       errorMessage = "ALERTA DE SEGURANÇA: Uma chave secreta ('sk_...') do Stripe foi detectada no código. Isso é um risco grave. Por segurança, o pagamento foi desabilitado. REVOGUE esta chave imediatamente em seu painel Stripe e use apenas sua chave publicável ('pk_...').";
       this.isSecurityError.set(true);
-    } else if (!stripeKey || stripeKey.includes('COLE_SUA_CHAVE_PUBLICAVEL_AQUI')) {
+    } else if (!stripeKey || stripeKey.includes('COLE_SUA_CHAVE_PUBLICAVEL_AQUI') || stripeKey.includes('DUMMYSTRIPEKEYREPLACEME')) {
       errorMessage = "Erro de Configuração: A chave do Stripe não foi configurada. Localmente, adicione-a em `src/config.ts`. Em produção (Vercel), configure a variável de ambiente `STRIPE_PUBLISHABLE_KEY`.";
     } else if (!stripeKey.startsWith('pk_test_') && !stripeKey.startsWith('pk_live_')) {
       errorMessage = "Erro de Configuração do Stripe: A chave fornecida parece inválida. Certifique-se de que é a sua 'Chave Publicável' completa, que começa com 'pk_live_' ou 'pk_test_'.";
