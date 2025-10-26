@@ -109,12 +109,18 @@ export class MurekaService {
         'apikey': environment.supabaseKey, // The anon key is required to invoke functions.
       });
 
-      const body = {
+      const body: { [key: string]: any } = {
         title,
         tags: style,
-        lyrics,
         model_version: 'v2'
       };
+
+      // The Mureka API might reject requests with an empty lyrics string.
+      // Only include the lyrics property if it's not empty. This handles
+      // instrumental songs correctly, as they will have empty lyrics.
+      if (lyrics && lyrics.trim().length > 0) {
+        body.lyrics = lyrics;
+      }
 
       const generateResponse = await firstValueFrom(
         this.http.post<MurekaGenerateResponse>(`${MUREKA_PROXY_URL}/generate`, body, { headers })

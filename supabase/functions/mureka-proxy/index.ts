@@ -1,5 +1,5 @@
-// FIX: The type reference URL was updated to a more reliable CDN to ensure the Deno types are found.
-/// <reference types="https://cdn.jsdelivr.net/npm/@supabase/functions-js@2.4.1/src/edge-runtime.d.ts" />
+// FIX: The Deno type reference URL was updated from jsdelivr to esm.sh to ensure the Supabase/Deno types are correctly resolved.
+/// <reference types="https://esm.sh/@supabase/functions-js@2.4.1/src/edge-runtime.d.ts" />
 
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
