@@ -118,7 +118,10 @@ export class CreateComponent {
         const newCreditCount = profile.credits - 1;
         await this.supabaseService.updateUserCredits(profile.id, newCreditCount);
 
-        const styleParts = Array.from(this.selectedStyles());
+        // FIX: Replaced `Array.from()` with the spread syntax (`...`) to convert the Set to an array.
+        // This resolves a TypeScript type inference issue where the array item `s` in the `.some()`
+        // method below was incorrectly inferred as `unknown`.
+        const styleParts = [...this.selectedStyles()];
         if (this.customStyle().trim()) {
           styleParts.push(this.customStyle().trim());
         }

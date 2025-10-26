@@ -19,8 +19,9 @@ export class SubscribeComponent implements OnInit {
   private readonly router = inject(Router);
 
   billingCycle = signal<'annual' | 'monthly'>('monthly');
-  isLoading = signal<string | null>(null); // Plan ID
+  isLoading = signal<string | null>(null); // Plan ID for purchase button
   purchaseError = signal<string | null>(null);
+  isLoadingPlans = signal<boolean>(true); // For initial plan loading
   
   allPlans = signal<Plan[]>([]);
   
@@ -77,8 +78,16 @@ export class SubscribeComponent implements OnInit {
   }
 
   async loadPlans() {
-    const plans = await this.supabase.getPlans();
-    this.allPlans.set(plans);
+    this.isLoadingPlans.set(true);
+    try {
+      const plans = await this.supabase.getPlans();
+      this.allPlans.set(plans);
+    } catch (e) {
+      console.error('Failed to load plans', e);
+      this.purchaseError.set('Não foi possível carregar os planos. Tente recarregar a página.');
+    } finally {
+      this.isLoadingPlans.set(false);
+    }
   }
 
   async purchase(plan: Plan) {
