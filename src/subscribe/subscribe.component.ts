@@ -2,7 +2,7 @@ import { Component, ChangeDetectionStrategy, signal, inject, computed, OnInit, e
 import { CommonModule } from '@angular/common';
 import { SupabaseService, Plan } from '../services/supabase.service';
 import { Router } from '@angular/router';
-import { environment } from '../config';
+import { environment } from '../auth/config';
 
 // Declara a variável global Stripe injetada pelo script no index.html
 declare var Stripe: any;

@@ -1,5 +1,5 @@
 import { Injectable, signal } from '@angular/core';
-import { environment } from '../config';
+import { environment } from '../auth/config';
 import { GoogleGenAI } from '@google/genai';
 
 @Injectable({

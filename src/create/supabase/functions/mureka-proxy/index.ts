@@ -68,7 +68,7 @@ serve(async (req) => {
       });
     }
 
-    // 4. Handle request body explicitly and forward the request to the actual Mureka API.
+    // 4. Forward the request to the actual Mureka API.
     const url = new URL(req.url);
     const proxyPathRegex = /^\/functions\/v1\/mureka-proxy/;
     const murekaPath = url.pathname.replace(proxyPathRegex, '');
@@ -79,24 +79,10 @@ serve(async (req) => {
         'Authorization': `Bearer ${murekaApiKey}`,
     };
     
-    // Explicitly handle body to prevent potential streaming issues that can crash the runtime.
-    let body: BodyInit | null = null;
-    if (req.method === 'POST' || req.method === 'PUT') {
-        try {
-            const reqBody = await req.json();
-            body = JSON.stringify(reqBody);
-        } catch (e) {
-             return new Response(JSON.stringify({ error: "Invalid JSON body" }), {
-                status: 400,
-                headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
-            });
-        }
-    }
-
     const murekaResponse = await fetch(targetUrl, {
         method: req.method,
         headers: murekaHeaders,
-        body,
+        body: req.method === 'POST' || req.method === 'PUT' ? req.body : null,
     });
     
     // 5. Return Mureka's response back to the client application.

@@ -1,6 +1,7 @@
 import { Injectable, signal } from '@angular/core';
-import { createClient, SupabaseClient, User, AuthError, Session } from '@supabase/supabase-js';
-import { environment } from '../config';
+// FIX: Use `type` for type-only imports from supabase-js to align with modern library versions.
+import { createClient, SupabaseClient, type User, type AuthError, type Session } from '@supabase/supabase-js';
+import { environment } from '../auth/config';
 
 // Define the structure of a Music object, matching the 'musics' table
 export interface Music {

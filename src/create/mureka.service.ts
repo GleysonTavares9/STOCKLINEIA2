@@ -2,7 +2,7 @@ import { Injectable, signal, inject, effect, untracked } from '@angular/core';
 import { HttpClient, HttpHeaders, HttpErrorResponse } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import { SupabaseService, Music } from '../services/supabase.service';
-import { environment } from '../config';
+import { environment } from '../auth/config';
 
 // The new base URL points to the Supabase function proxy.
 const MUREKA_PROXY_URL = new URL('/functions/v1/mureka-proxy', environment.supabaseUrl).href;
