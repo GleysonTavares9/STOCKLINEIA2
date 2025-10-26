@@ -23,24 +23,20 @@ serve(async (req) => {
   }
 
   try {
-    // 1. Create a Supabase client with the user's auth token.
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      { global: { headers: { Authorization: req.headers.get('Authorization')! } } }
-    );
+    // 1. Get all required variables and headers, and validate them upfront.
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY');
+    const murekaApiKey = Deno.env.get('MUREKA_API_KEY');
+    const authorization = req.headers.get('Authorization');
 
-    // 2. Verify that the user is authenticated.
-    const { data: { user } } = await supabaseClient.auth.getUser();
-    if (!user) {
-      return new Response(JSON.stringify({ error: 'Authentication required' }), {
-        status: 401,
+    if (!supabaseUrl || !supabaseAnonKey) {
+      console.error('SUPABASE_URL or SUPABASE_ANON_KEY environment variable not set on the server.');
+      return new Response(JSON.stringify({ error: 'Supabase environment variables not configured on the server.' }), {
+        status: 500,
         headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
       });
     }
 
-    // 3. Get the Mureka API Key from Supabase secrets.
-    const murekaApiKey = Deno.env.get('MUREKA_API_KEY');
     if (!murekaApiKey) {
       console.error('MUREKA_API_KEY environment variable not set');
       return new Response(JSON.stringify({ error: 'Mureka API key not configured on the server.' }), {
@@ -49,9 +45,31 @@ serve(async (req) => {
       });
     }
 
+    if (!authorization) {
+      return new Response(JSON.stringify({ error: 'Authorization header is missing' }), {
+        status: 401,
+        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // 2. Create a Supabase client with the user's auth token.
+    const supabaseClient = createClient(
+      supabaseUrl,
+      supabaseAnonKey,
+      { global: { headers: { Authorization: authorization } } }
+    );
+
+    // 3. Verify that the user is authenticated.
+    const { data: { user } } = await supabaseClient.auth.getUser();
+    if (!user) {
+      return new Response(JSON.stringify({ error: 'Authentication required' }), {
+        status: 401,
+        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+      });
+    }
+
     // 4. Forward the request to the actual Mureka API.
     const url = new URL(req.url);
-    // Correctly strip the Supabase function path to get the target Mureka path.
     const proxyPathRegex = /^\/functions\/v1\/mureka-proxy/;
     const murekaPath = url.pathname.replace(proxyPathRegex, '');
     const targetUrl = `${MUREKA_API_URL}${murekaPath}${url.search}`;
@@ -70,7 +88,6 @@ serve(async (req) => {
     // 5. Return Mureka's response back to the client application.
     const responseData = await murekaResponse.text();
 
-    // Copy headers from Mureka response, but add CORS headers
     const responseHeaders = new Headers(murekaResponse.headers);
     Object.entries(CORS_HEADERS).forEach(([key, value]) => {
       responseHeaders.set(key, value);

@@ -24,8 +24,6 @@ interface MurekaQueryResponse {
 export class MurekaService {
   private readonly http = inject(HttpClient);
   private readonly supabase = inject(SupabaseService);
-  // isConfigured now depends on Supabase, as the proxy function is part of it.
-  readonly isConfigured = this.supabase.isConfigured;
 
   userMusic = signal<Music[]>([]);
 
@@ -70,7 +68,8 @@ export class MurekaService {
   }
 
   async generateMusic(title: string, style: string, lyrics: string): Promise<void> {
-    if (!this.isConfigured()) {
+    const isConfigured = this.supabase.isConfigured();
+    if (!isConfigured) {
         const errorMsg = 'O Supabase não está configurado. A geração de música está desativada.';
         console.error(errorMsg);
         await this.supabase.addMusic({ title, style, lyrics, status: 'failed', error: errorMsg });
@@ -135,7 +134,8 @@ export class MurekaService {
   }
 
   async generateInstrumental(title: string, style: string): Promise<void> {
-    if (!this.isConfigured()) {
+    const isConfigured = this.supabase.isConfigured();
+    if (!isConfigured) {
         const errorMsg = 'O Supabase não está configurado. A geração de música está desativada.';
         console.error(errorMsg);
         await this.supabase.addMusic({ title, style, lyrics: '', status: 'failed', error: errorMsg });
