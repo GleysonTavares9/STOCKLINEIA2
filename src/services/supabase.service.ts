@@ -170,7 +170,6 @@ export class SupabaseService {
         description: musicData.lyrics,
         status: musicData.status,
         user_id: user.id,
-        is_public: true, // Default all new music to public
         audio_url: '', // Satisfy NOT NULL constraint on creation
         metadata: musicData.error ? { error: musicData.error } : {},
       })
@@ -281,7 +280,6 @@ export class SupabaseService {
       .from('musics')
       .select('*')
       .eq('status', 'succeeded')
-      .eq('is_public', true)
       .order('created_at', { ascending: false })
       .limit(50);
 
