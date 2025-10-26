@@ -1,4 +1,4 @@
-import { Component, ChangeDetectionStrategy, inject, effect } from '@angular/core';
+import { Component, ChangeDetectionStrategy, inject, effect, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MurekaService } from '../create/mureka.service';
 import { SupabaseService } from '../services/supabase.service';
@@ -18,6 +18,8 @@ export class LibraryComponent {
   
   history = this.murekaService.userMusic;
   currentUser = this.supabaseService.currentUser;
+  
+  hasFailedMusic = computed(() => this.history().some(item => item.status === 'failed'));
 
   constructor() {
     effect(() => {
@@ -26,5 +28,17 @@ export class LibraryComponent {
         this.router.navigate(['/auth']);
       }
     });
+  }
+
+  deleteMusic(musicId: string): void {
+    if (confirm('Tem certeza de que deseja apagar esta música permanentemente?')) {
+      this.murekaService.deleteMusic(musicId);
+    }
+  }
+
+  clearFailedMusic(): void {
+    if (confirm('Tem certeza de que deseja apagar TODAS as músicas com falha? Esta ação não pode ser desfeita.')) {
+      this.murekaService.clearFailedMusic();
+    }
   }
 }

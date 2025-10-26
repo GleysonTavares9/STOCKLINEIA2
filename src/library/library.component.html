@@ -9,9 +9,17 @@
       <button class="px-6 py-2 rounded-full bg-white text-black font-semibold">Minhas músicas</button>
       <button class="px-6 py-2 rounded-full text-zinc-400 hover:text-white">Músicas que você gostou</button>
     </div>
-    <div class="relative w-full sm:w-auto">
-      <input type="search" placeholder="Digite o título da música..." class="w-full sm:w-64 bg-[#1A181A] border border-zinc-800 rounded-full py-2.5 pl-10 pr-4 text-white placeholder-zinc-500 focus:ring-2 focus:ring-purple-500 focus:border-purple-500">
-      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd" /></svg>
+    <div class="flex items-center gap-4">
+      @if (hasFailedMusic()) {
+        <button (click)="clearFailedMusic()" class="flex items-center gap-2 px-4 py-2.5 bg-red-900/40 text-red-300 rounded-full text-sm font-semibold hover:bg-red-900/60 transition-colors">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" /></svg>
+          <span>Limpar Falhas</span>
+        </button>
+      }
+      <div class="relative w-full sm:w-auto">
+        <input type="search" placeholder="Digite o título da música..." class="w-full sm:w-64 bg-[#1A181A] border border-zinc-800 rounded-full py-2.5 pl-10 pr-4 text-white placeholder-zinc-500 focus:ring-2 focus:ring-purple-500 focus:border-purple-500">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd" /></svg>
+      </div>
     </div>
   </div>
 
@@ -38,11 +46,11 @@
             {{ item.created_at | date:'dd/MM/yyyy' }}
           </div>
           
-          <div class="flex-shrink-0">
+          <div class="flex-shrink-0 w-48 flex items-center justify-center">
              @switch (item.status) {
               @case ('succeeded') {
                 @if (item.audio_url) {
-                  <audio controls [src]="item.audio_url" class="h-10"></audio>
+                  <audio controls [src]="item.audio_url" class="h-10 w-full"></audio>
                 }
               }
               @case ('failed') {
@@ -67,8 +75,12 @@
             }
           </div>
 
-          <div class="flex items-center gap-2">
-            <button class="p-2 text-zinc-400 hover:text-white hover:bg-zinc-700 rounded-full transition-colors"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" /></svg></button>
+          <div class="flex-shrink-0">
+            <button (click)="deleteMusic(item.id)" title="Apagar música" class="p-2 text-zinc-500 hover:text-red-400 hover:bg-red-900/30 rounded-full transition-colors">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
+              </svg>
+            </button>
           </div>
         </div>
       }

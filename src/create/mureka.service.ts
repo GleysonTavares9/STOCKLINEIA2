@@ -212,4 +212,26 @@ export class MurekaService {
 
     poll(30);
   }
+
+  async deleteMusic(musicId: string): Promise<void> {
+    const { error } = await this.supabase.deleteMusic(musicId);
+    if (error) {
+      console.error('Error deleting music:', error.message);
+      // In a real app, you might want to show a user-facing error.
+    } else {
+      this.userMusic.update(music => music.filter(s => s.id !== musicId));
+    }
+  }
+
+  async clearFailedMusic(): Promise<void> {
+    const user = this.supabase.currentUser();
+    if (!user) return;
+
+    const { error } = await this.supabase.deleteFailedMusicForUser(user.id);
+    if (error) {
+        console.error('Error clearing failed music:', error.message);
+    } else {
+        this.userMusic.update(music => music.filter(s => s.status !== 'failed'));
+    }
+  }
 }

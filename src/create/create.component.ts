@@ -108,11 +108,14 @@ export class CreateComponent {
         const newCreditCount = profile.credits - 1;
         await this.supabaseService.updateUserCredits(profile.id, newCreditCount);
 
-        const lyricsToUse = this.isInstrumental() ? 'Instrumental' : this.lyrics();
-        
         const styleParts = Array.from(this.selectedStyles());
-        if (!this.isInstrumental()) {
-            styleParts.push(`${this.vocalGender()} vocal`);
+        let lyricsToUse = this.lyrics();
+
+        if (this.isInstrumental()) {
+          lyricsToUse = ''; // Instrumental tracks should have empty lyrics
+          styleParts.push('Instrumental'); // Add 'Instrumental' as a style tag
+        } else {
+          styleParts.push(`${this.vocalGender()} vocal`);
         }
         const fullStyle = styleParts.join(', ');
 

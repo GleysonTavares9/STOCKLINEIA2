@@ -244,6 +244,31 @@ export class SupabaseService {
     }
     return (data as Music[]) || [];
   }
+
+  async deleteMusic(musicId: string): Promise<{ error: any }> {
+    if (!this.supabase) return { error: { message: 'Supabase client not initialized.' } };
+    
+    const user = this.currentUser();
+    if (!user) return { error: { message: 'User not authenticated.' } };
+
+    const { error } = await this.supabase
+        .from('musics')
+        .delete()
+        .match({ id: musicId, user_id: user.id });
+
+    return { error };
+  }
+
+  async deleteFailedMusicForUser(userId: string): Promise<{ error: any }> {
+      if (!this.supabase) return { error: { message: 'Supabase client not initialized.' } };
+      
+      const { error } = await this.supabase
+          .from('musics')
+          .delete()
+          .match({ user_id: userId, status: 'failed' });
+  
+      return { error };
+  }
   
   async getAllPublicMusic(): Promise<Music[]> {
     if (!this.supabase) return [];
