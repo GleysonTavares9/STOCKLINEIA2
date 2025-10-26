@@ -140,7 +140,8 @@ export class CreateComponent {
         console.error("Failed to generate music or update credits", error);
         // Restore user's credits if the generation process fails.
         await this.supabaseService.updateUserCredits(profile.id, profile.credits);
-        this.generationError.set('Falha ao iniciar a geração da música. Seu crédito foi restaurado. Por favor, tente novamente.');
+        const message = error instanceof Error ? error.message : 'Ocorreu um erro desconhecido ao contatar o backend.';
+        this.generationError.set(`${message} Seu crédito foi restaurado.`);
         this.isGeneratingMusic.set(false);
     }
   }

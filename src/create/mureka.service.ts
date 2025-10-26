@@ -130,7 +130,7 @@ export class MurekaService {
       console.error('Erro ao iniciar a geração da música:', error);
       const errorMessage = this.getApiErrorMessage(error, 'Ocorreu um erro desconhecido ao contatar o backend.');
       this.handleGenerationError(error, musicRecord, { title, style, lyrics, errorMessage });
-      throw error;
+      throw new Error(errorMessage);
     }
   }
 
@@ -190,7 +190,7 @@ export class MurekaService {
       console.error('Erro ao iniciar a geração do instrumental:', error);
       const errorMessage = this.getApiErrorMessage(error, 'Ocorreu um erro desconhecido ao contatar o backend.');
       this.handleGenerationError(error, musicRecord, { title, style, lyrics: '', errorMessage });
-      throw error;
+      throw new Error(errorMessage);
     }
   }
 
