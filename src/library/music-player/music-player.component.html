@@ -15,6 +15,11 @@
       <img src="https://picsum.photos/seed/player-{{music().title}}/500/500" alt="Album Art" class="w-full max-w-[300px] aspect-square rounded-2xl object-cover my-6 shadow-lg shadow-black/50">
       
       <div class="w-full">
+        <div class="waveform mb-4" [class.is-playing]="waveformIsPlaying()">
+          @for (i of [0,1,2,3,4,5,6,7,8,9]; track i) {
+            <div class="waveform__bar"></div>
+          }
+        </div>
         <div class="flex items-center gap-4">
           <button 
             (click)="playPrevious()" 
@@ -23,7 +28,14 @@
             class="p-3 text-zinc-400 rounded-full hover:bg-zinc-800 disabled:text-zinc-600 disabled:cursor-not-allowed disabled:hover:bg-transparent transition-colors">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM6.205 9.157a1 1 0 000 1.686l5.09 3.054a1 1 0 001.55-.843V7.946a1 1 0 00-1.55-.843l-5.09 3.054z" clip-rule="evenodd" /></svg>
           </button>
-          <audio controls autoplay [src]="music().audio_url" class="w-full"></audio>
+          <audio 
+            controls 
+            autoplay 
+            [src]="music().audio_url" 
+            class="w-full"
+            (play)="waveformIsPlaying.set(true)"
+            (pause)="waveformIsPlaying.set(false)"
+            (ended)="waveformIsPlaying.set(false)"></audio>
           <button 
             (click)="playNext()" 
             [disabled]="!canPlayNext()" 

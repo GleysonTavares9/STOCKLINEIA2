@@ -1,4 +1,4 @@
-import { Component, ChangeDetectionStrategy, input, output, computed } from '@angular/core';
+import { Component, ChangeDetectionStrategy, input, output, computed, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Music } from '../../services/supabase.service';
 
@@ -16,6 +16,8 @@ export class MusicPlayerComponent {
   
   close = output<void>();
   changeSong = output<Music>();
+
+  waveformIsPlaying = signal(true); // Padrão para reprodução devido ao autoplay
 
   currentIndex = computed(() => this.playlist().findIndex(item => item.id === this.music().id));
   
