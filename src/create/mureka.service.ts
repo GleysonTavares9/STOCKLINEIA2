@@ -74,7 +74,7 @@ export class MurekaService {
         const errorMsg = 'O Supabase não está configurado. A geração de música está desativada.';
         console.error(errorMsg);
         await this.supabase.addMusic({ title, style, lyrics, status: 'failed', error: errorMsg });
-        return;
+        throw new Error(errorMsg);
     }
 
     const session = await this.supabase.getSession();
@@ -83,7 +83,7 @@ export class MurekaService {
       console.error(errorMsg);
       // Optionally create a failed record to inform the user.
       await this.supabase.addMusic({ title, style, lyrics, status: 'failed', error: 'Você precisa estar logado para criar músicas.' });
-      return;
+      throw new Error(errorMsg);
     }
 
     let musicRecord: Music | null = null;
@@ -130,6 +130,7 @@ export class MurekaService {
       console.error('Erro ao iniciar a geração da música:', error);
       const errorMessage = this.getApiErrorMessage(error, 'Ocorreu um erro desconhecido ao contatar o backend.');
       this.handleGenerationError(error, musicRecord, { title, style, lyrics, errorMessage });
+      throw error;
     }
   }
 
@@ -138,7 +139,7 @@ export class MurekaService {
         const errorMsg = 'O Supabase não está configurado. A geração de música está desativada.';
         console.error(errorMsg);
         await this.supabase.addMusic({ title, style, lyrics: '', status: 'failed', error: errorMsg });
-        return;
+        throw new Error(errorMsg);
     }
 
     const session = await this.supabase.getSession();
@@ -146,7 +147,7 @@ export class MurekaService {
       const errorMsg = "Usuário não autenticado. Impossível gerar música.";
       console.error(errorMsg);
       await this.supabase.addMusic({ title, style, lyrics: '', status: 'failed', error: 'Você precisa estar logado para criar músicas.' });
-      return;
+      throw new Error(errorMsg);
     }
 
     let musicRecord: Music | null = null;
@@ -189,6 +190,7 @@ export class MurekaService {
       console.error('Erro ao iniciar a geração do instrumental:', error);
       const errorMessage = this.getApiErrorMessage(error, 'Ocorreu um erro desconhecido ao contatar o backend.');
       this.handleGenerationError(error, musicRecord, { title, style, lyrics: '', errorMessage });
+      throw error;
     }
   }
 
@@ -238,7 +240,7 @@ export class MurekaService {
         });
 
         const queryResponse = await firstValueFrom(
-          this.http.get<MurekaQueryResponse>(`${MUREKA_PROXY_URL}/${queryPath}?id=${taskId}`, { headers })
+          this.http.get<MurekaQueryResponse>(`${MUREKA_PROXY_URL}/${queryPath}/${taskId}`, { headers })
         );
 
         const status = queryResponse.status;

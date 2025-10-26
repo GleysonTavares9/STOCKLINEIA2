@@ -43,6 +43,7 @@ export class CreateComponent {
   lyricsError = signal<string | null>(null);
 
   isGeneratingMusic = signal<boolean>(false);
+  generationError = signal<string | null>(null);
 
   canGenerateMusic = computed(() => {
     const profile = this.currentUserProfile();
@@ -104,6 +105,7 @@ export class CreateComponent {
     }
     
     this.isGeneratingMusic.set(true);
+    this.generationError.set(null);
 
     try {
         const newCreditCount = profile.credits - 1;
@@ -136,6 +138,9 @@ export class CreateComponent {
         }, 500);
     } catch (error) {
         console.error("Failed to generate music or update credits", error);
+        // Restore user's credits if the generation process fails.
+        await this.supabaseService.updateUserCredits(profile.id, profile.credits);
+        this.generationError.set('Falha ao iniciar a geração da música. Seu crédito foi restaurado. Por favor, tente novamente.');
         this.isGeneratingMusic.set(false);
     }
   }

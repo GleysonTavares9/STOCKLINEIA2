@@ -171,4 +171,9 @@
       </div>
     }
   </div>
+  @if (generationError()) {
+    <div class="mt-4 p-4 bg-red-900/30 border border-red-700 text-red-300 rounded-lg text-sm text-center">
+      <p>{{ generationError() }}</p>
+    </div>
+  }
 </div>

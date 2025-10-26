@@ -252,22 +252,24 @@ export class SupabaseService {
     const user = this.currentUser();
     if (!user) return { error: { message: 'User not authenticated.' } };
 
-    const { error } = await this.supabase
+    const { error, count } = await this.supabase
         .from('musics')
-        .delete()
+        .delete({ count: 'exact' })
         .match({ id: musicId, user_id: user.id });
 
+    console.log(`Attempted to delete music ID ${musicId}. Rows affected: ${count}`);
     return { error };
   }
 
   async deleteFailedMusicForUser(userId: string): Promise<{ error: any }> {
       if (!this.supabase) return { error: { message: 'Supabase client not initialized.' } };
       
-      const { error } = await this.supabase
+      const { error, count } = await this.supabase
           .from('musics')
-          .delete()
+          .delete({ count: 'exact' })
           .match({ user_id: userId, status: 'failed' });
   
+      console.log(`Attempted to clear failed music for user ${userId}. Rows affected: ${count}`);
       return { error };
   }
   
