@@ -33,13 +33,33 @@
       </div>
       
       @if (!isInstrumental()) {
-        <textarea 
-          id="lyrics-content"
-          [value]="lyrics()"
-          (input)="lyrics.set($event.target.value)"
-          rows="8"
-          placeholder="Insira a letra aqui..."
-          class="w-full p-3 bg-zinc-900 border border-zinc-700 rounded-md text-gray-200 placeholder-zinc-500 focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition"></textarea>
+        <div class="relative">
+          <textarea 
+            id="lyrics-content"
+            [value]="lyrics()"
+            (input)="lyrics.set($event.target.value)"
+            rows="8"
+            [attr.maxlength]="lyricsCharLimit"
+            placeholder="Insira a letra aqui..."
+            class="w-full p-3 pr-20 bg-zinc-900 border rounded-md text-gray-200 placeholder-zinc-500 focus:ring-2 focus:border-teal-500 transition"
+            [class.border-zinc-700]="!isLyricsTooLong()"
+            [class.focus:ring-teal-500]="!isLyricsTooLong()"
+            [class.border-red-600]="isLyricsTooLong()"
+            [class.focus:ring-red-500]="isLyricsTooLong()">
+          </textarea>
+           <div 
+            class="absolute bottom-3 right-3 text-xs pointer-events-none"
+            [class.text-zinc-500]="!isLyricsTooLong()"
+            [class.text-red-400]="isLyricsTooLong()">
+            {{ lyricsCharCount() }} / {{ lyricsCharLimit }}
+          </div>
+        </div>
+
+        @if (isLyricsTooLong()) {
+          <p class="text-red-400 text-sm mt-2 text-center">
+            A letra excedeu o limite de {{ lyricsCharLimit }} caracteres.
+          </p>
+        }
         
         <div class="text-center my-4 text-zinc-500 text-sm">ou</div>
 

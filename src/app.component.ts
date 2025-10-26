@@ -5,7 +5,7 @@ import { SupabaseService } from './services/supabase.service';
 
 @Component({
   selector: 'app-root',
-  templateUrl: './app.component.html',
+  templateUrl: './create/app.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
   standalone: true,
   imports: [CommonModule, RouterOutlet, RouterLink, RouterLinkActive]

@@ -45,13 +45,21 @@ export class CreateComponent {
   isGeneratingMusic = signal<boolean>(false);
   generationError = signal<string | null>(null);
 
+  // Lyrics character limit logic
+  readonly lyricsCharLimit = 3000;
+  lyricsCharCount = computed(() => this.lyrics().length);
+  isLyricsTooLong = computed(() => this.lyricsCharCount() > this.lyricsCharLimit);
+
   canGenerateMusic = computed(() => {
     const profile = this.currentUserProfile();
+    // A letra é válida se for instrumental OU se não estiver vazia e estiver dentro do limite de caracteres.
+    const lyricsOk = this.isInstrumental() || (this.lyrics().trim().length > 0 && !this.isLyricsTooLong());
+    
     return (
       profile != null && profile.credits > 0 &&
       this.songTitle().trim().length > 0 &&
       (this.selectedStyles().size > 0 || this.customStyle().trim().length > 0) &&
-      (this.lyrics().trim().length > 0 || this.isInstrumental()) &&
+      lyricsOk &&
       !this.isGeneratingMusic()
     );
   });
