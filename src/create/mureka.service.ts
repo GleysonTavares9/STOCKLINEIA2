@@ -208,20 +208,16 @@ export class MurekaService {
     }
   }
   
-  private async pollForResult(musicId: string, taskId: string, queryPath: 'song/query' | 'instrumental/query'): Promise<void> {
-    const session = await this.supabase.getSession();
-    if (!session?.access_token) {
-      console.error("Sessão expirada. Interrompendo a verificação de status da música.");
-      const errorMsg = 'Sua sessão expirou. Faça login novamente para ver o resultado.';
-      const updatedMusic = await this.supabase.updateMusic(musicId, { status: 'failed', error: errorMsg });
-       if (updatedMusic) {
-          this.userMusic.update(music => music.map(s => s.id === updatedMusic.id ? updatedMusic : s));
-       }
-      return;
-    }
+  private pollForResult(musicId: string, taskId: string, queryPath: 'song/query' | 'instrumental/query'): void {
+    const maxRetries = 30; // 30 retries * 10 seconds = 5 minutes timeout
+    let attempt = 0;
 
-    const poll = async (retries: number): Promise<void> => {
-      if (retries <= 0) {
+    const intervalId = setInterval(async () => {
+      attempt++;
+
+      // Stop if timeout is reached
+      if (attempt > maxRetries) {
+        clearInterval(intervalId);
         console.error(`Polling timeout for task ${taskId}`);
         const errorMsg = 'O tempo para gerar a música esgotou.';
         const updatedMusic = await this.supabase.updateMusic(musicId, { status: 'failed', error: errorMsg });
@@ -231,9 +227,20 @@ export class MurekaService {
         return;
       }
 
-      try {
-        await new Promise(resolve => setTimeout(resolve, 10000)); 
+      // Get a fresh session token on each poll attempt to prevent expiration issues
+      const session = await this.supabase.getSession();
+      if (!session?.access_token) {
+        clearInterval(intervalId);
+        console.error("Sessão expirada. Interrompendo a verificação de status da música.");
+        const errorMsg = 'Sua sessão expirou. Faça login novamente para ver o resultado.';
+        const updatedMusic = await this.supabase.updateMusic(musicId, { status: 'failed', error: errorMsg });
+        if (updatedMusic) {
+            this.userMusic.update(music => music.map(s => s.id === updatedMusic.id ? updatedMusic : s));
+        }
+        return;
+      }
 
+      try {
         const headers = new HttpHeaders({
           'Authorization': `Bearer ${session.access_token}`,
           'apikey': environment.supabaseKey,
@@ -246,6 +253,7 @@ export class MurekaService {
         const status = queryResponse.status;
         
         if (status === 'succeeded') {
+          clearInterval(intervalId);
           const audioUrl = queryResponse.choices?.[0]?.audio_url;
           if (!audioUrl) {
             throw new Error('API retornou sucesso, mas a URL do áudio não foi encontrada.');
@@ -255,16 +263,17 @@ export class MurekaService {
             this.userMusic.update(music => music.map(s => s.id === updatedMusic.id ? updatedMusic : s));
           }
         } else if (status === 'failed' || status === 'timeouted' || status === 'cancelled') {
+          clearInterval(intervalId);
           const reason = queryResponse.failed_reason || 'A geração falhou por um motivo desconhecido.';
           const updatedMusic = await this.supabase.updateMusic(musicId, { status: 'failed', error: reason });
            if (updatedMusic) {
             this.userMusic.update(music => music.map(s => s.id === updatedMusic.id ? updatedMusic : s));
           }
-        } else {
-          poll(retries - 1);
         }
+        // If status is still processing (e.g., 'queued', 'running'), do nothing and let the interval continue.
 
       } catch (error) {
+        clearInterval(intervalId);
         console.error(`Error polling for task ${taskId}:`, error);
          const errorMessage = this.getApiErrorMessage(error, 'Erro ao verificar o status da música.');
          const updatedMusic = await this.supabase.updateMusic(musicId, { status: 'failed', error: errorMessage });
@@ -272,9 +281,7 @@ export class MurekaService {
             this.userMusic.update(music => music.map(s => s.id === updatedMusic.id ? updatedMusic : s));
           }
       }
-    };
-
-    poll(30);
+    }, 10000); // Poll every 10 seconds
   }
 
   async deleteMusic(musicId: string): Promise<void> {
