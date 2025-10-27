@@ -11,12 +11,9 @@
   @if (!isMurekaConfigured()) {
     <div class="mb-8 p-6 rounded-2xl bg-red-900/30 border border-red-700 text-red-300 text-center">
       <h2 class="font-bold text-lg mb-2">⚠️ Configuração de API Crítica Necessária (Mureka) ⚠️</h2>
-      <p class="mb-2">A chave da API da Mureka não foi configurada. A geração de músicas está desativada.</p>
+      <p class="mb-2">O Supabase não está configurado. A geração de músicas está desativada, ou a Edge Function não está pronta.</p>
       <p class="mt-4 text-sm font-semibold">
-        PARA CORRIGIR: Adicione sua chave de API da Mureka. <strong>Localmente:</strong> defina a variável de ambiente <code class="bg-red-700/30 text-white px-1 py-0.5 rounded">CHAVE_API_MUREKA</code> no seu terminal antes de iniciar o `ng serve`. <strong>Em produção (Vercel):</strong> configure a variável de ambiente <code class="bg-red-700/30 text-white px-1 py-0.5 rounded">CHAVE_API_MUREKA</code> no painel de sua plataforma de hospedagem.
-      </p>
-      <p class="mt-4 text-sm text-red-200">
-        <strong class="text-red-100">ALERTA DE SEGURANÇA:</strong> Esta chave é secreta e agora está exposta no frontend. Isso é um risco de segurança. Qualquer um pode roubar e usar sua chave Mureka, gerando custos em sua conta. A arquitetura original usava um proxy de backend para proteger esta chave.
+        PARA CORRIGIR: Verifique as credenciais do Supabase em <code class="bg-red-700/30 text-white px-1 py-0.5 rounded">src/config.ts</code> e certifique-se de que a Edge Function `mureka-proxy` está implantada e configurada com a variável de ambiente `MUREKA_API_KEY` no painel do Supabase.
       </p>
     </div>
   }

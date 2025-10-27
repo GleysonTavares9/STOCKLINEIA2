@@ -1,4 +1,4 @@
-import { Injectable, signal, inject, effect, untracked } from '@angular/core';
+import { Injectable, signal, inject, effect, untracked, computed } from '@angular/core';
 import { HttpClient, HttpHeaders, HttpErrorResponse } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import { SupabaseService, Music } from '../services/supabase.service';
@@ -6,7 +6,8 @@ import { environment } from '../auth/config';
 
 // Agora a Mureka API é chamada diretamente do frontend.
 // ATENÇÃO: Isso expõe a Mureka API Key no código do cliente.
-const MUREKA_API_BASE_URL = 'https://api.mureka.ai/v1';
+// A Mureka API BASE URL não é mais usada diretamente, agora as chamadas passam pela Edge Function.
+// const MUREKA_API_BASE_URL = 'https://api.mureka.ai/v1';
 
 interface MurekaGenerateResponse {
   id: string;
@@ -27,15 +28,12 @@ export class MurekaService {
   private readonly supabase = inject(SupabaseService);
 
   userMusic = signal<Music[]>([]);
-  readonly isConfigured = signal(true); // Indica se a chave da Mureka foi configurada
+  // isConfigured agora depende da configuração do Supabase, pois as chamadas Mureka passam por ele.
+  readonly isConfigured = computed(() => this.supabase.isConfigured());
 
   constructor() {
-    // Verificar se a chave da Mureka está configurada
-    const apiKey = environment.murekaApiKey;
-    if (!apiKey || apiKey === 'op_YOUR_MUREKA_API_KEY') {
-      this.isConfigured.set(false);
-      return;
-    }
+    // A verificação da chave da Mureka foi movida para a Edge Function.
+    // O `isConfigured` do frontend agora reflete a prontidão do cliente Supabase.
 
     // Load user music when auth state changes
     effect(() => {
@@ -52,24 +50,25 @@ export class MurekaService {
   }
 
   private getApiErrorMessage(error: any, defaultMessage: string): string {
+    // Se o erro vem da invokeFunction, pode ter uma estrutura diferente
+    if (error?.message?.includes('Supabase client not initialized')) {
+      return 'O Supabase não está configurado. Verifique as credenciais no `src/config.ts`.';
+    }
+    if (error?.message?.includes('MUREKA_API_KEY not configured')) {
+        return 'Erro de configuração no servidor: a chave da API Mureka não foi configurada na Edge Function.';
+    }
+    // Trata erros que vêm da Edge Function ou de outras chamadas Http (se aplicável)
     if (error instanceof HttpErrorResponse) {
       if (error.status === 0) {
-        return 'Falha de rede ao contatar a API da Mureka. Verifique sua conexão com a internet.';
+        return 'Falha de rede. Verifique sua conexão com a internet ou se o Supabase está online.';
       }
       
       const apiError = error.error;
-      if (error.status === 401) {
-        return 'Erro de Autenticação da Mureka: Verifique se sua MUREKA_API_KEY está correta.';
-      }
-      if (error.status === 403) {
-        return 'Acesso negado pela Mureka API. Verifique sua chave ou permissões.';
-      }
-
-      if (apiError?.detail) return `Erro da API Mureka (${error.status}): ${apiError.detail}`;
-      if (apiError?.message) return `Erro da API Mureka (${error.status}): ${apiError.message}`;
-      if (apiError?.error) return `Erro da API Mureka (${error.status}): ${apiError.error}`;
+      if (apiError?.error) return `Erro do backend (${error.status}): ${apiError.error}`;
+      if (apiError?.message) return `Erro do backend (${error.status}): ${apiError.message}`;
+      if (apiError?.detail) return `Erro do backend (${error.status}): ${apiError.detail}`;
       
-      return `Erro na requisição Mureka: ${error.status} - ${error.statusText}`;
+      return `Erro na requisição ao backend: ${error.status} - ${error.statusText}`;
     }
 
     if (error?.message) return `Erro de comunicação: ${error.message}`;
@@ -78,13 +77,13 @@ export class MurekaService {
 
   async generateMusic(title: string, style: string, lyrics: string): Promise<void> {
     if (!this.isConfigured()) {
-        const errorMsg = 'O serviço da Mureka não está configurado. Verifique sua chave de API em `src/config.ts`.';
+        const errorMsg = 'O Supabase não está configurado. Verifique sua chave de API em `src/config.ts`.';
         console.error(errorMsg);
         await this.supabase.addMusic({ title, style, lyrics, status: 'failed', error: errorMsg });
         throw new Error(errorMsg);
     }
     
-    // Agora a autenticação da Mureka é independente da sessão Supabase, mas ainda precisamos do usuário logado
+    // A autenticação da Mureka agora é tratada pela Edge Function, mas ainda precisamos do usuário logado
     // para registrar a música no Supabase e gerenciar créditos.
     const session = await this.supabase.getSession();
     if (!session?.access_token) {
@@ -110,26 +109,33 @@ export class MurekaService {
       const finalMusicRecord = musicRecord;
       this.userMusic.update(current => [finalMusicRecord, ...current]);
       
-      const headers = new HttpHeaders({
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${environment.murekaApiKey}`, // Usando a chave da Mureka diretamente
-      });
-
-      const body: { [key: string]: any } = {
+      const murekaRequestBody: { [key: string]: any } = {
         prompt: style,
         model: 'auto',
         n: 1, 
       };
       
       if (lyrics && lyrics.trim().length > 0) {
-        body.lyrics = lyrics;
+        murekaRequestBody.lyrics = lyrics;
       }
 
-      const generateResponse = await firstValueFrom(
-        this.http.post<MurekaGenerateResponse>(`${MUREKA_API_BASE_URL}/song/generate`, body, { headers })
-      );
+      // Chama a Edge Function para proxy para a API Mureka
+      const { data, error: proxyError } = await this.supabase.invokeFunction('mureka-proxy', {
+          body: {
+              murekaApiPath: 'song/generate',
+              method: 'POST',
+              requestBody: murekaRequestBody,
+          }
+      });
 
-      const taskId = generateResponse.id;
+      if (proxyError) {
+        throw new Error(proxyError.message || 'Erro ao chamar a função proxy para a API da Mureka.');
+      }
+      if (!data || typeof data.id !== 'string') {
+          throw new Error('Resposta inválida da API da Mureka via proxy: ID da tarefa ausente.');
+      }
+
+      const taskId = data.id;
       await this.supabase.updateMusic(finalMusicRecord.id, { mureka_id: taskId });
       this.pollForResult(finalMusicRecord.id, taskId, 'song/query');
 
@@ -143,7 +149,7 @@ export class MurekaService {
 
   async generateInstrumental(title: string, style: string): Promise<void> {
     if (!this.isConfigured()) {
-        const errorMsg = 'O serviço da Mureka não está configurado. Verifique sua chave de API em `src/config.ts`.';
+        const errorMsg = 'O Supabase não está configurado. Verifique sua chave de API em `src/config.ts`.';
         console.error(errorMsg);
         await this.supabase.addMusic({ title, style, lyrics: '', status: 'failed', error: errorMsg });
         throw new Error(errorMsg);
@@ -173,22 +179,29 @@ export class MurekaService {
       const finalMusicRecord = musicRecord;
       this.userMusic.update(current => [finalMusicRecord, ...current]);
       
-      const headers = new HttpHeaders({
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${environment.murekaApiKey}`, // Usando a chave da Mureka diretamente
-      });
-
-      const body = {
+      const murekaRequestBody = {
         prompt: style,
         model: 'auto',
         n: 1,
       };
 
-      const generateResponse = await firstValueFrom(
-        this.http.post<MurekaGenerateResponse>(`${MUREKA_API_BASE_URL}/instrumental/generate`, body, { headers })
-      );
+      // Chama a Edge Function para proxy para a API Mureka
+      const { data, error: proxyError } = await this.supabase.invokeFunction('mureka-proxy', {
+          body: {
+              murekaApiPath: 'instrumental/generate',
+              method: 'POST',
+              requestBody: murekaRequestBody,
+          }
+      });
 
-      const taskId = generateResponse.id;
+      if (proxyError) {
+        throw new Error(proxyError.message || 'Erro ao chamar a função proxy para a API da Mureka.');
+      }
+      if (!data || typeof data.id !== 'string') {
+          throw new Error('Resposta inválida da API da Mureka via proxy: ID da tarefa ausente.');
+      }
+
+      const taskId = data.id;
       await this.supabase.updateMusic(finalMusicRecord.id, { mureka_id: taskId });
       this.pollForResult(finalMusicRecord.id, taskId, 'instrumental/query');
 
@@ -233,7 +246,6 @@ export class MurekaService {
         return;
       }
 
-      // Nenhuma sessão Supabase necessária para a chamada Mureka, mas o status do usuário ainda é relevante
       // Se o usuário não estiver mais autenticado no Supabase (ex: logout), podemos parar de verificar.
       if (!this.supabase.currentUser()) {
         clearInterval(intervalId);
@@ -246,16 +258,20 @@ export class MurekaService {
         return;
       }
 
-
       try {
-        const headers = new HttpHeaders({
-          'Authorization': `Bearer ${environment.murekaApiKey}`, // Usando a chave da Mureka diretamente
+        // Chama a Edge Function para proxy para a API Mureka para consulta
+        const { data: queryResponse, error: proxyError } = await this.supabase.invokeFunction('mureka-proxy', {
+            body: {
+                murekaApiPath: `${queryPath}/${taskId}`,
+                method: 'GET',
+            }
         });
 
-        const queryResponse = await firstValueFrom(
-          this.http.get<MurekaQueryResponse>(`${MUREKA_API_BASE_URL}/${queryPath}/${taskId}`, { headers })
-        );
+        if (proxyError) {
+          throw new Error(proxyError.message || 'Erro ao chamar a função proxy para verificar o status da Mureka.');
+        }
 
+        // `queryResponse` é a resposta real da API da Mureka
         // --- Início dos logs detalhados para diagnóstico ---
         console.log(`Mureka Query Response for task ${taskId}:`, queryResponse);
         console.log(`Mureka Query Status: ${queryResponse.status}`);

@@ -55,46 +55,64 @@ export class SupabaseService {
     const supabaseUrl = environment.supabaseUrl;
     const supabaseKey = environment.supabaseKey;
 
-    // Corrected checks to match the actual placeholder strings in src/auth/config.ts
-    // Now that keys are hardcoded for testing, these checks will always pass if keys are present.
-    // For production, these should check against process.env values.
-    const isUrlMissing = !supabaseUrl || supabaseUrl.trim() === '' || supabaseUrl.includes('YOUR_SUPABASE_PROJECT_URL');
-    const isKeyMissing = !supabaseKey || supabaseKey.trim() === '' || supabaseKey.includes('YOUR_SUPABASE_ANON_KEY');
+    // Check if configuration placeholders are still present.
+    // If they are, it means the developer hasn't set up their Supabase project yet.
+    const isUrlMissing = !supabaseUrl || supabaseUrl.includes('YOUR_SUPABASE_PROJECT_URL');
+    const isKeyMissing = !supabaseKey || supabaseKey.includes('YOUR_SUPABASE_ANON_KEY');
 
     if (isUrlMissing || isKeyMissing) {
+      console.error('SupabaseService: Supabase URL or Key not configured. Please check src/auth/config.ts');
       this.isConfigured.set(false);
-      this.authReady.set(true); // Ready to show the config error
+      this.authReady.set(true); // Ready to show the config error in the UI
       return;
     }
     
-    this.supabase = createClient(supabaseUrl, supabaseKey);
+    try {
+      this.supabase = createClient(supabaseUrl, supabaseKey);
+      this.isConfigured.set(true);
+      console.log('SupabaseService: Supabase client initialized successfully.');
+    } catch (e) {
+      console.error('SupabaseService: Error initializing Supabase client:', e);
+      this.isConfigured.set(false);
+      this.authReady.set(true); // Ready to show the config error in the UI
+      return;
+    }
+
     this.authReady.set(true); // Set authReady to true immediately if configured, allowing UI to render.
 
     this.supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log('SupabaseService: Auth state change detected:', event);
       const user = session?.user ?? null;
       this.currentUser.set(user);
       if (user) {
+        console.log('SupabaseService: User logged in, fetching profile for ID:', user.id);
         await this.fetchUserProfile(user.id);
       } else {
+        console.log('SupabaseService: User logged out or no user session.');
         this.currentUserProfile.set(null);
       }
-      // The initial `authReady` is now set outside this callback for faster UI display.
-      // Subsequent changes to currentUser/currentUserProfile will reactively update the UI.
     });
   }
 
   async getSession(): Promise<Session | null> {
-    if (!this.supabase) return null;
-    const { data, error } = await this.supabase.auth.getSession();
-    if (error) {
-      console.error('Error getting session:', error.message);
+    if (!this.supabase) {
+      console.error('getSession: Supabase client not initialized.');
       return null;
     }
+    const { data, error } = await this.supabase.auth.getSession();
+    if (error) {
+      console.error('getSession: Error getting session:', error.message);
+      return null;
+    }
+    console.log('getSession: Session data received.');
     return data.session;
   }
 
   async fetchUserProfile(userId: string): Promise<void> {
-    if (!this.supabase) return;
+    if (!this.supabase) {
+      console.error('fetchUserProfile: Supabase client not initialized.');
+      return;
+    }
     const { data, error } = await this.supabase
       .from('profiles')
       .select('id, email, credits')
@@ -102,40 +120,60 @@ export class SupabaseService {
       .single();
     
     if (error) {
-      console.error('Error fetching user profile:', error.message);
+      console.error('fetchUserProfile: Error fetching user profile:', error.message);
       this.currentUserProfile.set(null);
     } else {
+      console.log('fetchUserProfile: User profile fetched successfully for ID:', userId);
       this.currentUserProfile.set(data as Profile);
     }
   }
 
   async signOut(): Promise<void> {
-    if (!this.supabase) return;
+    if (!this.supabase) {
+      console.error('signOut: Supabase client not initialized.');
+      return;
+    }
     await this.supabase.auth.signOut();
     this.currentUser.set(null);
+    console.log('signOut: User signed out.');
   }
 
   async signInWithEmail(email: string, password: string): Promise<{ user: User | null, error: AuthError | null }> {
     if (!this.supabase) {
+      console.error('signInWithEmail: Supabase client not initialized.');
       return { user: null, error: { name: 'InitializationError', message: 'Supabase client not initialized.' } as AuthError };
     }
+    console.log('signInWithEmail: Attempting to sign in with email:', email);
     const { data, error } = await this.supabase.auth.signInWithPassword({ email, password });
+    if (error) {
+      console.error('signInWithEmail: Error during sign in:', error.message);
+    } else if (data.user) {
+      console.log('signInWithEmail: User signed in successfully:', data.user.id);
+    }
     return { user: data.user, error };
   }
 
   async signUp(email: string, password: string): Promise<{ user: User | null, error: AuthError | null }> {
     if (!this.supabase) {
+      console.error('signUp: Supabase client not initialized.');
       return { user: null, error: { name: 'InitializationError', message: 'Supabase client not initialized.' } as AuthError };
     }
+    console.log('signUp: Attempting to sign up with email:', email);
     const { data, error } = await this.supabase.auth.signUp({ email, password });
     if (data.user) {
+      console.log('signUp: User signed up successfully (email verification might be required):', data.user.id);
       await this.createProfileForUser(data.user);
+    } else if (error) {
+      console.error('signUp: Error during sign up:', error.message);
     }
     return { user: data.user, error };
   }
   
   async createProfileForUser(user: User): Promise<void> {
-    if (!this.supabase || !user.email) return;
+    if (!this.supabase || !user.email) {
+      console.error('createProfileForUser: Supabase client not initialized or user email missing.');
+      return;
+    }
 
     const { error } = await this.supabase
       .from('profiles')
@@ -146,20 +184,25 @@ export class SupabaseService {
       });
     
     if (error) {
-      console.error('Error creating profile for new user:', error.message);
+      console.error('createProfileForUser: Error creating profile for new user:', error.message);
     } else {
+      console.log('createProfileForUser: Profile created successfully for user ID:', user.id);
       await this.fetchUserProfile(user.id);
     }
   }
 
   async signInWithGoogle(): Promise<{ error: AuthError | null }> {
     if (!this.supabase) {
-      console.error('Supabase client not initialized.');
+      console.error('signInWithGoogle: Supabase client not initialized.');
       return { error: { name: 'InitializationError', message: 'Supabase client not initialized.' } as AuthError };
     }
+    console.log('signInWithGoogle: Attempting to sign in with Google OAuth.');
     const { error } = await this.supabase.auth.signInWithOAuth({
       provider: 'google',
     });
+    if (error) {
+      console.error('signInWithGoogle: Error during Google sign in:', error.message);
+    }
     return { error };
   }
 
@@ -167,7 +210,10 @@ export class SupabaseService {
   
   async addMusic(musicData: { title: string, style: string, lyrics: string, status: 'processing' | 'succeeded' | 'failed', error?: string }): Promise<Music | null> {
     const user = this.currentUser();
-    if (!this.supabase || !user) return null;
+    if (!this.supabase || !user) {
+      console.error('addMusic: Supabase client not initialized or user not authenticated.');
+      return null;
+    }
 
     const { data, error } = await this.supabase
       .from('musics')
@@ -184,14 +230,18 @@ export class SupabaseService {
       .single();
 
     if (error) {
-      console.error('Error adding music:', error.message);
+      console.error('addMusic: Error adding music:', error.message);
       return null;
     }
+    console.log('addMusic: Music record added successfully with ID:', data.id);
     return data as Music;
   }
 
   async updateMusic(musicId: string, updates: { mureka_id?: string, status?: 'processing' | 'succeeded' | 'failed', audio_url?: string, error?: string }): Promise<Music | null> {
-    if (!this.supabase) return null;
+    if (!this.supabase) {
+      console.error('updateMusic: Supabase client not initialized.');
+      return null;
+    }
 
     const { mureka_id, error, ...rest } = updates;
     const dbUpdates: { [key: string]: any } = { ...rest };
@@ -211,14 +261,18 @@ export class SupabaseService {
       .single();
     
     if (updateError) {
-      console.error('Error updating music:', updateError.message);
+      console.error('updateMusic: Error updating music:', updateError.message);
       return null;
     }
+    console.log('updateMusic: Music record updated successfully for ID:', musicId);
     return data as Music;
   }
 
   async updateUserCredits(userId: string, newCreditCount: number): Promise<Profile | null> {
-    if (!this.supabase) return null;
+    if (!this.supabase) {
+      console.error('updateUserCredits: Supabase client not initialized.');
+      return null;
+    }
     
     const { data, error } = await this.supabase
       .from('profiles')
@@ -228,16 +282,20 @@ export class SupabaseService {
       .single();
       
     if (error) {
-      console.error('Error updating user credits:', error.message);
+      console.error('updateUserCredits: Error updating user credits:', error.message);
       return null;
     }
     
+    console.log('updateUserCredits: User credits updated for ID:', userId);
     this.currentUserProfile.set(data as Profile);
     return data as Profile;
   }
 
   async getMusicForUser(userId: string): Promise<Music[]> {
-    if (!this.supabase) return [];
+    if (!this.supabase) {
+      console.error('getMusicForUser: Supabase client not initialized.');
+      return [];
+    }
     
     const { data, error } = await this.supabase
       .from('musics')
@@ -246,41 +304,60 @@ export class SupabaseService {
       .order('created_at', { ascending: false });
 
     if (error) {
-      console.error('Error fetching user music:', error.message);
+      console.error('getMusicForUser: Error fetching user music:', error.message);
       return [];
     }
+    console.log('getMusicForUser: Fetched music for user ID:', userId);
     return (data as Music[]) || [];
   }
 
   async deleteMusic(musicId: string): Promise<{ error: any }> {
-    if (!this.supabase) return { error: { message: 'Supabase client not initialized.' } };
+    if (!this.supabase) {
+      console.error('deleteMusic: Supabase client not initialized.');
+      return { error: { message: 'Supabase client not initialized.' } };
+    }
     
     const user = this.currentUser();
-    if (!user) return { error: { message: 'User not authenticated.' } };
+    if (!user) {
+      console.error('deleteMusic: User not authenticated.');
+      return { error: { message: 'User not authenticated.' } };
+    }
 
     const { error, count } = await this.supabase
         .from('musics')
         .delete({ count: 'exact' })
         .match({ id: musicId, user_id: user.id });
 
-    console.log(`Attempted to delete music ID ${musicId}. Rows affected: ${count}`);
+    console.log(`deleteMusic: Attempted to delete music ID ${musicId}. Rows affected: ${count}`);
+    if (error) {
+      console.error('deleteMusic: Error deleting music:', error.message);
+    }
     return { error };
   }
 
   async deleteFailedMusicForUser(userId: string): Promise<{ error: any }> {
-      if (!this.supabase) return { error: { message: 'Supabase client not initialized.' } };
+      if (!this.supabase) {
+        console.error('deleteFailedMusicForUser: Supabase client not initialized.');
+        return { error: { message: 'Supabase client not initialized.' } };
+      }
       
       const { error, count } = await this.supabase
           .from('musics')
           .delete({ count: 'exact' })
           .match({ user_id: userId, status: 'failed' });
   
-      console.log(`Attempted to clear failed music for user ${userId}. Rows affected: ${count}`);
+      console.log(`deleteFailedMusicForUser: Attempted to clear failed music for user ${userId}. Rows affected: ${count}`);
+      if (error) {
+        console.error('deleteFailedMusicForUser: Error deleting failed music:', error.message);
+      }
       return { error };
   }
   
   async getAllPublicMusic(): Promise<Music[]> {
-    if (!this.supabase) return [];
+    if (!this.supabase) {
+      console.error('getAllPublicMusic: Supabase client not initialized.');
+      return [];
+    }
     
     // 1. Fetch public music
     const { data: musicData, error: musicError } = await this.supabase
@@ -291,13 +368,15 @@ export class SupabaseService {
       .limit(50);
 
     if (musicError) {
-      console.error('Error fetching public music:', musicError.message);
+      console.error('getAllPublicMusic: Error fetching public music:', musicError.message);
       return [];
     }
 
     if (!musicData || musicData.length === 0) {
+      console.log('getAllPublicMusic: No public music found.');
       return [];
     }
+    console.log(`getAllPublicMusic: Fetched ${musicData.length} public music records.`);
 
     // 2. Extract unique user IDs
     const userIds = [...new Set(musicData.map(m => m.user_id).filter(id => !!id))];
@@ -313,10 +392,11 @@ export class SupabaseService {
       .in('id', userIds);
 
     if (profilesError) {
-      console.error('Error fetching profiles:', profilesError.message);
+      console.error('getAllPublicMusic: Error fetching profiles:', profilesError.message);
       // Return music data without emails if profiles can't be fetched
       return musicData as Music[];
     }
+    console.log(`getAllPublicMusic: Fetched ${profilesData.length} profiles.`);
 
     // 4. Create a map for efficient lookup
     const emailMap = new Map(profilesData.map(p => [p.id, p.email]));
@@ -333,7 +413,7 @@ export class SupabaseService {
     const supabaseKey = environment.supabaseKey;
 
     if (!this.isConfigured()) {
-        console.warn('Supabase not configured, cannot fetch plans.');
+        console.warn('getPlans: Supabase not configured, cannot fetch plans.');
         return [];
     }
     
@@ -349,13 +429,15 @@ export class SupabaseService {
       .order('price', { ascending: true });
 
     if (error) {
-      console.error('Error fetching plans:', error.message);
+      console.error('getPlans: Error fetching plans:', error.message);
       return [];
     }
     
     if (!data) {
+      console.log('getPlans: No plan data received.');
       return [];
     }
+    console.log(`getPlans: Fetched ${data.length} plans.`);
 
     // Defensively parse 'features' which is stored as a JSON string or is already an array.
     return (data as any[]).map(plan => {
@@ -367,7 +449,7 @@ export class SupabaseService {
             parsedFeatures = parsed;
           }
         } catch (e) {
-          console.error(`Failed to parse features for plan ${plan.id}:`, plan.features);
+          console.error(`getPlans: Failed to parse features for plan ${plan.id}:`, plan.features);
         }
       } else if (Array.isArray(plan.features)) {
         parsedFeatures = plan.features;
@@ -391,9 +473,16 @@ export class SupabaseService {
   // This safely exposes the functionality without making the entire Supabase client public.
   async invokeFunction(functionName: string, options: { body: any }): Promise<{ data: any | null, error: any }> {
     if (!this.supabase) {
+        console.error(`invokeFunction: Supabase client not initialized for function ${functionName}.`);
         return { data: null, error: { message: 'Supabase client not initialized.' } };
     }
+    console.log(`invokeFunction: Invoking Supabase Edge Function: ${functionName}`);
     const { data, error } = await this.supabase.functions.invoke(functionName, options);
+    if (error) {
+      console.error(`invokeFunction: Error invoking function ${functionName}:`, error.message);
+    } else {
+      console.log(`invokeFunction: Function ${functionName} invoked successfully.`);
+    }
     return { data, error };
   }
   // #endregion
