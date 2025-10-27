@@ -25,6 +25,7 @@ export class CreateComponent {
 
   // Config signals
   readonly isGeminiConfigured = this.geminiService.isConfigured;
+  readonly isMurekaConfigured = this.murekaService.isConfigured; // Novo signal para a Mureka
 
   // Form signals
   songTitle = signal<string>('');
@@ -57,6 +58,7 @@ export class CreateComponent {
     
     return (
       profile != null && profile.credits > 0 &&
+      this.isMurekaConfigured() && // Adiciona verificação de configuração da Mureka
       this.songTitle().trim().length > 0 &&
       (this.selectedStyles().size > 0 || this.customStyle().trim().length > 0) &&
       lyricsOk &&

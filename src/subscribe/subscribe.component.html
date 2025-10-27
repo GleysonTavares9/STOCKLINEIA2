@@ -37,7 +37,6 @@
     <div class="inline-flex bg-[#1A181A] border border-zinc-800 rounded-full p-1">
       <button 
         (click)="billingCycle.set('annual')"
-        [disabled]="!hasAnnualPlans()"
         [class.bg-white]="billingCycle() === 'annual'"
         [class.text-black]="billingCycle() === 'annual'"
         [class.text-zinc-400]="billingCycle() === 'monthly'"

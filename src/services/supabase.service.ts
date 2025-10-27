@@ -1,5 +1,4 @@
 import { Injectable, signal } from '@angular/core';
-// FIX: Use `type` for type-only imports from supabase-js to align with modern library versions.
 import { createClient, SupabaseClient, type User, type AuthError, type Session } from '@supabase/supabase-js';
 import { environment } from '../auth/config';
 
@@ -36,6 +35,8 @@ export interface Plan {
   is_popular: boolean;
   price_id: string | null;
   valid_days: number | null;
+  // Nova propriedade para indicar explicitamente o ciclo de cobrança
+  billing_cycle: 'monthly' | 'annual' | 'one-time';
 }
 
 
@@ -54,8 +55,11 @@ export class SupabaseService {
     const supabaseUrl = environment.supabaseUrl;
     const supabaseKey = environment.supabaseKey;
 
-    const isUrlMissing = !supabaseUrl || supabaseUrl.trim() === '' || supabaseUrl.includes('dummy-project-url');
-    const isKeyMissing = !supabaseKey || supabaseKey.trim() === '' || supabaseKey.includes('dummy-anon-key');
+    // Corrected checks to match the actual placeholder strings in src/auth/config.ts
+    // Now that keys are hardcoded for testing, these checks will always pass if keys are present.
+    // For production, these should check against process.env values.
+    const isUrlMissing = !supabaseUrl || supabaseUrl.trim() === '' || supabaseUrl.includes('YOUR_SUPABASE_PROJECT_URL');
+    const isKeyMissing = !supabaseKey || supabaseKey.trim() === '' || supabaseKey.includes('YOUR_SUPABASE_ANON_KEY');
 
     if (isUrlMissing || isKeyMissing) {
       this.isConfigured.set(false);
@@ -64,6 +68,7 @@ export class SupabaseService {
     }
     
     this.supabase = createClient(supabaseUrl, supabaseKey);
+    this.authReady.set(true); // Set authReady to true immediately if configured, allowing UI to render.
 
     this.supabase.auth.onAuthStateChange(async (event, session) => {
       const user = session?.user ?? null;
@@ -73,7 +78,8 @@ export class SupabaseService {
       } else {
         this.currentUserProfile.set(null);
       }
-      this.authReady.set(true);
+      // The initial `authReady` is now set outside this callback for faster UI display.
+      // Subsequent changes to currentUser/currentUserProfile will reactively update the UI.
     });
   }
 
@@ -367,7 +373,28 @@ export class SupabaseService {
         parsedFeatures = plan.features;
       }
       
-      return { ...plan, features: parsedFeatures };
+      let inferredBillingCycle: 'monthly' | 'annual' | 'one-time' = 'monthly'; // Padrão para mensal
+      if (plan.is_credit_pack) {
+        inferredBillingCycle = 'one-time';
+      }
+      // TODO: Para que o filtro Anual vs Mensal funcione corretamente com base nos seus dados do banco,
+      // você DEVE adicionar uma coluna 'billing_cycle' (ex: 'monthly', 'annual') na sua tabela 'plans' no Supabase.
+      // Atualmente, sem essa coluna, todos os planos de assinatura são inferidos como 'monthly'.
+      // Exemplo de como você poderia usar a coluna:
+      // if (plan.billing_cycle_from_db === 'annual') { inferredBillingCycle = 'annual'; }
+
+      return { ...plan, features: parsedFeatures, billing_cycle: inferredBillingCycle };
     }) as Plan[];
   }
+
+  // #region Fix: Added public method to invoke Supabase Edge Functions.
+  // This safely exposes the functionality without making the entire Supabase client public.
+  async invokeFunction(functionName: string, options: { body: any }): Promise<{ data: any | null, error: any }> {
+    if (!this.supabase) {
+        return { data: null, error: { message: 'Supabase client not initialized.' } };
+    }
+    const { data, error } = await this.supabase.functions.invoke(functionName, options);
+    return { data, error };
+  }
+  // #endregion
 }

@@ -21,119 +21,127 @@ export class SubscribeComponent implements OnInit {
   billingCycle = signal<'annual' | 'monthly'>('monthly');
   isLoading = signal<string | null>(null); // Plan ID for purchase button
   purchaseError = signal<string | null>(null);
-  isLoadingPlans = signal<boolean>(true); // For initial plan loading
+  isLoadingPlans = signal<boolean>(true); // For initial
   
-  allPlans = signal<Plan[]>([]);
-  
-  monthlyPlans = computed(() => this.allPlans().filter(p => (!p.valid_days || p.valid_days <= 31) && !p.is_credit_pack).sort((a,b) => a.price - b.price));
-  annualPlans = computed(() => this.allPlans().filter(p => p.valid_days && p.valid_days > 31 && !p.is_credit_pack).sort((a,b) => a.price - b.price));
-  
-  hasAnnualPlans = computed(() => this.annualPlans().length > 0);
+  plans = signal<Plan[]>([]);
+  currentUser = this.supabase.currentUser;
+  currentUserProfile = this.supabase.currentUserProfile;
 
+  isStripeConfigured = signal(true); // Default to true, check in ngOnInit
+
+  // Computed properties for filtering and displaying plans
   displayedPlans = computed(() => {
-    return this.billingCycle() === 'monthly' ? this.monthlyPlans() : this.annualPlans();
+    const currentCycle = this.billingCycle();
+    const allPlans = this.plans();
+
+    // Separar pacotes de crédito (sempre exibidos) das assinaturas
+    const creditPacks = allPlans.filter(plan => plan.is_credit_pack);
+    let subscriptionPlans: Plan[] = [];
+
+    if (currentCycle === 'annual') {
+        // Tenta filtrar por planos explicitamente anuais
+        const annualOnly = allPlans.filter(plan => plan.billing_cycle === 'annual' && !plan.is_credit_pack);
+        if (annualOnly.length > 0) {
+            subscriptionPlans = annualOnly;
+        } else {
+            // Fallback: se não houver planos anuais, mostra os mensais quando 'Anual' está selecionado
+            subscriptionPlans = allPlans.filter(plan => plan.billing_cycle === 'monthly' && !plan.is_credit_pack);
+        }
+    } else { // 'monthly'
+        subscriptionPlans = allPlans.filter(plan => plan.billing_cycle === 'monthly' && !plan.is_credit_pack);
+    }
+    return [...creditPacks, ...subscriptionPlans];
   });
+
+  hasAnnualPlans = computed(() => 
+    this.plans().some(plan => plan.billing_cycle === 'annual' && !plan.is_credit_pack)
+  );
 
   totalAnnualCredits = computed(() => {
-    const popularPlan = this.annualPlans().find(p => p.is_popular);
-    return popularPlan ? popularPlan.credits : 0;
+    if (this.billingCycle() !== 'annual') return 0;
+    // Soma os créditos dos planos que estão sendo exibidos (excluindo pacotes de crédito)
+    const plansToSum = this.displayedPlans().filter(plan => !plan.is_credit_pack);
+    return plansToSum.reduce((sum, plan) => sum + (plan.credits || 0), 0);
   });
 
-  private stripe: any;
-  isStripeConfigured = signal<boolean>(true);
-  isSecurityError = signal<boolean>(false);
-
   constructor() {
-    this.loadPlans();
-
     effect(() => {
-      if (!this.supabase.currentUser()) {
-        this.router.navigate(['/auth'], { queryParams: { message: 'Faça login para ver os planos de assinatura.' } });
+      if (!this.supabase.authReady()) return;
+      if (!this.currentUser()) {
+        this.router.navigate(['/auth'], { queryParams: { message: 'Faça login para gerenciar suas assinaturas.' } });
       }
     });
   }
 
   ngOnInit(): void {
     const stripeKey = environment.stripePublishableKey;
-    let errorMessage: string | null = null;
-    this.isSecurityError.set(false);
-
-    if (stripeKey.startsWith('sk_')) {
-      errorMessage = "ALERTA DE SEGURANÇA: Uma chave secreta ('sk_...') do Stripe foi detectada no código. Isso é um risco grave. Por segurança, o pagamento foi desabilitado. REVOGUE esta chave imediatamente em seu painel Stripe e use apenas sua chave publicável ('pk_...').";
-      this.isSecurityError.set(true);
-    } else if (!stripeKey || stripeKey.includes('COLE_SUA_CHAVE_PUBLICAVEL_AQUI') || stripeKey.includes('DUMMYSTRIPEKEYREPLACEME')) {
-      errorMessage = "Erro de Configuração: A chave do Stripe não foi configurada. Localmente, adicione-a em `src/config.ts`. Em produção (Vercel), configure a variável de ambiente `STRIPE_PUBLISHABLE_KEY`.";
-    } else if (!stripeKey.startsWith('pk_test_') && !stripeKey.startsWith('pk_live_')) {
-      errorMessage = "Erro de Configuração do Stripe: A chave fornecida parece inválida. Certifique-se de que é a sua 'Chave Publicável' completa, que começa com 'pk_live_' ou 'pk_test_'.";
-    }
-
-    if (errorMessage) {
-      console.error(errorMessage);
+    if (!stripeKey || stripeKey.trim() === '' || stripeKey.includes('YOUR_STRIPE_PUBLISHABLE_KEY') || !stripeKey.startsWith('pk_')) {
       this.isStripeConfigured.set(false);
-      this.purchaseError.set(errorMessage);
-    } else {
-      this.isStripeConfigured.set(true);
-      this.stripe = Stripe(stripeKey);
+      console.warn('Stripe Publishable Key is not configured correctly. Stripe payments will be disabled.');
+      this.purchaseError.set('A chave publicável do Stripe não está configurada corretamente. Por favor, adicione sua chave Stripe.');
+      this.isLoadingPlans.set(false); // Stop loading plans if Stripe is not configured
+      return;
     }
+
+    this.loadPlans();
   }
 
-  async loadPlans() {
+  isSecurityError(): boolean {
+    return this.purchaseError()?.includes('chave publicável do Stripe') || false;
+  }
+
+  async loadPlans(): Promise<void> {
     this.isLoadingPlans.set(true);
     try {
-      const plans = await this.supabase.getPlans();
-      this.allPlans.set(plans);
-    } catch (e) {
-      console.error('Failed to load plans', e);
-      this.purchaseError.set('Não foi possível carregar os planos. Tente recarregar a página.');
+      const fetchedPlans = await this.supabase.getPlans();
+      this.plans.set(fetchedPlans);
+      if (fetchedPlans.length === 0) {
+        console.warn('No plans loaded from Supabase. Possible RLS issue or no active plans in DB.');
+      }
+    } catch (error) {
+      console.error('Error loading plans:', error);
+      this.purchaseError.set('Falha ao carregar os planos. Tente novamente mais tarde.');
     } finally {
       this.isLoadingPlans.set(false);
     }
   }
 
-  async purchase(plan: Plan) {
-    if (!this.isStripeConfigured()) {
-        return;
-    }
-
-    this.isLoading.set(plan.id);
-    this.purchaseError.set(null);
-    
-    const profile = this.supabase.currentUserProfile();
-    if (!profile) {
-      this.purchaseError.set('Você precisa estar logado para comprar.');
-      this.isLoading.set(null);
-      this.router.navigate(['/auth']);
+  async purchase(plan: Plan): Promise<void> {
+    if (!this.isStripeConfigured() || !plan.price_id || !this.currentUser()) {
+      this.purchaseError.set('Não é possível processar a compra: configuração de pagamento incompleta ou usuário não autenticado.');
       return;
     }
-
-    if (!plan.price_id) {
-        this.purchaseError.set('ID de preço não configurado para este plano.');
-        this.isLoading.set(null);
-        return;
-    }
+    this.isLoading.set(plan.id);
+    this.purchaseError.set(null);
 
     try {
-      const mode = plan.is_credit_pack ? 'payment' : 'subscription';
-      const successUrl = `${window.location.origin}${window.location.pathname}#/library?purchase=success`;
-      const cancelUrl = `${window.location.origin}${window.location.pathname}#/subscribe`;
+      const stripe = Stripe(environment.stripePublishableKey);
+      // #region Fix: Replaced direct access to private `supabase` client with the public `invokeFunction` method.
+      const { data, error: callError } = await this.supabase.invokeFunction('create-checkout-session', {
+          body: {
+            priceId: plan.price_id,
+            userId: this.currentUser()!.id,
+            userEmail: this.currentUser()!.email,
+          }
+        });
+      // #endregion
 
-      // Redireciona para a página de checkout do Stripe
-      const { error } = await this.stripe.redirectToCheckout({
-        lineItems: [{ price: plan.price_id, quantity: 1 }],
-        mode: mode,
-        successUrl: successUrl,
-        cancelUrl: cancelUrl,
-        customerEmail: profile.email,
-        clientReferenceId: profile.id, // Essencial para o webhook identificar o usuário
-      });
-
-      if (error) {
-        console.error('Stripe redirectToCheckout error:', error);
-        this.purchaseError.set(`Erro do Stripe: ${error.message}`);
+      if (callError) {
+        throw new Error(callError.message);
       }
-    } catch (e) {
-      console.error('Erro ao redirecionar para o checkout:', e);
-      this.purchaseError.set('Ocorreu um erro inesperado ao iniciar o pagamento.');
+
+      // #region Fix: Access `session` directly from the `data` object returned by `invokeFunction`.
+      if (data?.session?.url) {
+        window.location.href = data.session.url; // Redirect to Stripe Checkout
+      } else {
+        throw new Error('Não foi possível iniciar a sessão de checkout do Stripe.');
+      }
+      // #endregion
+
+    } catch (error) {
+      console.error('Error during Stripe checkout:', error);
+      const message = error instanceof Error ? error.message : 'Ocorreu um erro desconhecido durante o checkout.';
+      this.purchaseError.set(`Erro na compra: ${message}`);
     } finally {
       this.isLoading.set(null);
     }

@@ -4,8 +4,9 @@ import { firstValueFrom } from 'rxjs';
 import { SupabaseService, Music } from '../services/supabase.service';
 import { environment } from '../auth/config';
 
-// The new base URL points to the Supabase function proxy.
-const MUREKA_PROXY_URL = new URL('/functions/v1/mureka-proxy', environment.supabaseUrl).href;
+// Agora a Mureka API é chamada diretamente do frontend.
+// ATENÇÃO: Isso expõe a Mureka API Key no código do cliente.
+const MUREKA_API_BASE_URL = 'https://api.mureka.ai/v1';
 
 interface MurekaGenerateResponse {
   id: string;
@@ -15,7 +16,7 @@ interface MurekaGenerateResponse {
 interface MurekaQueryResponse {
   status: 'preparing' | 'queued' | 'running' | 'streaming' | 'succeeded' | 'failed' | 'timeouted' | 'cancelled';
   failed_reason?: string;
-  choices?: { audio_url: string }[];
+  choices?: { url: string; flac_url?: string; duration?: number; id?: string }[]; // Corrigido para 'url'
 }
 
 @Injectable({
@@ -26,8 +27,16 @@ export class MurekaService {
   private readonly supabase = inject(SupabaseService);
 
   userMusic = signal<Music[]>([]);
+  readonly isConfigured = signal(true); // Indica se a chave da Mureka foi configurada
 
   constructor() {
+    // Verificar se a chave da Mureka está configurada
+    const apiKey = environment.murekaApiKey;
+    if (!apiKey || apiKey === 'op_YOUR_MUREKA_API_KEY') {
+      this.isConfigured.set(false);
+      return;
+    }
+
     // Load user music when auth state changes
     effect(() => {
       const user = this.supabase.currentUser();
@@ -45,22 +54,22 @@ export class MurekaService {
   private getApiErrorMessage(error: any, defaultMessage: string): string {
     if (error instanceof HttpErrorResponse) {
       if (error.status === 0) {
-        return 'Falha de rede ao contatar o backend. Verifique sua conexão com a internet.';
+        return 'Falha de rede ao contatar a API da Mureka. Verifique sua conexão com a internet.';
       }
       
       const apiError = error.error;
       if (error.status === 401) {
-        return 'Erro de Autenticação: Sua sessão pode ter expirado. Tente fazer login novamente.';
+        return 'Erro de Autenticação da Mureka: Verifique se sua MUREKA_API_KEY está correta.';
       }
-      if (error.status === 500 && apiError?.error?.includes('Mureka API key not configured')) {
-        return 'Erro de Configuração no Servidor: A chave da API da Mureka não foi configurada no backend.';
+      if (error.status === 403) {
+        return 'Acesso negado pela Mureka API. Verifique sua chave ou permissões.';
       }
 
       if (apiError?.detail) return `Erro da API Mureka (${error.status}): ${apiError.detail}`;
       if (apiError?.message) return `Erro da API Mureka (${error.status}): ${apiError.message}`;
-      if (apiError?.error) return `Erro do Servidor (${error.status}): ${apiError.error}`;
+      if (apiError?.error) return `Erro da API Mureka (${error.status}): ${apiError.error}`;
       
-      return `Erro na requisição: ${error.status} - ${error.statusText}`;
+      return `Erro na requisição Mureka: ${error.status} - ${error.statusText}`;
     }
 
     if (error?.message) return `Erro de comunicação: ${error.message}`;
@@ -68,19 +77,19 @@ export class MurekaService {
   }
 
   async generateMusic(title: string, style: string, lyrics: string): Promise<void> {
-    const isConfigured = this.supabase.isConfigured();
-    if (!isConfigured) {
-        const errorMsg = 'O Supabase não está configurado. A geração de música está desativada.';
+    if (!this.isConfigured()) {
+        const errorMsg = 'O serviço da Mureka não está configurado. Verifique sua chave de API em `src/config.ts`.';
         console.error(errorMsg);
         await this.supabase.addMusic({ title, style, lyrics, status: 'failed', error: errorMsg });
         throw new Error(errorMsg);
     }
-
+    
+    // Agora a autenticação da Mureka é independente da sessão Supabase, mas ainda precisamos do usuário logado
+    // para registrar a música no Supabase e gerenciar créditos.
     const session = await this.supabase.getSession();
     if (!session?.access_token) {
-      const errorMsg = "Usuário não autenticado. Impossível gerar música.";
+      const errorMsg = "Usuário não autenticado no Supabase. Impossível gerar música.";
       console.error(errorMsg);
-      // Optionally create a failed record to inform the user.
       await this.supabase.addMusic({ title, style, lyrics, status: 'failed', error: 'Você precisa estar logado para criar músicas.' });
       throw new Error(errorMsg);
     }
@@ -103,8 +112,7 @@ export class MurekaService {
       
       const headers = new HttpHeaders({
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${session.access_token}`,
-        'apikey': environment.supabaseKey,
+        'Authorization': `Bearer ${environment.murekaApiKey}`, // Usando a chave da Mureka diretamente
       });
 
       const body: { [key: string]: any } = {
@@ -118,7 +126,7 @@ export class MurekaService {
       }
 
       const generateResponse = await firstValueFrom(
-        this.http.post<MurekaGenerateResponse>(`${MUREKA_PROXY_URL}/song/generate`, body, { headers })
+        this.http.post<MurekaGenerateResponse>(`${MUREKA_API_BASE_URL}/song/generate`, body, { headers })
       );
 
       const taskId = generateResponse.id;
@@ -127,16 +135,15 @@ export class MurekaService {
 
     } catch (error) {
       console.error('Erro ao iniciar a geração da música:', error);
-      const errorMessage = this.getApiErrorMessage(error, 'Ocorreu um erro desconhecido ao contatar o backend.');
+      const errorMessage = this.getApiErrorMessage(error, 'Ocorreu um erro desconhecido ao contatar a API da Mureka.');
       this.handleGenerationError(error, musicRecord, { title, style, lyrics, errorMessage });
       throw new Error(errorMessage);
     }
   }
 
   async generateInstrumental(title: string, style: string): Promise<void> {
-    const isConfigured = this.supabase.isConfigured();
-    if (!isConfigured) {
-        const errorMsg = 'O Supabase não está configurado. A geração de música está desativada.';
+    if (!this.isConfigured()) {
+        const errorMsg = 'O serviço da Mureka não está configurado. Verifique sua chave de API em `src/config.ts`.';
         console.error(errorMsg);
         await this.supabase.addMusic({ title, style, lyrics: '', status: 'failed', error: errorMsg });
         throw new Error(errorMsg);
@@ -144,7 +151,7 @@ export class MurekaService {
 
     const session = await this.supabase.getSession();
     if (!session?.access_token) {
-      const errorMsg = "Usuário não autenticado. Impossível gerar música.";
+      const errorMsg = "Usuário não autenticado no Supabase. Impossível gerar música.";
       console.error(errorMsg);
       await this.supabase.addMusic({ title, style, lyrics: '', status: 'failed', error: 'Você precisa estar logado para criar músicas.' });
       throw new Error(errorMsg);
@@ -168,8 +175,7 @@ export class MurekaService {
       
       const headers = new HttpHeaders({
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${session.access_token}`,
-        'apikey': environment.supabaseKey,
+        'Authorization': `Bearer ${environment.murekaApiKey}`, // Usando a chave da Mureka diretamente
       });
 
       const body = {
@@ -179,7 +185,7 @@ export class MurekaService {
       };
 
       const generateResponse = await firstValueFrom(
-        this.http.post<MurekaGenerateResponse>(`${MUREKA_PROXY_URL}/instrumental/generate`, body, { headers })
+        this.http.post<MurekaGenerateResponse>(`${MUREKA_API_BASE_URL}/instrumental/generate`, body, { headers })
       );
 
       const taskId = generateResponse.id;
@@ -188,7 +194,7 @@ export class MurekaService {
 
     } catch (error) {
       console.error('Erro ao iniciar a geração do instrumental:', error);
-      const errorMessage = this.getApiErrorMessage(error, 'Ocorreu um erro desconhecido ao contatar o backend.');
+      const errorMessage = this.getApiErrorMessage(error, 'Ocorreu um erro desconhecido ao contatar a API da Mureka.');
       this.handleGenerationError(error, musicRecord, { title, style, lyrics: '', errorMessage });
       throw new Error(errorMessage);
     }
@@ -227,12 +233,12 @@ export class MurekaService {
         return;
       }
 
-      // Get a fresh session token on each poll attempt to prevent expiration issues
-      const session = await this.supabase.getSession();
-      if (!session?.access_token) {
+      // Nenhuma sessão Supabase necessária para a chamada Mureka, mas o status do usuário ainda é relevante
+      // Se o usuário não estiver mais autenticado no Supabase (ex: logout), podemos parar de verificar.
+      if (!this.supabase.currentUser()) {
         clearInterval(intervalId);
-        console.error("Sessão expirada. Interrompendo a verificação de status da música.");
-        const errorMsg = 'Sua sessão expirou. Faça login novamente para ver o resultado.';
+        console.error("Usuário não autenticado. Interrompendo a verificação de status da música.");
+        const errorMsg = 'Você foi desconectado. Faça login novamente para ver o resultado.';
         const updatedMusic = await this.supabase.updateMusic(musicId, { status: 'failed', error: errorMsg });
         if (updatedMusic) {
             this.userMusic.update(music => music.map(s => s.id === updatedMusic.id ? updatedMusic : s));
@@ -240,22 +246,31 @@ export class MurekaService {
         return;
       }
 
+
       try {
         const headers = new HttpHeaders({
-          'Authorization': `Bearer ${session.access_token}`,
-          'apikey': environment.supabaseKey,
+          'Authorization': `Bearer ${environment.murekaApiKey}`, // Usando a chave da Mureka diretamente
         });
 
         const queryResponse = await firstValueFrom(
-          this.http.get<MurekaQueryResponse>(`${MUREKA_PROXY_URL}/${queryPath}/${taskId}`, { headers })
+          this.http.get<MurekaQueryResponse>(`${MUREKA_API_BASE_URL}/${queryPath}/${taskId}`, { headers })
         );
+
+        // --- Início dos logs detalhados para diagnóstico ---
+        console.log(`Mureka Query Response for task ${taskId}:`, queryResponse);
+        console.log(`Mureka Query Status: ${queryResponse.status}`);
+        console.log(`Mureka Query Choices:`, queryResponse.choices);
+        // --- Fim dos logs detalhados ---
 
         const status = queryResponse.status;
         
         if (status === 'succeeded') {
           clearInterval(intervalId);
-          const audioUrl = queryResponse.choices?.[0]?.audio_url;
+          // Acessando a propriedade 'url' que é a correta na resposta da Mureka
+          const audioUrl = queryResponse.choices?.[0]?.url; 
           if (!audioUrl) {
+            // Log do objeto completo serializado para inspeção clara
+            console.error('Mureka API reported success, but no audio_url was found. Full response object (JSON.stringify):', JSON.stringify(queryResponse, null, 2));
             throw new Error('API retornou sucesso, mas a URL do áudio não foi encontrada.');
           }
           const updatedMusic = await this.supabase.updateMusic(musicId, { status: 'succeeded', audio_url: audioUrl });
@@ -287,7 +302,8 @@ export class MurekaService {
   async deleteMusic(musicId: string): Promise<void> {
     const { error } = await this.supabase.deleteMusic(musicId);
     if (error) {
-      console.error('Error deleting music:', error.message);
+      // Improved error logging
+      console.error('Error deleting music:', error.message, error); 
       // Throw the error so the UI layer can catch it and notify the user.
       throw new Error(error.message || 'Falha ao apagar a música.');
     } else {
@@ -301,8 +317,8 @@ export class MurekaService {
 
     const { error } = await this.supabase.deleteFailedMusicForUser(user.id);
     if (error) {
-        console.error('Error clearing failed music:', error.message);
-        // Throw the error so the UI layer can catch it.
+        // Improved error logging
+        console.error('Error clearing failed music:', error.message, error);
         throw new Error(error.message || 'Falha ao limpar as músicas com falha.');
     } else {
         this.userMusic.update(music => music.filter(s => s.status !== 'failed'));

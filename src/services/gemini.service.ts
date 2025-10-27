@@ -11,7 +11,7 @@ export class GeminiService {
 
   constructor() {
     const apiKey = environment.geminiApiKey;
-    if (!apiKey || apiKey === 'COLE_SUA_CHAVE_GEMINI_API_AQUI') {
+    if (!apiKey || apiKey === 'YOUR_GEMINI_API_KEY') {
       this.isConfigured.set(false);
       return;
     }

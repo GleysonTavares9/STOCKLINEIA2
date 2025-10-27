@@ -1,11 +1,13 @@
+
 import { Component, ChangeDetectionStrategy, inject, signal, computed } from '@angular/core';
 import { SupabaseService, Music } from '../services/supabase.service';
 import { CommonModule } from '@angular/common';
+import { MusicPlayerComponent } from '../library/music-player/music-player.component'; // Import the music player
 
 @Component({
   selector: 'app-feed',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, MusicPlayerComponent], // Add MusicPlayerComponent to imports
   templateUrl: './feed.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
@@ -41,6 +43,8 @@ export class FeedComponent {
     return styleOrder.map(style => ({ style, songs: groups[style] }));
   });
 
+  selectedMusic = signal<Music | null>(null); // New signal to track selected public music
+  playlist = computed(() => this.publicMusic().filter(m => m.status === 'succeeded' && m.audio_url)); // All public music as a playlist
 
   constructor() {
     this.loadPublicMusic();
@@ -55,5 +59,15 @@ export class FeedComponent {
     if (!email) return 'Anônimo';
     const [user, domain] = email.split('@');
     return `${user.substring(0, 2)}***@${domain}`;
+  }
+
+  selectMusic(music: Music): void {
+    if (music.status === 'succeeded' && music.audio_url) {
+      this.selectedMusic.set(music);
+    }
+  }
+
+  closePlayer(): void {
+    this.selectedMusic.set(null);
   }
 }

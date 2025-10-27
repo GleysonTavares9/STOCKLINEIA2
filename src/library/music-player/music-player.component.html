@@ -12,46 +12,81 @@
         <p class="text-teal-400 mt-1">{{ music().style }}</p>
       </div>
 
-      <img src="https://picsum.photos/seed/player-{{music().title}}/500/500" alt="Album Art" class="w-full max-w-[300px] aspect-square rounded-2xl object-cover my-6 shadow-lg shadow-black/50">
+      <img 
+        ngSrc="https://picsum.photos/seed/player-{{music().title}}/500/500" 
+        alt="Album Art" 
+        class="w-full max-w-[300px] aspect-square rounded-2xl object-cover my-6 shadow-lg shadow-black/50"
+        width="500" height="500">
       
       <div class="w-full">
-        <div class="waveform mb-4" [class.is-playing]="waveformIsPlaying()">
+        <div class="waveform mb-4" [class.is-playing]="isPlaying()">
           @for (i of [0,1,2,3,4,5,6,7,8,9]; track i) {
             <div class="waveform__bar"></div>
           }
         </div>
-        <div class="flex items-center gap-4">
+
+        <!-- Custom Player Controls -->
+        <div class="flex items-center justify-center gap-4 w-full">
           <button 
             (click)="playPrevious()" 
             [disabled]="!canPlayPrevious()" 
+            aria-label="Tocar música anterior na playlist"
             title="Anterior" 
-            class="p-3 text-zinc-400 rounded-full hover:bg-zinc-800 disabled:text-zinc-600 disabled:cursor-not-allowed disabled:hover:bg-transparent transition-colors">
+            class="p-4 rounded-full bg-zinc-800 hover:bg-teal-600/60 text-teal-400 hover:text-white disabled:text-zinc-600 disabled:cursor-not-allowed disabled:hover:bg-zinc-800 transition-colors">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM6.205 9.157a1 1 0 000 1.686l5.09 3.054a1 1 0 001.55-.843V7.946a1 1 0 00-1.55-.843l-5.09 3.054z" clip-rule="evenodd" /></svg>
           </button>
-          <audio 
-            controls 
-            autoplay 
-            [src]="music().audio_url" 
-            class="w-full"
-            (play)="waveformIsPlaying.set(true)"
-            (pause)="waveformIsPlaying.set(false)"
-            (ended)="waveformIsPlaying.set(false)"></audio>
+          
+          <button 
+            (click)="togglePlayPause()"
+            aria-label="Tocar/Pausar música"
+            title="Tocar/Pausar"
+            class="p-4 rounded-full bg-teal-600 hover:bg-teal-700 text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+            @if (isPlaying()) {
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM7 8a1 1 0 012 0v4a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" /></svg>
+            } @else {
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd" /></svg>
+            }
+          </button>
+
           <button 
             (click)="playNext()" 
             [disabled]="!canPlayNext()" 
+            aria-label="Tocar próxima música na playlist"
             title="Próxima"
-            class="p-3 text-zinc-400 rounded-full hover:bg-zinc-800 disabled:text-zinc-600 disabled:cursor-not-allowed disabled:hover:bg-transparent transition-colors">
+            class="p-4 rounded-full bg-zinc-800 hover:bg-teal-600/60 text-teal-400 hover:text-white disabled:text-zinc-600 disabled:cursor-not-allowed disabled:hover:bg-zinc-800 transition-colors">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.845 9.157a1 1 0 011.55-.843l5.09 3.054a1 1 0 010 1.686l-5.09 3.054a1 1 0 01-1.55-.843V9.157z" clip-rule="evenodd" /></svg>
           </button>
         </div>
+
+        <!-- Progress Bar and Time -->
+        <div class="flex items-center gap-3 mt-4 w-full">
+            <span class="text-xs text-zinc-400 w-10 text-right">{{ formatTime(currentTime()) }}</span>
+            <div class="relative flex-grow h-2 bg-zinc-700 rounded-full cursor-pointer group" (click)="seek($event)">
+                <div class="absolute h-full bg-teal-500 rounded-full" [style.width]="(currentTime() / duration()) * 100 + '%'"></div>
+                <!-- Thumb indicator -->
+                <div class="absolute h-4 w-4 rounded-full bg-white shadow-lg -top-1 -translate-x-1/2 transform transition-all duration-75 ease-out opacity-0 group-hover:opacity-100 group-active:opacity-100"
+                    [style.left]="(currentTime() / duration()) * 100 + '%'"></div>
+            </div>
+            <span class="text-xs text-zinc-400 w-10 text-left">{{ formatTime(duration()) }}</span>
+        </div>
+        
+        <audio #audioPlayer 
+            [src]="music().audio_url" 
+            (loadedmetadata)="onLoadedMetadata()" 
+            (timeupdate)="onTimeUpdate()" 
+            (ended)="onAudioEnded()"
+            preload="auto"
+            hidden></audio>
         
         <div class="flex items-center justify-center gap-6 mt-6">
-          <button (click)="downloadMusic()" title="Baixar música" class="flex flex-col items-center gap-2 text-zinc-400 hover:text-white transition-colors">
-            <div class="w-12 h-12 flex items-center justify-center bg-zinc-800 rounded-full hover:bg-zinc-700">
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
-            </div>
-            <span class="text-xs">Baixar</span>
-          </button>
+          @if (!isPublicContext()) {
+            <button (click)="downloadMusic()" title="Baixar música" class="flex flex-col items-center gap-2 text-zinc-400 hover:text-white transition-colors">
+              <div class="w-12 h-12 flex items-center justify-center bg-zinc-800 rounded-full hover:bg-zinc-700">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+              </div>
+              <span class="text-xs">Baixar</span>
+            </button>
+          }
           <button (click)="shareMusic()" title="Compartilhar música" class="flex flex-col items-center gap-2 text-zinc-400 hover:text-white transition-colors">
             <div class="w-12 h-12 flex items-center justify-center bg-zinc-800 rounded-full hover:bg-zinc-700">
               <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8.684 13.342C8.886 12.938 9 12.482 9 12s-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.368a3 3 0 105.367 2.684 3 3 0 00-5.367-2.684z" /></svg>
