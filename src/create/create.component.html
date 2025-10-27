@@ -1,3 +1,4 @@
+
 <div class="max-w-3xl mx-auto p-4 md:p-8 text-white">
   @if (!isGeminiConfigured()) {
     <div class="mb-8 p-6 rounded-2xl bg-yellow-900/30 border border-yellow-700 text-yellow-300 text-center">
@@ -11,9 +12,12 @@
   @if (!isMurekaConfigured()) {
     <div class="mb-8 p-6 rounded-2xl bg-red-900/30 border border-red-700 text-red-300 text-center">
       <h2 class="font-bold text-lg mb-2">⚠️ Configuração de API Crítica Necessária (Mureka) ⚠️</h2>
-      <p class="mb-2">O Supabase não está configurado. A geração de músicas está desativada, ou a Edge Function não está pronta.</p>
+      <p class="mb-2">O cliente Supabase não está configurado corretamente, o que afeta a comunicação com a Edge Function da Mureka.</p>
       <p class="mt-4 text-sm font-semibold">
-        PARA CORRIGIR: Verifique as credenciais do Supabase em <code class="bg-red-700/30 text-white px-1 py-0.5 rounded">src/config.ts</code> e certifique-se de que a Edge Function `mureka-proxy` está implantada e configurada com a variável de ambiente `MUREKA_API_KEY` no painel do Supabase.
+        PARA CORRIGIR: <br>
+        1. Verifique se as credenciais do Supabase estão corretas em <code class="bg-red-700/30 text-white px-1 py-0.5 rounded">src/config.ts</code>. <br>
+        2. **MAIS IMPORTANTE:** Certifique-se de que a **Edge Function `mureka-proxy` está implantada e PUBLICADA** no seu projeto Supabase. No painel do Supabase, vá em Edge Functions e verifique o status da função. <br>
+        3. Confirme que a variável de ambiente **`MUREKA_API_KEY` está configurada nos segredos (secrets)** da Edge Function `mureka-proxy` no painel do Supabase.
       </p>
     </div>
   }
@@ -83,7 +87,7 @@
             rows="2"
             placeholder="Descreva sua ideia para gerar a letra..."
             class="w-full p-2 bg-transparent border-none rounded-md text-gray-200 placeholder-zinc-500 focus:ring-0 resize-none"
-            [disabled]="generatingLyrics() || !isGeminiConfigured()"></textarea>
+            [disabled]="generatingLyrics() || lyricsDescription().trim().length === 0 || !isGeminiConfigured()"></textarea>
             <div class="flex justify-end mt-2">
                <button (click)="generateLyrics()" [disabled]="generatingLyrics() || lyricsDescription().trim().length === 0 || !isGeminiConfigured()" class="flex items-center justify-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-zinc-700 rounded-full transition-colors duration-300 hover:bg-zinc-600 disabled:bg-zinc-800 disabled:text-zinc-500 disabled:cursor-not-allowed">
                   <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clip-rule="evenodd" /></svg>
