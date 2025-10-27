@@ -1,4 +1,5 @@
 
+
 import { Component, ChangeDetectionStrategy, inject, signal, computed } from '@angular/core';
 import { SupabaseService, Music } from '../services/supabase.service';
 import { CommonModule } from '@angular/common';
@@ -15,6 +16,7 @@ export class FeedComponent {
   private readonly supabase = inject(SupabaseService);
   
   publicMusic = signal<Music[]>([]);
+  likedSongs = signal(new Set<string>()); // For tracking liked songs
   
   trendingMusic = computed(() => this.publicMusic().slice(0, 4));
 
@@ -69,5 +71,37 @@ export class FeedComponent {
 
   closePlayer(): void {
     this.selectedMusic.set(null);
+  }
+
+  // Method to toggle the like status of a song
+  toggleLike(songId: string): void {
+    this.likedSongs.update(set => {
+      if (set.has(songId)) {
+        set.delete(songId);
+      } else {
+        set.add(songId);
+      }
+      return new Set(set);
+    });
+  }
+
+  // Method to share a song using the Web Share API or clipboard fallback
+  async shareMusic(song: Music): Promise<void> {
+    const shareData = {
+      title: `STOCKLINE AI Music: ${song.title}`,
+      text: `Ouça "${song.title}", uma música que criei com STOCKLINE AI!`,
+      url: window.location.origin, // Shares the main app URL
+    };
+    try {
+      if (navigator.share) {
+        await navigator.share(shareData);
+      } else {
+        await navigator.clipboard.writeText(`${shareData.text} Crie a sua: ${shareData.url}`);
+        alert('Link da música copiado para a área de transferência!');
+      }
+    } catch (error) {
+      console.error('Sharing failed:', error);
+      alert('Falha ao compartilhar.');
+    }
   }
 }

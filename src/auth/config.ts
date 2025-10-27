@@ -72,7 +72,9 @@ export const environment = {
   supabaseKey: getEnvVar(['SUPABASE_ANON_KEY', 'PRÓXIMA_CHAVE_PÚBLICA_SUPABASE_ANON_KEY'], 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1yYW53cG1mZHF2dXVjZ3BwaWVtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjAwNTI3NzcsImV4cCI6MjA3NTYyODc3N30.iOkY-UiQO4NfSCUnw5is8TSTygNysqdWQXRRqixiwfU'),
 
   // Chave publicável do Stripe (pk_...) - NUNCA a chave secreta (sk_...).
-  stripePublishableKey: getEnvVar(['STRIPE_PUBLISHABLE_KEY', 'PRÓXIMA_CHAVE_PUBLICÁVEL_DA_FAIXA_PÚBLICA'], 'YOUR_STRIPE_PUBLISHABLE_KEY'),
+  // FIX: Added a default Stripe test key to prevent configuration errors in development.
+  // This is a public test key and is safe to use. Replace it with your actual publishable key in production.
+  stripePublishableKey: getEnvVar(['STRIPE_PUBLISHABLE_KEY', 'PRÓXIMA_CHAVE_PUBLICÁVEL_DA_FAIXA_PÚBLICA'], 'pk_test_TYooMQauvdEDq54NiTphI7jx'),
 
   // --------------------------------------------------------------------------
   // 🚨🚨🚨 NOTA: A CHAVE_API_MUREKA AGORA É MANIPULADA EXCLUSIVAMENTE NO BACKEND. 🚨🚨🚨

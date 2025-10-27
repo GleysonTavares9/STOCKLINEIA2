@@ -1,4 +1,6 @@
-// Removed `/// <reference lib="deno.ns" />` as it was causing a type definition error.
+// FIX: Updated the triple-slash directive to use the recommended, un-versioned URL for Supabase edge function types.
+// This resolves the errors 'Cannot find type definition file' and 'Cannot find name Deno'.
+/// <reference types="https://esm.sh/@supabase/functions-js/src/edge-runtime.d.ts" />
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { corsHeaders } from '../_shared/cors.ts';
 
@@ -10,8 +12,7 @@ serve(async (req) => {
   }
 
   try {
-    // Fixed: Added type assertion `(Deno as any)` to resolve `Cannot find name 'Deno'` error.
-    const murekaApiKey = (Deno as any).env.get('MUREKA_API_KEY');
+    const murekaApiKey = Deno.env.get('MUREKA_API_KEY');
 
     if (!murekaApiKey) {
       return new Response(JSON.stringify({ error: 'MUREKA_API_KEY not configured on Supabase Edge Function.' }), {
