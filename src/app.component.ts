@@ -1,4 +1,4 @@
-import { Component, ChangeDetectionStrategy, inject, signal } from '@angular/core';
+import { Component, ChangeDetectionStrategy, inject, signal, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterOutlet, RouterLink, RouterLinkActive } from '@angular/router';
 import { SupabaseService } from './services/supabase.service';
@@ -20,6 +20,19 @@ export class AppComponent {
   currentUserProfile = this.supabaseService.currentUserProfile;
   isProfileMenuOpen = signal(false);
 
+  constructor() {
+    // Effect to ensure redirection to auth page if user logs out or is not authenticated
+    effect(() => {
+      // Only act if Supabase auth state has been initially checked
+      if (this.authReady() && !this.currentUser()) {
+        // Fix: Use 'exact' for paths to match the full path '/auth' correctly.
+        if (!this.router.isActive('/auth', { paths: 'exact', queryParams: 'subset', fragment: 'ignored', matrixParams: 'ignored' })) {
+          this.router.navigate(['/auth']);
+        }
+      }
+    });
+  }
+
   toggleProfileMenu(): void {
     this.isProfileMenuOpen.update(v => !v);
   }
@@ -27,6 +40,7 @@ export class AppComponent {
   async signOut() {
     this.isProfileMenuOpen.set(false);
     await this.supabaseService.signOut();
-    this.router.navigate(['/auth']);
+    // The effect in the constructor will now handle the navigation, making this explicit navigate call redundant but harmless.
+    // this.router.navigate(['/auth']); 
   }
 }

@@ -159,36 +159,36 @@ export class SupabaseService {
       return { user: null, error: { name: 'InitializationError', message: 'Supabase client not initialized.' } as AuthError };
     }
     console.log('signUp: Attempting to sign up with email:', email);
-    const { data, error } = await this.supabase.auth.signUp({ email, password });
+
+    // Generate a default username and full_name to be passed in metadata.
+    // This helps the server-side trigger to create a profile
+    // without violating a NOT NULL constraint on required columns.
+    const emailPrefix = email.split('@')[0];
+    const uniqueSuffix = Math.random().toString(36).substring(2, 8);
+    const sanitizedEmailPrefix = emailPrefix.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const baseUsername = sanitizedEmailPrefix.length > 0 ? sanitizedEmailPrefix : 'user';
+    const defaultUsername = `${baseUsername}_${uniqueSuffix}`;
+
+    const { data, error } = await this.supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          username: defaultUsername,
+          full_name: emailPrefix, // Provide a default value instead of null
+        },
+      },
+    });
+
     if (data.user) {
       console.log('signUp: User signed up successfully (email verification might be required):', data.user.id);
-      await this.createProfileForUser(data.user);
+      // The client-side profile creation has been removed to prevent a race condition with the
+      // server-side trigger, which was the likely cause of the "Database error saving new user" error.
+      // The `onAuthStateChange` listener will now handle fetching the profile created by the trigger.
     } else if (error) {
       console.error('signUp: Error during sign up:', error.message);
     }
     return { user: data.user, error };
-  }
-  
-  async createProfileForUser(user: User): Promise<void> {
-    if (!this.supabase || !user.email) {
-      console.error('createProfileForUser: Supabase client not initialized or user email missing.');
-      return;
-    }
-
-    const { error } = await this.supabase
-      .from('profiles')
-      .insert({
-        id: user.id,
-        email: user.email,
-        credits: 2 // Start with 2 free credits
-      });
-    
-    if (error) {
-      console.error('createProfileForUser: Error creating profile for new user:', error.message);
-    } else {
-      console.log('createProfileForUser: Profile created successfully for user ID:', user.id);
-      await this.fetchUserProfile(user.id);
-    }
   }
 
   async signInWithGoogle(): Promise<{ error: AuthError | null }> {
