@@ -166,11 +166,10 @@ export class SupabaseService {
     const emailPrefix = email.split('@')[0];
     const uniqueSuffix = Math.random().toString(36).substring(2, 8);
     const sanitizedEmailPrefix = emailPrefix.toLowerCase().replace(/[^a-z0-9]/g, '');
-    const baseUsername = sanitizedEmailPrefix.length > 0 ? sanitizedEmailPrefix : 'user';
-    const defaultUsername = `${baseUsername}_${uniqueSuffix}`;
-    // FIX: The persistent "Database error" suggests a constraint violation (e.g., NOT NULL or CHECK)
-    // in the profile creation trigger. A possible cause is an empty `full_name` if the email has no
-    // local-part (e.g., `@example.com`). This ensures `full_name` always has a non-empty value.
+    const baseUsername = sanitizedEmailPrefix.length > 0 ? sanitizedEmailPrefix.substring(0, 15) : 'user';
+    // FIX: A persistent "Database error" can be caused by a CHECK constraint on the username.
+    // Making the username purely alphanumeric (removing the '_') increases compatibility.
+    const defaultUsername = `${baseUsername}${uniqueSuffix}`;
     const defaultFullName = emailPrefix || baseUsername;
 
     const { data, error } = await this.supabase.auth.signUp({
