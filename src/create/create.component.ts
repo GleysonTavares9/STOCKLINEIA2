@@ -25,139 +25,198 @@ export class CreateComponent {
 
   // Config signals
   readonly isGeminiConfigured = this.geminiService.isConfigured;
-  readonly isMurekaConfigured = this.murekaService.isConfigured; // Novo signal para a Mureka
+  readonly isMurekaConfigured = this.murekaService.isConfigured;
+  readonly supabaseInitError = this.supabaseService.supabaseInitError; // Expose the error
 
   // Form signals
   songTitle = signal<string>('');
   selectedStyles = signal(new Set<string>());
   customStyle = signal<string>('');
   lyrics = signal<string>('');
+  lyricsDescription = signal<string>(''); // For AI lyrics prompt
   vocalGender = signal<'male' | 'female'>('female');
   isInstrumental = signal<boolean>(false);
 
   // Style options
-  readonly musicStyles = ['Pop', 'Rock', 'Sertanejo', 'Eletrônica', 'Hip Hop', 'Funk', 'Acústico', 'Ambiente', 'Clássico', 'MPB', 'Samba', 'Forró', 'R&B', 'Reggae', 'Lo-fi'];
+  readonly musicStyles = [
+    'Pop', 'Rock', 'Sertanejo', 'Eletrônica', 'Hip Hop', 'Funk',
+    'Acústico', 'Ambiente', 'Clássico', 'MPB', 'Samba', 'Forró',
+    'R&B', 'Reggae', 'Lo-Fi', 'Jazz', 'Blues', 'Gospel', 'Folk', 'Country'
+  ];
 
-  // Lyrics generation state
-  lyricsDescription = signal<string>('');
-  generatingLyrics = signal<boolean>(false);
+  // AI Lyrics generation state
+  generatingLyrics = signal(false);
   lyricsError = signal<string | null>(null);
+  lyricsCost = signal(1); // Cost for generating lyrics with AI
 
-  isGeneratingMusic = signal<boolean>(false);
+  // Music generation state
+  isGeneratingMusic = signal(false);
   generationError = signal<string | null>(null);
 
-  // Lyrics character limit logic
-  readonly lyricsCharLimit = 3000;
+  // Lyrics character limit
+  readonly lyricsCharLimit = 1000;
   lyricsCharCount = computed(() => this.lyrics().length);
   isLyricsTooLong = computed(() => this.lyricsCharCount() > this.lyricsCharLimit);
 
+  // Computed signal to enable/disable the "Gerar Letra com IA" button
+  canGenerateLyrics = computed(() => {
+    // If Gemini is not configured, disable
+    if (!this.isGeminiConfigured()) {
+      return false;
+    }
+    // If no user profile or insufficient credits, disable
+    if (!this.currentUserProfile() || this.currentUserProfile()!.credits < this.lyricsCost()) {
+      return false;
+    }
+    // If currently generating lyrics, disable
+    if (this.generatingLyrics()) {
+      return false;
+    }
+    // If lyrics description is empty, disable
+    if (!this.lyricsDescription().trim()) {
+      return false;
+    }
+    return true;
+  });
+
+  // Computed signal to enable/disable the "Criar" button
   canGenerateMusic = computed(() => {
-    const profile = this.currentUserProfile();
-    // A letra é válida se for instrumental OU se não estiver vazia e estiver dentro do limite de caracteres.
-    const lyricsOk = this.isInstrumental() || (this.lyrics().trim().length > 0 && !this.isLyricsTooLong());
-    
-    return (
-      profile != null && profile.credits > 0 &&
-      this.isMurekaConfigured() && // Adiciona verificação de configuração da Mureka
-      this.songTitle().trim().length > 0 &&
-      (this.selectedStyles().size > 0 || this.customStyle().trim().length > 0) &&
-      lyricsOk &&
-      !this.isGeneratingMusic()
-    );
+    // If Supabase/Mureka is not configured, disable
+    if (!this.isMurekaConfigured() || !this.currentUserProfile()) {
+      return false;
+    }
+    // If there are no credits, disable
+    if (this.currentUserProfile()!.credits <= 0) {
+      return false;
+    }
+    // If generating lyrics or music, disable
+    if (this.generatingLyrics() || this.isGeneratingMusic()) {
+      return false;
+    }
+    // If instrumental, only require style and title
+    if (this.isInstrumental()) {
+      const hasStyle = this.selectedStyles().size > 0 || this.customStyle().trim().length > 0;
+      return hasStyle && this.songTitle().trim().length > 0;
+    }
+    // If with vocals, require lyrics or description, style, and title
+    const hasLyrics = this.lyrics().trim().length > 0 && !this.isLyricsTooLong();
+    const hasLyricsDesc = this.lyricsDescription().trim().length > 0;
+    const hasStyle = this.selectedStyles().size > 0 || this.customStyle().trim().length > 0;
+    const hasTitle = this.songTitle().trim().length > 0;
+
+    return (hasLyrics || hasLyricsDesc) && hasStyle && hasTitle;
   });
 
   constructor() {
     effect(() => {
-      if (!this.supabaseService.authReady()) return;
+      // If user logs out, redirect to auth page.
       if (!this.currentUser()) {
-        this.router.navigate(['/auth'], { queryParams: { message: 'Faça login para criar músicas.' } });
+        this.router.navigate(['/auth']);
       }
     });
   }
 
   toggleStyle(style: string): void {
-    this.selectedStyles.update(styles => {
-      if (styles.has(style)) {
-        styles.delete(style);
+    this.selectedStyles.update(currentStyles => {
+      const newStyles = new Set(currentStyles);
+      if (newStyles.has(style)) {
+        newStyles.delete(style);
       } else {
-        styles.add(style);
+        newStyles.add(style);
       }
-      return new Set(styles);
+      return newStyles;
     });
   }
 
   async generateLyrics(): Promise<void> {
-    if (!this.lyricsDescription() || this.generatingLyrics() || !this.isGeminiConfigured()) {
+    const description = this.lyricsDescription().trim();
+    if (!this.canGenerateLyrics()) { // Use the new computed signal
+      let errorMessage = 'Você não pode gerar letras no momento.';
+      if (!this.isGeminiConfigured()) {
+        errorMessage = 'O serviço Gemini não está configurado. Verifique a configuração da IA.';
+      } else if (!this.currentUserProfile() || this.currentUserProfile()!.credits < this.lyricsCost()) {
+        errorMessage = `Créditos insuficientes para gerar letras. Custa ${this.lyricsCost()} crédito.`;
+      } else if (this.generatingLyrics()) {
+        errorMessage = 'A geração de letras já está em andamento.';
+      } else if (!description) {
+        errorMessage = 'Por favor, descreva a ideia para gerar a letra.';
+      }
+      this.lyricsError.set(errorMessage);
       return;
     }
 
     this.generatingLyrics.set(true);
-    this.lyrics.set('');
     this.lyricsError.set(null);
 
     try {
-      const result = await this.geminiService.generateLyrics(this.lyricsDescription());
-      this.lyrics.set(result);
-    } catch (e) {
-      const message = e instanceof Error ? e.message : 'Ocorreu um erro desconhecido. Por favor, tente novamente.';
-      this.lyricsError.set(message);
-      console.error(e);
+      const generatedText = await this.geminiService.generateLyrics(description);
+      this.lyrics.set(generatedText);
+
+      // Decrement credits only after successful generation
+      const currentCredits = this.currentUserProfile()!.credits;
+      await this.supabaseService.updateUserCredits(this.currentUser()!.id, currentCredits - this.lyricsCost());
+
+    } catch (error: any) {
+      console.error('Erro ao gerar letras:', error);
+      this.lyricsError.set(error.message || 'Falha ao gerar letras. Tente novamente.');
     } finally {
       this.generatingLyrics.set(false);
     }
   }
 
   async startMusicGenerationWorkflow(): Promise<void> {
-    const profile = this.currentUserProfile();
-    if (!this.canGenerateMusic() || !profile) {
+    if (!this.canGenerateMusic() || this.isGeneratingMusic()) {
       return;
     }
-    
+
     this.isGeneratingMusic.set(true);
     this.generationError.set(null);
 
     try {
-        const newCreditCount = profile.credits - 1;
-        await this.supabaseService.updateUserCredits(profile.id, newCreditCount);
+      // Construct the style string
+      const stylesArray = Array.from(this.selectedStyles());
+      const finalStyle = stylesArray.length > 0 ? stylesArray.join(', ') : this.customStyle().trim();
 
-        // FIX: Replaced `Array.from()` with the spread syntax (`...`) to convert the Set to an array.
-        // This resolves a TypeScript type inference issue where the array item `s` in the `.some()`
-        // method below was incorrectly inferred as `unknown`.
-        const styleParts = [...this.selectedStyles()];
-        if (this.customStyle().trim()) {
-          styleParts.push(this.customStyle().trim());
-        }
+      const title = this.songTitle().trim();
+      const currentLyrics = this.lyrics().trim();
+      const currentVocalGender = this.vocalGender();
+      const isInstrumentalMode = this.isInstrumental();
 
-        if (this.isInstrumental()) {
-          if (!styleParts.some(s => s.toLowerCase() === 'instrumental')) {
-            styleParts.push('Instrumental');
-          }
-          const fullStyle = styleParts.join(', ');
-          await this.murekaService.generateInstrumental(this.songTitle(), fullStyle);
-        } else {
-          styleParts.push(`${this.vocalGender()} vocal`);
-          const fullStyle = styleParts.join(', ');
-          await this.murekaService.generateMusic(this.songTitle(), fullStyle, this.lyrics());
-        }
+      if (!finalStyle) {
+        throw new Error('Por favor, selecione ou descreva um estilo para a música.');
+      }
+      if (!title) {
+        throw new Error('Por favor, digite um título para a música.');
+      }
+      if (!isInstrumentalMode && !currentLyrics) {
+        throw new Error('Por favor, insira a letra da música ou gere com IA.');
+      }
 
-        this.router.navigate(['/library']);
-        
-        setTimeout(() => {
-          this.songTitle.set('');
-          this.selectedStyles.set(new Set());
-          this.customStyle.set('');
-          this.lyrics.set('');
-          this.isInstrumental.set(false);
-          this.lyricsDescription.set('');
-          this.isGeneratingMusic.set(false);
-        }, 500);
-    } catch (error) {
-        console.error("Failed to generate music or update credits", error);
-        // Restore user's credits if the generation process fails.
-        await this.supabaseService.updateUserCredits(profile.id, profile.credits);
-        const message = error instanceof Error ? error.message : 'Ocorreu um erro desconhecido ao contatar o backend.';
-        this.generationError.set(`${message} Seu crédito foi restaurado.`);
-        this.isGeneratingMusic.set(false);
+      if (isInstrumentalMode) {
+        await this.murekaService.generateInstrumental(title, finalStyle);
+      } else {
+        await this.murekaService.generateMusic(title, `${finalStyle}, ${currentVocalGender} vocals`, currentLyrics);
+      }
+
+      // Decrement credits
+      const currentCredits = this.currentUserProfile()!.credits;
+      await this.supabaseService.updateUserCredits(this.currentUser()!.id, currentCredits - 1); // Assuming 1 credit for music generation
+
+      // Clear form after successful generation request
+      this.songTitle.set('');
+      this.selectedStyles.set(new Set<string>());
+      this.customStyle.set('');
+      this.lyrics.set('');
+      this.lyricsDescription.set('');
+      this.isInstrumental.set(false);
+      
+      this.router.navigate(['/library']); // Redirect to library to see processing song
+
+    } catch (error: any) {
+      console.error('Erro ao iniciar geração de música:', error);
+      this.generationError.set(error.message || 'Falha ao gerar a música. Tente novamente.');
+    } finally {
+      this.isGeneratingMusic.set(false);
     }
   }
 }

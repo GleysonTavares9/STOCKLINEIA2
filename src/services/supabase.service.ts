@@ -50,6 +50,7 @@ export class SupabaseService {
   readonly authReady = signal<boolean>(false);
   currentUser = signal<User | null>(null);
   currentUserProfile = signal<Profile | null>(null);
+  readonly supabaseInitError = signal<string | null>(null); // Novo sinal para erros de inicialização
 
   constructor() {
     const supabaseUrl = environment.supabaseUrl;
@@ -60,10 +61,20 @@ export class SupabaseService {
     const isUrlMissing = !supabaseUrl || supabaseUrl.includes('YOUR_SUPABASE_URL');
     const isKeyMissing = !supabaseKey || supabaseKey.includes('YOUR_SUPABASE_ANON_KEY');
 
-    if (isUrlMissing || isKeyMissing) {
-      console.error('SupabaseService: Supabase URL or Key not configured. Please check src/auth/config.ts');
+    if (isUrlMissing) {
+      const msg = 'Supabase URL não configurada. Por favor, preencha `supabaseUrl` em `src/auth/config.ts` ou configure a variável de ambiente `SUPABASE_URL`.';
+      console.error('SupabaseService:', msg);
       this.isConfigured.set(false);
-      this.authReady.set(true); // Ready to show the config error in the UI
+      this.supabaseInitError.set(msg);
+      this.authReady.set(true); 
+      return;
+    }
+    if (isKeyMissing) {
+      const msg = 'Supabase Anon Key não configurada. Por favor, preencha `supabaseKey` em `src/auth/config.ts` ou configure a variável de ambiente `SUPABASE_ANON_KEY`.';
+      console.error('SupabaseService:', msg);
+      this.isConfigured.set(false);
+      this.supabaseInitError.set(msg);
+      this.authReady.set(true); 
       return;
     }
     
@@ -71,14 +82,14 @@ export class SupabaseService {
       this.supabase = createClient(supabaseUrl, supabaseKey);
       this.isConfigured.set(true);
       console.log('SupabaseService: Supabase client initialized successfully.');
-    } catch (e) {
-      console.error('SupabaseService: Error initializing Supabase client:', e);
+    } catch (e: any) { // Catch as any to handle potential non-Error objects
+      const msg = `Erro ao inicializar o cliente Supabase: ${e.message || e.toString()}. Verifique se a URL e a chave anônima são válidas e se há conexão com a internet.`;
+      console.error('SupabaseService:', msg);
       this.isConfigured.set(false);
-      this.authReady.set(true); // Ready to show the config error in the UI
+      this.supabaseInitError.set(msg);
+      this.authReady.set(true); 
       return;
     }
-
-    this.authReady.set(true); // Set authReady to true immediately if configured, allowing UI to render.
 
     this.supabase.auth.onAuthStateChange(async (event, session) => {
       console.log('SupabaseService: Auth state change detected:', event);
@@ -88,9 +99,10 @@ export class SupabaseService {
         console.log('SupabaseService: User logged in, fetching profile for ID:', user.id);
         await this.fetchUserProfile(user.id);
       } else {
-        console.log('SupabaseService: User logged out or no user session.');
+        console.log('SupabaseService: User logged out or no user session. Clearing profile.');
         this.currentUserProfile.set(null);
       }
+      this.authReady.set(true); // Now safe to set authReady to true after initial auth check.
     });
   }
 
@@ -133,10 +145,50 @@ export class SupabaseService {
       console.error('signOut: Supabase client not initialized.');
       return;
     }
-    await this.supabase.auth.signOut();
+    console.log('SupabaseService: Initiating Supabase auth.signOut()');
+    const { error } = await this.supabase.auth.signOut();
+    if (error) {
+      console.error('SupabaseService: Error during auth.signOut():', error.message);
+      // Even if there's an error, try to clear client-side state
+    }
+
+    // Explicitly clear Supabase related items from local storage as a safety measure.
+    // This helps in scenarios where the Supabase client might not fully clear all state
+    // in specific browser environments or due to race conditions.
+    console.log('SupabaseService: Attempting to clear Supabase related local storage and session storage items.');
+    const storageKeys = [];
+    for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith('sb:') && key.includes('-auth-')) { // Supabase keys usually start with 'sb:'
+            storageKeys.push({ type: 'localStorage', key: key });
+        }
+    }
+    for (let i = 0; i < sessionStorage.length; i++) {
+        const key = sessionStorage.key(i);
+        if (key && key.startsWith('sb:') && key.includes('-auth-')) { // Supabase keys usually start with 'sb:'
+            storageKeys.push({ type: 'sessionStorage', key: key });
+        }
+    }
+
+    if (storageKeys.length > 0) {
+      console.log(`SupabaseService: Found ${storageKeys.length} items to clear.`);
+      for (const item of storageKeys) {
+        if (item.type === 'localStorage') {
+          localStorage.removeItem(item.key);
+          console.log(`SupabaseService: Removed localStorage item: ${item.key}`);
+        } else {
+          sessionStorage.removeItem(item.key);
+          console.log(`SupabaseService: Removed sessionStorage item: ${item.key}`);
+        }
+      }
+    } else {
+      console.log('SupabaseService: No Supabase-related items found in storage to clear manually.');
+    }
+
+    // Reset signals
     this.currentUser.set(null);
     this.currentUserProfile.set(null);
-    console.log('signOut: User signed out.');
+    console.log('SupabaseService: Client-side currentUser and currentUserProfile signals set to null.');
   }
 
   async signInWithEmail(email: string, password: string): Promise<{ user: User | null, error: AuthError | null }> {

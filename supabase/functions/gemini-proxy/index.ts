@@ -1,3 +1,13 @@
+
+// Fix: Adiciona a declaração do namespace global Deno para compatibilidade com o TypeScript
+declare global {
+  namespace Deno {
+    namespace env {
+      function get(key: string): string | undefined;
+    }
+  }
+}
+
 // Fix: Removed Supabase functions type reference.
 // The types were not being used in this function and the reference was causing a build error.
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
