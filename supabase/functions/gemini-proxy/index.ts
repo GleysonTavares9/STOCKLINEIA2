@@ -8,8 +8,6 @@ declare global {
   }
 }
 
-// Fix: Removed Supabase functions type reference.
-// The types were not being used in this function and the reference was causing a build error.
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 
 const corsHeaders = {
@@ -35,6 +33,9 @@ serve(async (req) => {
       });
     }
 
+    // Log parcial da chave para depuração sem expor a chave completa
+    console.log('Gemini Proxy: Using API Key (last 4 chars):', geminiApiKey.slice(-4));
+
     const { prompt } = await req.json();
 
     if (!prompt || typeof prompt !== 'string') {
@@ -44,7 +45,6 @@ serve(async (req) => {
       });
     }
 
-    // Reconstruct the full prompt and system instruction from the original GeminiService
     const fullPrompt = `Gere uma letra de música baseada na seguinte ideia: "${prompt}".
 
 REGRAS ESTRITAS DE FORMATAÇÃO DA RESPOSTA:
@@ -65,14 +65,25 @@ Você DEVE seguir TODAS as regras de formatação da resposta solicitadas pelo u
       },
     };
     
+    console.log('Gemini Proxy: Sending request to Gemini:', JSON.stringify(geminiRequestBody, null, 2));
+
     const geminiResponse = await fetch(`${GEMINI_API_URL}?key=${geminiApiKey}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(geminiRequestBody),
     });
 
+    console.log('Gemini Proxy: Raw Gemini API response status:', geminiResponse.status);
+    const rawGeminiResponseBody = await geminiResponse.text();
+    console.log('Gemini Proxy: Raw Gemini API response body:', rawGeminiResponseBody);
+
     if (!geminiResponse.ok) {
-        const errorBody = await geminiResponse.json();
+        let errorBody;
+        try {
+            errorBody = JSON.parse(rawGeminiResponseBody);
+        } catch {
+            errorBody = { message: rawGeminiResponseBody || 'Could not parse Gemini API error response or empty body.' };
+        }
         console.error('Gemini API Error:', errorBody);
         return new Response(JSON.stringify({ error: 'Gemini API call failed', details: errorBody }), {
             status: geminiResponse.status,
@@ -80,7 +91,7 @@ Você DEVE seguir TODAS as regras de formatação da resposta solicitadas pelo u
         });
     }
 
-    const responseData = await geminiResponse.json();
+    const responseData = JSON.parse(rawGeminiResponseBody); // Parse the already read body
     const generatedText = responseData.candidates?.[0]?.content?.parts?.[0]?.text;
 
     if (typeof generatedText !== 'string') {
