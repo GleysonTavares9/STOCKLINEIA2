@@ -2,23 +2,31 @@ import { Component, ChangeDetectionStrategy, inject, signal, effect } from '@ang
 import { CommonModule } from '@angular/common';
 import { Router, RouterOutlet, RouterLink, RouterLinkActive } from '@angular/router';
 import { SupabaseService } from './services/supabase.service';
+import { MusicPlayerService } from './services/music-player.service';
+import { MusicPlayerComponent } from './library/music-player/music-player.component';
 
 @Component({
   selector: 'app-root',
   templateUrl: './app.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
   standalone: true,
-  imports: [CommonModule, RouterOutlet, RouterLink, RouterLinkActive]
+  imports: [CommonModule, RouterOutlet, RouterLink, RouterLinkActive, MusicPlayerComponent],
+  host: {
+    '(window:keydown)': 'handleKeyDown($event)'
+  }
 })
 export class AppComponent {
   private readonly supabaseService = inject(SupabaseService);
   private readonly router = inject(Router);
+  readonly musicPlayerService = inject(MusicPlayerService);
 
   authReady = this.supabaseService.authReady;
   isSupabaseConfigured = this.supabaseService.isConfigured;
   currentUser = this.supabaseService.currentUser;
   currentUserProfile = this.supabaseService.currentUserProfile;
   isProfileMenuOpen = signal(false);
+
+  currentMusic = this.musicPlayerService.currentMusic;
 
   constructor() {
     // Centralized effect to handle routing based on authentication state.
@@ -57,6 +65,52 @@ export class AppComponent {
     });
   }
 
+  handleKeyDown(event: KeyboardEvent): void {
+    // Prevent shortcuts from firing when typing in inputs or textareas
+    const target = event.target as HTMLElement;
+    if (['INPUT', 'TEXTAREA'].includes(target.tagName)) {
+      return;
+    }
+
+    // Allow Escape key to close profile menu
+    if (event.key === 'Escape' && this.isProfileMenuOpen()) {
+      this.isProfileMenuOpen.set(false);
+      return;
+    }
+
+    // Navigation shortcuts
+    switch (event.key.toUpperCase()) {
+      case 'C':
+        this.router.navigate(['/create']);
+        break;
+      case 'L':
+        this.router.navigate(['/library']);
+        break;
+      case 'H':
+        this.router.navigate(['/feed']);
+        break;
+      case 'S':
+        this.router.navigate(['/subscribe']);
+        break;
+    }
+
+    // Player controls (only if a song is loaded)
+    if (this.currentMusic()) {
+      switch (event.key) {
+        case ' ': // Space bar
+          event.preventDefault(); // Prevent page scroll
+          this.musicPlayerService.togglePlayPause();
+          break;
+        case 'ArrowRight':
+          this.musicPlayerService.playNext();
+          break;
+        case 'ArrowLeft':
+          this.musicPlayerService.playPrev();
+          break;
+      }
+    }
+  }
+
   toggleProfileMenu(): void {
     this.isProfileMenuOpen.update(v => !v);
   }
@@ -64,8 +118,14 @@ export class AppComponent {
   async signOut() {
     this.isProfileMenuOpen.set(false);
     console.log('AppComponent: Initiating signOut process.');
+    this.musicPlayerService.closePlayer();
     await this.supabaseService.signOut();
     // The effect in the constructor will handle navigation to the auth page.
     console.log('AppComponent: signOut() completed. The effect will now handle redirection.');
+  }
+
+  getCoverArt(title: string): string {
+    // Using a higher resolution for the background
+    return `https://picsum.photos/seed/art-${title}/1280/720`;
   }
 }

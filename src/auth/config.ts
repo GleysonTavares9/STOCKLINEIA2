@@ -16,15 +16,15 @@
  * 
  * **ATENÇÃO ESPECIAL: CHAVES DE API SECRETAS (MUREKA & GEMINI)**
  * 
- * As chaves `MUREKA_API_KEY` e `GEMINI_API_KEY` são **CHAVES SECRETAS DE BACKEND**. Elas NÃO DEVEM
+ * As chaves `MUREKA_API_KEY` e `GIMINI_AI_API_KEY` são **CHAVES SECRETAS DE BACKEND**. Elas NÃO DEVEM
  * ser incluídas diretamente no frontend. A comunicação com essas APIs agora é feita através de 
- * Edge Functions do Supabase (`mureka-proxy`, `gemini-proxy`), que é a prática recomendada de 
+ * Edge Functions do Supabase (`mureka-proxy`, `bright-worker`), que é a prática recomendada de 
  * segurança para proteger suas chaves.
  * 
  * Você DEVE configurar as seguintes variáveis de ambiente diretamente nas suas Edge Functions
  * no painel do Supabase:
  *  - `MUREKA_API_KEY`: Na Edge Function `mureka-proxy`.
- *  - `GEMINI_API_KEY`: Na Edge Function `gemini-proxy`.
+ *  - `GIMINI_AI_API_KEY`: Na Edge Function `bright-worker`.
  * 
  * --------------------------------------------------------------------------
  * 
@@ -41,9 +41,9 @@
  *    - `SUPABASE_ANON_KEY` (ou `PRÓXIMA_CHAVE_PÚBLICA_SUPABASE_ANON_KEY`): A chave anônima (public) do seu projeto Supabase.
  *    - `STRIPE_PUBLISHABLE_KEY` (ou `PRÓXIMA_CHAVE_PUBLICÁVEL_DA_FAIXA_PÚBLICA`): Sua chave publicável (pk_...) do Stripe.
  *    - `MUREKA_API_KEY`: Sua chave da API Mureka (para a Edge Function `mureka-proxy` no Supabase).
- *    - `GEMINI_API_KEY`: Sua chave da API Gemini (para a Edge Function `gemini-proxy` no Supabase).
+ *    - `GIMINI_AI_API_KEY`: Sua chave da API Gemini (para a Edge Function `bright-worker` no Supabase).
  * 
- * PARA DESENVOLvimento LOCAL:
+ * PARA DESENVOLVIMENTO LOCAL:
  * Se você não está usando um sistema que injeta `process.env` (ou se suas variáveis de ambiente não estão configuradas localmente),
  * você DEVE substituir os placeholders ('YOUR_...') abaixo pelos seus valores REAIS para que a aplicação funcione.
  *
@@ -73,7 +73,7 @@ const getEnvVar = (names: string[], defaultValue: string): string => {
 
 export const environment = {
   // Chave para a API Gemini (usada no frontend)
-  // 🚨 REMOVIDO: A chave da API do Gemini agora é gerenciada com segurança no backend pela Edge Function `gemini-proxy`.
+  // 🚨 REMOVIDO: A chave da API do Gemini agora é gerenciada com segurança no backend pela Edge Function `bright-worker`.
 
   // URL e chave anônima (public) do seu projeto Supabase
   // A URL foi preenchida com base no seu projeto. A chave anônima abaixo é um EXEMPLO e DEVE ser substituída.

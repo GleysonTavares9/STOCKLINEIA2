@@ -25,5 +25,13 @@ export const routes: Routes = [
   {
     path: 'subscribe',
     loadComponent: () => import('./subscribe/subscribe.component').then(m => m.SubscribeComponent)
+  },
+  {
+    path: 'usage',
+    loadComponent: () => import('./usage/usage.component').then(m => m.UsageComponent)
+  },
+  {
+    path: 'shortcuts',
+    loadComponent: () => import('./shortcuts/shortcuts.component').then(m => m.ShortcutsComponent)
   }
 ];

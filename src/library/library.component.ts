@@ -2,21 +2,21 @@ import { Component, ChangeDetectionStrategy, inject, signal, computed } from '@a
 import { CommonModule } from '@angular/common';
 import { MurekaService } from '../services/mureka.service';
 import { type Music } from '../services/supabase.service';
-import { MusicPlayerComponent } from './music-player/music-player.component';
+import { MusicPlayerService } from '../services/music-player.service';
 
 @Component({
   selector: 'app-library',
   standalone: true,
-  imports: [CommonModule, MusicPlayerComponent],
+  imports: [CommonModule],
   templateUrl: './library.component.html',
   styleUrls: ['./library.component.css'],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class LibraryComponent {
   private readonly murekaService = inject(MurekaService);
+  private readonly playerService = inject(MusicPlayerService);
 
   userMusic = this.murekaService.userMusic;
-  selectedMusic = signal<Music | null>(null);
   deleteError = signal<string | null>(null);
   clearError = signal<string | null>(null);
   isDeleting = signal<string | null>(null); // store id of music being deleted
@@ -28,12 +28,8 @@ export class LibraryComponent {
 
   selectMusic(music: Music): void {
     if (music.status === 'succeeded' && music.audio_url) {
-      this.selectedMusic.set(music);
+      this.playerService.selectMusicAndPlaylist(music, this.playlist());
     }
-  }
-
-  closePlayer(): void {
-    this.selectedMusic.set(null);
   }
 
   async deleteMusic(musicId: string): Promise<void> {

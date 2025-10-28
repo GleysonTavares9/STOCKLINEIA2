@@ -208,6 +208,9 @@ export class MurekaService {
     }
 
     let musicRecord: Music | null = null;
+    // A chamada para a API Mureka é feita através da Edge Function 'mureka-proxy' do Supabase.
+    // Isso garante que a chave da API (MUREKA_API_KEY) nunca seja exposta no frontend,
+    // seguindo as melhores práticas de segurança. A função atua como um proxy seguro.
     try {
       musicRecord = await this.supabase.addMusic({
         title,
@@ -286,6 +289,9 @@ export class MurekaService {
     }
 
     let musicRecord: Music | null = null;
+    // A chamada para a API Mureka é feita através da Edge Function 'mureka-proxy' do Supabase.
+    // Isso garante que a chave da API (MUREKA_API_KEY) nunca seja exposta no frontend,
+    // seguindo as melhores práticas de segurança. A função atua como um proxy seguro.
     try {
       musicRecord = await this.supabase.addMusic({
         title,

@@ -109,6 +109,9 @@ export class SubscribeComponent implements OnInit {
     this.isLoading.set(plan.id);
     this.purchaseError.set(null);
 
+    // A criação da sessão de checkout do Stripe é feita através da Edge Function 'dynamic-api'.
+    // Isso é crucial para a segurança, pois permite que a chave secreta do Stripe (STRIPE_SECRET_KEY)
+    // seja usada apenas no lado do servidor, sem nunca ser exposta no navegador do cliente.
     try {
       const stripe = Stripe(environment.stripePublishableKey);
       // #region Fix: Replaced direct access to private `supabase` client with the public `invokeFunction` method.

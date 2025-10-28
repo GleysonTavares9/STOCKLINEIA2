@@ -27,18 +27,20 @@ serve(async (req) => {
   }
 
   try {
+    // 1. Busca a chave da API Mureka de forma segura a partir dos segredos da Edge Function.
+    //    Esta chave NUNCA é exposta no lado do cliente (frontend).
     const murekaApiKey = Deno.env.get('MUREKA_API_KEY');
 
     if (!murekaApiKey) {
-      console.error('Mureka Proxy: MUREKA_API_KEY environment variable is not configured.');
+      console.error('Mureka Proxy Error: A variável de ambiente MUREKA_API_KEY não está configurada nos segredos da função.');
       return new Response(JSON.stringify({ error: 'MUREKA_API_KEY not configured on Supabase Edge Function. Please check your Supabase secrets.' }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    // Log parcial da chave para depuração sem expor a chave completa
-    console.log('Mureka Proxy: Using API Key (last 4 chars):', murekaApiKey.slice(-4));
+    // 2. Log para confirmar que a chave foi carregada com sucesso (mostrando apenas os 4 últimos caracteres por segurança).
+    console.log('Mureka Proxy: Chave da API Mureka carregada com sucesso (terminando em ...' + murekaApiKey.slice(-4) + ').');
 
     // Log the raw incoming request body for debugging
     const rawRequestBody = await req.clone().text();

@@ -54,7 +54,7 @@ export class CreateComponent {
   generationError = signal<string | null>(null);
 
   // Lyrics character limit
-  readonly lyricsCharLimit = 1000;
+  readonly lyricsCharLimit = 3000;
   lyricsCharCount = computed(() => this.lyrics().length);
   isLyricsTooLong = computed(() => this.lyricsCharCount() > this.lyricsCharLimit);
 

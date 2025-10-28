@@ -78,11 +78,18 @@ export class GeminiService {
     }
 
     if (parsedEdgeFunctionDetails) {
-        // Specific error for missing GEMINI_API_KEY from proxy
-        if (parsedEdgeFunctionDetails.error?.includes('GEMINI_API_KEY not configured on Supabase Edge Function')) {
-            console.log('Error Type: GEMINI_API_KEY not configured.');
+        // Specific error for missing GIMINI_AI_API_KEY from proxy
+        if (parsedEdgeFunctionDetails.error?.includes('GIMINI_AI_API_KEY not configured on Supabase Edge Function')) {
+            console.log('Error Type: GIMINI_AI_API_KEY not configured.');
             console.groupEnd();
-            return 'Erro de configuração no servidor: a chave da API Gemini não foi configurada na Edge Function. Por favor, configure a variável de ambiente GEMINI_API_KEY no painel do Supabase para a função `bright-worker`.';
+            return 'Erro de configuração no servidor: a chave da API Gemini não foi configurada na Edge Function. Por favor, configure a variável de ambiente GIMINI_AI_API_KEY no painel do Supabase para a função `bright-worker`.';
+        }
+        
+        // Handle old error message from a potentially outdated deployment
+        if (parsedEdgeFunctionDetails.error?.includes('GEMINI_API_KEY not configured on Supabase Edge Function')) {
+            console.log('Error Type: Mismatched GEMINI_API_KEY (with E) not configured.');
+            console.groupEnd();
+            return 'Detectamos um erro de configuração no servidor. A função `bright-worker` parece estar procurando pela variável de ambiente `GEMINI_API_KEY` (com "E"), mas o nome correto é `GIMINI_AI_API_KEY` (com "I"). Por favor, certifique-se de que a versão mais recente da sua função `bright-worker` está implantada (deploy) no Supabase.';
         }
 
         // Specific error for Gemini API call failed (propagated from proxy)
@@ -132,6 +139,9 @@ export class GeminiService {
       throw new Error('O serviço Gemini não está configurado porque o Supabase não está configurado. Verifique sua chave de API em `src/auth/config.ts`.');
     }
 
+    // A chamada para a API Gemini é feita através da Edge Function 'bright-worker' do Supabase.
+    // Isso garante que a chave da API (GIMINI_AI_API_KEY) nunca seja exposta no frontend,
+    // seguindo as melhores práticas de segurança. A função no Supabase atua como um proxy seguro.
     try {
       const { data, error: proxyError } = await this.supabase.invokeFunction('bright-worker', {
         body: { prompt }

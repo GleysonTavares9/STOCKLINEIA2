@@ -107,11 +107,3 @@
       }
     </div>
   }
-
-@if(selectedMusic(); as music) {
-  <app-music-player 
-    [music]="music" 
-    [playlist]="playlist()"
-    (close)="closePlayer()"
-    (changeSong)="selectMusic($event)" />
-}

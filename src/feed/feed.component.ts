@@ -1,19 +1,23 @@
 
 
+
+
+
 import { Component, ChangeDetectionStrategy, inject, signal, computed } from '@angular/core';
 import { SupabaseService, Music } from '../services/supabase.service';
 import { CommonModule } from '@angular/common';
-import { MusicPlayerComponent } from '../library/music-player/music-player.component'; // Import the music player
+import { MusicPlayerService } from '../services/music-player.service';
 
 @Component({
   selector: 'app-feed',
   standalone: true,
-  imports: [CommonModule, MusicPlayerComponent], // Add MusicPlayerComponent to imports
+  imports: [CommonModule],
   templateUrl: './feed.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class FeedComponent {
   private readonly supabase = inject(SupabaseService);
+  private readonly playerService = inject(MusicPlayerService);
   
   publicMusic = signal<Music[]>([]);
   likedSongs = signal(new Set<string>()); // For tracking liked songs
@@ -33,6 +37,7 @@ export class FeedComponent {
         if (!mainStyleRaw) return;
         
         const mainStyle = mainStyleRaw.toLowerCase();
+        // FIX: Corrected typo from `main.style` to `mainStyle` to properly capitalize the style for grouping.
         const capitalizedStyle = mainStyle.charAt(0).toUpperCase() + mainStyle.slice(1);
         
         if (!groups[capitalizedStyle]) {
@@ -45,7 +50,6 @@ export class FeedComponent {
     return styleOrder.map(style => ({ style, songs: groups[style] }));
   });
 
-  selectedMusic = signal<Music | null>(null); // New signal to track selected public music
   playlist = computed(() => this.publicMusic().filter(m => m.status === 'succeeded' && m.audio_url)); // All public music as a playlist
 
   constructor() {
@@ -65,12 +69,8 @@ export class FeedComponent {
 
   selectMusic(music: Music): void {
     if (music.status === 'succeeded' && music.audio_url) {
-      this.selectedMusic.set(music);
+      this.playerService.selectMusicAndPlaylist(music, this.playlist());
     }
-  }
-
-  closePlayer(): void {
-    this.selectedMusic.set(null);
   }
 
   // Method to toggle the like status of a song

@@ -26,13 +26,17 @@ serve(async (req) => {
   }
 
   try {
-    // 1. Obtém a chave secreta do Stripe dos segredos da Edge Function
+    // 1. Busca a chave secreta do Stripe de forma segura a partir dos segredos da Edge Function.
+    //    Esta chave NUNCA deve ser exposta no lado do cliente (frontend).
     const stripeSecretKey = Deno.env.get('STRIPE_SECRET_KEY');
     if (!stripeSecretKey) {
+      console.error('Stripe Proxy Error: A variável de ambiente STRIPE_SECRET_KEY não está configurada nos segredos da função.');
       throw new Error('A variável de ambiente STRIPE_SECRET_KEY não está configurada nos segredos da Edge Function do Supabase.');
     }
+    // 2. Log para confirmar que a chave foi carregada com sucesso (mostrando apenas os 4 últimos caracteres por segurança).
+    console.log('Stripe Proxy: Chave secreta do Stripe carregada com sucesso (terminando em ...' + stripeSecretKey.slice(-4) + ').');
 
-    // 2. Extrai os dados enviados pelo frontend
+    // 3. Extrai os dados enviados pelo frontend
     const { priceId, userId, userEmail, isCreditPack } = await req.json();
 
     if (!priceId || !userId || !userEmail || typeof isCreditPack === 'undefined') {
@@ -42,22 +46,22 @@ serve(async (req) => {
       });
     }
 
-    // 3. Define a URL do site para os redirecionamentos de sucesso/cancelamento do Stripe
+    // 4. Define a URL do site para os redirecionamentos de sucesso/cancelamento do Stripe
     // É recomendado configurar SITE_URL como um segredo no Supabase.
     const siteUrl = Deno.env.get('SITE_URL') || new URL(req.headers.get('referer')!).origin;
 
-    // 4. Inicializa o cliente Stripe com a chave secreta
+    // 5. Inicializa o cliente Stripe com a chave secreta
     const stripe = new Stripe(stripeSecretKey, {
       // @ts-ignore: Necessário para compatibilidade com o ambiente Deno
       httpClient: Stripe.createFetchHttpClient(),
       apiVersion: '2024-06-20',
     });
     
-    // 5. Determina o modo de checkout e prepara metadados para o webhook
+    // 6. Determina o modo de checkout e prepara metadados para o webhook
     const mode = isCreditPack ? 'payment' : 'subscription';
     const metadata = { userId: userId };
 
-    // 6. Cria a sessão de checkout no Stripe
+    // 7. Cria a sessão de checkout no Stripe
     const session = await stripe.checkout.sessions.create({
       line_items: [{ price: priceId, quantity: 1 }],
       mode: mode,
@@ -70,7 +74,7 @@ serve(async (req) => {
       ...(mode === 'payment' && { payment_intent_data: { metadata } }),
     });
 
-    // 7. Retorna a sessão criada para o frontend
+    // 8. Retorna a sessão criada para o frontend
     return new Response(JSON.stringify({ session }), {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
