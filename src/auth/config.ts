@@ -43,9 +43,13 @@
  *    - `MUREKA_API_KEY`: Sua chave da API Mureka (para a Edge Function `mureka-proxy` no Supabase).
  *    - `GEMINI_API_KEY`: Sua chave da API Gemini (para a Edge Function `gemini-proxy` no Supabase).
  * 
- * PARA DESENVOLVimento LOCAL:
+ * PARA DESENVOLvimento LOCAL:
  * Se você não está usando um sistema que injeta `process.env` (ou se suas variáveis de ambiente não estão configuradas localmente),
  * você DEVE substituir os placeholders ('YOUR_...') abaixo pelos seus valores REAIS para que a aplicação funcione.
+ *
+ * ATUALIZAÇÃO: As credenciais do seu projeto Supabase foram preenchidas com base nas informações fornecidas.
+ * A chave anônima (supabaseKey) é um valor de exemplo e DEVE ser substituída pela sua chave real.
+ * A chave do Stripe também é um exemplo.
  * 
  */
 
@@ -70,13 +74,13 @@ export const environment = {
   // 🚨 REMOVIDO: A chave da API do Gemini agora é gerenciada com segurança no backend pela Edge Function `gemini-proxy`.
 
   // URL e chave anônima (public) do seu projeto Supabase
-  // Substitua 'YOUR_SUPABASE_URL' e 'YOUR_SUPABASE_ANON_KEY' pelos SEUS valores reais para desenvolvimento local.
-  supabaseUrl: getEnvVar(['SUPABASE_URL', 'PRÓXIMO_URL_PÚBLICO_SUPABASE'], 'YOUR_SUPABASE_URL'),
-  supabaseKey: getEnvVar(['SUPABASE_ANON_KEY', 'PRÓXIMA_CHAVE_PÚBLICA_SUPABASE_ANON_KEY'], 'YOUR_SUPABASE_ANON_KEY'),
+  // A URL foi preenchida com base no seu projeto. A chave anônima abaixo é um EXEMPLO e DEVE ser substituída.
+  supabaseUrl: getEnvVar(['SUPABASE_URL', 'PRÓXIMO_URL_PÚBLICO_SUPABASE'], 'https://mranwpmfdqvuucgppiem.supabase.co'),
+  supabaseKey: getEnvVar(['SUPABASE_ANON_KEY', 'PRÓXIMA_CHAVE_PÚBLICA_SUPABASE_ANON_KEY'], 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1yYW53cG1mZHF2dXVjZ3BwaWVtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjAwNTI3NzcsImV4cCI6MjA3NTYyODc3N30.iOkY-UiQO4NfSCUnw5is8TSTygNysqdWQXRRqixiwfU'),
 
   // Chave publicável do Stripe (pk_...) - NUNCA a chave secreta (sk_...).
-  // Substitua 'YOUR_STRIPE_PUBLISHABLE_KEY' pela sua chave publicável real (começa com pk_...).
-  stripePublishableKey: getEnvVar(['STRIPE_PUBLISHABLE_KEY', 'PRÓXIMA_CHAVE_PUBLICÁVEL_DA_FAIXA_PÚBLICA'], 'YOUR_STRIPE_PUBLISHABLE_KEY'),
+  // Substitua este VALOR DE EXEMPLO pela sua chave publicável real do Stripe (começa com pk_...).
+  stripePublishableKey: getEnvVar(['STRIPE_PUBLISHABLE_KEY', 'PRÓXIMA_CHAVE_PUBLICÁVEL_DA_FAIXA_PÚBLICA'], 'pk_test_51FAKEFAKEFAKEFAKEFAKEFAKEFAKEFAKEFAKEFAKEFAKEFAKEFAKEFAKEFAKEFAKEDUMMY'),
 
   // --------------------------------------------------------------------------
   // 🚨🚨🚨 NOTA: A CHAVE_API_MUREKA AGORA É MANIPULADA EXCLUSIVAMENTE NO BACKEND. 🚨🚨🚨

@@ -4,7 +4,7 @@
     <div class="mb-8 p-6 rounded-2xl bg-red-900/30 border border-red-700 text-red-300 text-center">
       <h2 class="font-bold text-lg mb-2">⚠️ Configuração de Backend Crítica Necessária ⚠️</h2>
       <p class="mb-2">O cliente Supabase não está configurado corretamente. Isso impede a comunicação com as APIs de IA (Mureka e Gemini) e desativa as principais funcionalidades do aplicativo.</p>
-      <p class="mt-4 text-sm font-semibold">
+      <div class="mt-4 text-sm font-semibold">
         PARA CORRIGIR: <br>
         1. Verifique se as credenciais do Supabase estão corretas em <code class="bg-red-700/30 text-white px-1 py-0.5 rounded">src/config.ts</code>. <br>
         2. Certifique-se de que as Edge Functions <strong>`mureka-proxy` e `gemini-proxy`</strong> estão implantadas no seu projeto Supabase. <br>
@@ -13,7 +13,7 @@
             <li><strong>`MUREKA_API_KEY`</strong> (para a função `mureka-proxy`)</li>
             <li><strong>`GEMINI_API_KEY`</strong> (para a função `gemini-proxy`)</li>
         </ul>
-      </p>
+      </div>
     </div>
   }
   <div class="space-y-8">

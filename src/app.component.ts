@@ -40,7 +40,7 @@ export class AppComponent {
   async signOut() {
     this.isProfileMenuOpen.set(false);
     await this.supabaseService.signOut();
-    // The effect in the constructor will now handle the navigation, making this explicit navigate call redundant but harmless.
-    // this.router.navigate(['/auth']); 
+    // Explicitly navigate to the auth page to ensure a clean redirect.
+    this.router.navigate(['/auth']); 
   }
 }

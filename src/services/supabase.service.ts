@@ -135,6 +135,7 @@ export class SupabaseService {
     }
     await this.supabase.auth.signOut();
     this.currentUser.set(null);
+    this.currentUserProfile.set(null);
     console.log('signOut: User signed out.');
   }
 
