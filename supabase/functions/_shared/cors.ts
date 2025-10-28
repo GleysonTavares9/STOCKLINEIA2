@@ -9,7 +9,8 @@ declare global {
   }
 }
 
-/// <reference types="https://esm.sh/@supabase/functions-js/v2/dist/declarations/index.d.ts" />
+// Fix: Removed Supabase functions type reference.
+// The types were not being used in this function and the reference was causing a build error.
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 // REMOVED: import { corsHeaders } from '../_shared/cors.ts';
 

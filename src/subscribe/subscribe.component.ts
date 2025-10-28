@@ -117,11 +117,12 @@ export class SubscribeComponent implements OnInit {
     try {
       const stripe = Stripe(environment.stripePublishableKey);
       // #region Fix: Replaced direct access to private `supabase` client with the public `invokeFunction` method.
-      const { data, error: callError } = await this.supabase.invokeFunction('create-checkout-session', {
+      const { data, error: callError } = await this.supabase.invokeFunction('dynamic-api', {
           body: {
             priceId: plan.price_id,
             userId: this.currentUser()!.id,
             userEmail: this.currentUser()!.email,
+            isCreditPack: plan.is_credit_pack, // Adicionado para informar o backend
           }
         });
       // #endregion

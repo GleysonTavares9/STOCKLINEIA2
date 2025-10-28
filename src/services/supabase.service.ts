@@ -57,7 +57,7 @@ export class SupabaseService {
 
     // Check if configuration placeholders are still present.
     // If they are, it means the developer hasn't set up their Supabase project yet.
-    const isUrlMissing = !supabaseUrl || supabaseUrl.includes('YOUR_SUPABASE_PROJECT_URL');
+    const isUrlMissing = !supabaseUrl || supabaseUrl.includes('YOUR_SUPABASE_URL');
     const isKeyMissing = !supabaseKey || supabaseKey.includes('YOUR_SUPABASE_ANON_KEY');
 
     if (isUrlMissing || isKeyMissing) {
@@ -316,16 +316,16 @@ export class SupabaseService {
     return (data as Music[]) || [];
   }
 
-  async deleteMusic(musicId: string): Promise<{ error: any }> {
+  async deleteMusic(musicId: string): Promise<{ error: any; count: number | null }> {
     if (!this.supabase) {
       console.error('deleteMusic: Supabase client not initialized.');
-      return { error: { message: 'Supabase client not initialized.' } };
+      return { error: { message: 'Supabase client not initialized.' }, count: null };
     }
     
     const user = this.currentUser();
     if (!user) {
       console.error('deleteMusic: User not authenticated.');
-      return { error: { message: 'User not authenticated.' } };
+      return { error: { message: 'User not authenticated.' }, count: null };
     }
 
     const { error, count } = await this.supabase
@@ -337,13 +337,13 @@ export class SupabaseService {
     if (error) {
       console.error('deleteMusic: Error deleting music:', error.message);
     }
-    return { error };
+    return { error, count };
   }
 
-  async deleteFailedMusicForUser(userId: string): Promise<{ error: any }> {
+  async deleteFailedMusicForUser(userId: string): Promise<{ error: any; count: number | null }> {
       if (!this.supabase) {
         console.error('deleteFailedMusicForUser: Supabase client not initialized.');
-        return { error: { message: 'Supabase client not initialized.' } };
+        return { error: { message: 'Supabase client not initialized.' }, count: null };
       }
       
       const { error, count } = await this.supabase
@@ -355,7 +355,7 @@ export class SupabaseService {
       if (error) {
         console.error('deleteFailedMusicForUser: Error deleting failed music:', error.message);
       }
-      return { error };
+      return { error, count };
   }
   
   async getAllPublicMusic(): Promise<Music[]> {

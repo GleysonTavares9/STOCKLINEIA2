@@ -1,68 +1,66 @@
-import { Injectable, signal } from '@angular/core';
-import { environment } from '../auth/config';
-import { GoogleGenAI } from '@google/genai';
+import { Injectable, signal, inject, computed } from '@angular/core';
+import { SupabaseService } from './supabase.service';
 
 @Injectable({
   providedIn: 'root',
 })
 export class GeminiService {
-  private gemini: GoogleGenAI | null = null;
-  readonly isConfigured = signal(true);
+  private readonly supabase = inject(SupabaseService);
+
+  // Gemini is configured if Supabase is, since it's now a proxy.
+  readonly isConfigured = computed(() => this.supabase.isConfigured());
 
   constructor() {
-    const apiKey = environment.geminiApiKey;
-    if (!apiKey || apiKey === 'YOUR_GEMINI_API_KEY') {
-      this.isConfigured.set(false);
-      return;
-    }
-    this.gemini = new GoogleGenAI({apiKey});
+    // Gemini API key is now a secret in the Edge Function.
+    // The service is "configured" if the Supabase client is ready.
   }
   
   private getApiErrorMessage(error: any): string {
-    if (error?.message) {
-      if (error.message.includes('API key not valid')) {
-        return 'A chave da API do Gemini é inválida ou não foi configurada. Verifique o arquivo `src/config.ts`.';
-      }
-      return `Erro da API Gemini: ${error.message}`;
+    // Check for proxy-specific error message
+    if (error?.message?.includes('GEMINI_API_KEY not configured on Supabase Edge Function')) {
+        return 'Erro de configuração no servidor: a chave da API Gemini não foi configurada na Edge Function. Por favor, configure a variável de ambiente GEMINI_API_KEY no painel do Supabase para a função `gemini-proxy`.';
     }
-    return 'Falha ao comunicar com a API do Gemini. Verifique sua chave de API e conexão com a internet.';
+
+    if (error?.error === 'Gemini API call failed') {
+        const details = error.details?.error?.message || JSON.stringify(error.details);
+        return `Erro da API Gemini (via proxy): ${details}`;
+    }
+
+    // Generic Supabase function error
+    if (error?.message) {
+      return `Erro ao chamar a função do Supabase (gemini-proxy): ${error.message}`;
+    }
+    return 'Falha ao comunicar com a API do Gemini via proxy. Verifique sua conexão com a internet e a implantação da Edge Function.';
   }
 
   async generateLyrics(prompt: string): Promise<string> {
-    if (!this.gemini || !this.isConfigured()) {
-      throw new Error('O serviço Gemini não está configurado. Verifique sua chave de API em `src/config.ts`.');
+    if (!this.isConfigured()) {
+      throw new Error('O serviço Gemini não está configurado porque o Supabase não está configurado. Verifique sua chave de API em `src/auth/config.ts`.');
     }
 
     try {
-      // Improved prompt to strictly request only the lyrics.
-      const fullPrompt = `Gere uma letra de música baseada na seguinte ideia: "${prompt}".
-
-REGRAS ESTRITAS DE FORMATAÇÃO DA RESPOSTA:
-1.  **NÃO** inclua um título.
-2.  **NÃO** inclua marcadores de seção como "[Verso 1]", "[Refrão]", etc.
-3.  **NÃO** inclua introduções, explicações ou qualquer texto que não seja parte da letra da música.
-4.  Responda APENAS com o texto bruto da letra.`;
-      
-      const response = await this.gemini.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: fullPrompt,
-        config: {
-            // Updated system instruction to be more forceful about formatting.
-            systemInstruction: `Você é um compositor de músicas profissional. Sua tarefa é criar letras poéticas e bem estruturadas.
-Você DEVE seguir TODAS as regras de formatação da resposta solicitadas pelo usuário, sem exceções. Sua resposta deve conter APENAS a letra da música.`,
-            temperature: 0.7,
-            topP: 0.95,
-        }
+      const { data, error: proxyError } = await this.supabase.invokeFunction('bright-worker', {
+        body: { prompt }
       });
+
+      if (proxyError) {
+        console.error('Erro ao chamar a função proxy do Gemini:', proxyError);
+        throw proxyError;
+      }
       
-      const text = response.text;
-      if (!text) {
-        throw new Error('A resposta da API do Gemini está vazia.');
+      if (data?.error) {
+        console.error('Erro retornado pela API do Gemini via proxy:', data);
+        throw data;
       }
 
-      return text.trim(); // A simple trim should be sufficient with the improved prompt.
+      const text = data?.text;
+      if (!text) {
+        throw new Error('A resposta da API do Gemini via proxy está vazia ou malformada.');
+      }
+
+      return text.trim();
     } catch (error) {
-      console.error('Erro ao gerar letras via Gemini API:', error);
+      console.error('Erro ao gerar letras via Gemini proxy:', error);
       const errorMessage = this.getApiErrorMessage(error);
       throw new Error(errorMessage);
     }

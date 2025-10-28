@@ -1,4 +1,5 @@
 
+
 import { Injectable, signal, inject, effect, untracked, computed } from '@angular/core';
 import { HttpClient, HttpHeaders, HttpErrorResponse } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
@@ -397,12 +398,16 @@ export class MurekaService {
   }
 
   async deleteMusic(musicId: string): Promise<void> {
-    const { error } = await this.supabase.deleteMusic(musicId);
+    const { error, count } = await this.supabase.deleteMusic(musicId);
     if (error) {
       // Improved error logging
       console.error('MurekaService: Erro ao apagar música:', error.message, error); 
       // Throw the error so the UI layer can catch it and notify the user.
       throw new Error(error.message || 'Falha ao apagar a música.');
+    } else if (count === 0) {
+        // This is a business logic error: the requested item was not deleted.
+        // It could be due to RLS or because it was already deleted.
+        throw new Error('A música não foi encontrada ou você não tem permissão para apagá-la.');
     } else {
       this.userMusic.update(music => music.filter(s => s.id !== musicId));
     }
