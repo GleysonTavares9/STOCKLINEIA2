@@ -168,6 +168,10 @@ export class SupabaseService {
     const sanitizedEmailPrefix = emailPrefix.toLowerCase().replace(/[^a-z0-9]/g, '');
     const baseUsername = sanitizedEmailPrefix.length > 0 ? sanitizedEmailPrefix : 'user';
     const defaultUsername = `${baseUsername}_${uniqueSuffix}`;
+    // FIX: The persistent "Database error" suggests a constraint violation (e.g., NOT NULL or CHECK)
+    // in the profile creation trigger. A possible cause is an empty `full_name` if the email has no
+    // local-part (e.g., `@example.com`). This ensures `full_name` always has a non-empty value.
+    const defaultFullName = emailPrefix || baseUsername;
 
     const { data, error } = await this.supabase.auth.signUp({
       email,
@@ -175,7 +179,9 @@ export class SupabaseService {
       options: {
         data: {
           username: defaultUsername,
-          full_name: emailPrefix, // Provide a default value instead of null
+          full_name: defaultFullName,
+          credits: 10, // Provide initial credits to prevent NOT NULL violation in profile creation trigger.
+          avatar_url: `https://picsum.photos/seed/${defaultUsername}/200`,
         },
       },
     });
