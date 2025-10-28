@@ -45,12 +45,8 @@ export class AuthComponent {
 
 
   constructor() {
-    // If user is already logged in, redirect away from auth page
-    effect(() => {
-      if (this.supabase.currentUser()) {
-        this.router.navigate(['/create']);
-      }
-    });
+    // Redirection logic is now handled globally in AppComponent to prevent race conditions.
+    // This component no longer needs to manage redirection.
 
     // Display message from query params (e.g., after redirect)
     this.route.queryParams.subscribe(params => {
@@ -105,7 +101,7 @@ export class AuthComponent {
             this.password.set('');
             this.confirmPassword.set('');
         } else {
-            // Successful sign in, the effect will redirect
+            // Successful sign in, the global effect in AppComponent will redirect.
         }
       }
     } catch (e) {

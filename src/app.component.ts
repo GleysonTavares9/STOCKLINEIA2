@@ -21,21 +21,38 @@ export class AppComponent {
   isProfileMenuOpen = signal(false);
 
   constructor() {
-    // Effect to ensure redirection to auth page if user logs out or is not authenticated
+    // Centralized effect to handle routing based on authentication state.
+    // This is the single source of truth for auth-based navigation.
     effect(() => {
-      console.log('AppComponent Effect: Auth state changed. authReady:', this.authReady(), 'currentUser:', this.currentUser()?.id);
-      // Only act if Supabase auth state has been initially checked
-      if (this.authReady() && !this.currentUser()) {
-        console.log('AppComponent Effect: User is NOT authenticated, considering redirect.');
-        // Fix: Use 'exact' for paths to match the full path '/auth' correctly.
-        if (!this.router.isActive('/auth', { paths: 'exact', queryParams: 'subset', fragment: 'ignored', matrixParams: 'ignored' })) {
-          console.log('AppComponent Effect: Not currently on /auth page, navigating to /auth.');
-          this.router.navigate(['/auth']);
-        } else {
-          console.log('AppComponent Effect: Already on /auth page, no navigation needed.');
+      const user = this.currentUser();
+      const ready = this.authReady();
+
+      // Don't do anything until Supabase has checked the initial auth state.
+      if (!ready) {
+        return;
+      }
+
+      const onAuthPage = this.router.isActive('/auth', {
+        paths: 'exact',
+        queryParams: 'subset',
+        fragment: 'ignored',
+        matrixParams: 'ignored'
+      });
+
+      if (user) {
+        // User is LOGGED IN
+        if (onAuthPage) {
+          // If they are on the auth page, they shouldn't be. Redirect them to the main feed.
+          console.log('AppComponent Effect: User is authenticated, but on /auth page. Redirecting to /feed.');
+          this.router.navigate(['/feed']);
         }
-      } else if (this.authReady() && this.currentUser()) {
-        console.log('AppComponent Effect: User is authenticated. Current user ID:', this.currentUser()?.id);
+      } else {
+        // User is LOGGED OUT
+        if (!onAuthPage) {
+          // If they are on any other page, they shouldn't be. Redirect them to the auth page.
+          console.log('AppComponent Effect: User is not authenticated and not on /auth page. Redirecting to /auth.');
+          this.router.navigate(['/auth']);
+        }
       }
     });
   }
@@ -48,13 +65,7 @@ export class AppComponent {
     this.isProfileMenuOpen.set(false);
     console.log('AppComponent: Initiating signOut process.');
     await this.supabaseService.signOut();
-    // The effect in the constructor should handle the navigation,
-    // but an explicit navigate here ensures immediate redirection.
-    // However, the effect is generally preferred for state-driven navigation.
-    // Explicitly navigating might create a race condition or redundant navigation if the effect also triggers.
-    // For robustness, if the effect is not triggering fast enough, this can act as a fallback.
-    // Let's keep it here for now as a double-check, but monitor for double navigations.
-    console.log('AppComponent: signOut() completed from SupabaseService. Navigating to /auth directly.');
-    this.router.navigate(['/auth']); 
+    // The effect in the constructor will handle navigation to the auth page.
+    console.log('AppComponent: signOut() completed. The effect will now handle redirection.');
   }
 }

@@ -1,7 +1,7 @@
-import { Component, ChangeDetectionStrategy, signal, inject, computed, effect } from '@angular/core';
+import { Component, ChangeDetectionStrategy, signal, inject, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { GeminiService } from '../services/gemini.service';
-import { MurekaService } from './mureka.service';
+import { MurekaService } from '../services/mureka.service';
 import { SupabaseService } from '../services/supabase.service';
 import { Router, RouterLink } from '@angular/router';
 
@@ -108,12 +108,7 @@ export class CreateComponent {
   });
 
   constructor() {
-    effect(() => {
-      // If user logs out, redirect to auth page.
-      if (!this.currentUser()) {
-        this.router.navigate(['/auth']);
-      }
-    });
+    // Redirection logic is handled globally by AppComponent.
   }
 
   toggleStyle(style: string): void {

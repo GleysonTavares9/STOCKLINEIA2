@@ -1,4 +1,5 @@
 
+
 // Fix: Adiciona a declaração do namespace global Deno para compatibilidade com o TypeScript
 declare global {
   namespace Deno {
@@ -9,14 +10,15 @@ declare global {
 }
 
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
+// #region Fix: Refatorado para usar o SDK oficial do Google GenAI para maior robustez e manutenibilidade.
+import { GoogleGenAI } from "npm:@google/genai@^1.27.0";
+// #endregion
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*', 
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
-
-const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent';
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -33,7 +35,6 @@ serve(async (req) => {
       });
     }
 
-    // Log parcial da chave para depuração sem expor a chave completa
     console.log('Gemini Proxy: Using API Key (last 4 chars):', geminiApiKey.slice(-4));
 
     const { prompt } = await req.json();
@@ -55,47 +56,27 @@ REGRAS ESTRITAS DE FORMATAÇÃO DA RESPOSTA:
 
     const systemInstruction = `Você é um compositor de músicas profissional. Sua tarefa é criar letras poéticas e bem estruturadas.
 Você DEVE seguir TODAS as regras de formatação da resposta solicitadas pelo usuário, sem exceções. Sua resposta deve conter APENAS a letra da música.`;
+    
+    // #region Fix: Utiliza o SDK do GenAI em vez de uma chamada fetch manual.
+    const ai = new GoogleGenAI({ apiKey: geminiApiKey });
 
-    const geminiRequestBody = {
-      contents: [{ parts: [{ text: fullPrompt }] }],
-      systemInstruction: { parts: [{ text: systemInstruction }] },
-      generationConfig: {
+    console.log('Gemini Proxy: Sending request to Gemini via SDK.');
+
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: fullPrompt,
+      config: {
+        systemInstruction: systemInstruction,
         temperature: 0.7,
         topP: 0.95,
       },
-    };
-    
-    console.log('Gemini Proxy: Sending request to Gemini:', JSON.stringify(geminiRequestBody, null, 2));
-
-    const geminiResponse = await fetch(`${GEMINI_API_URL}?key=${geminiApiKey}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(geminiRequestBody),
     });
 
-    console.log('Gemini Proxy: Raw Gemini API response status:', geminiResponse.status);
-    const rawGeminiResponseBody = await geminiResponse.text();
-    console.log('Gemini Proxy: Raw Gemini API response body:', rawGeminiResponseBody);
-
-    if (!geminiResponse.ok) {
-        let errorBody;
-        try {
-            errorBody = JSON.parse(rawGeminiResponseBody);
-        } catch {
-            errorBody = { message: rawGeminiResponseBody || 'Could not parse Gemini API error response or empty body.' };
-        }
-        console.error('Gemini API Error:', errorBody);
-        return new Response(JSON.stringify({ error: 'Gemini API call failed', details: errorBody }), {
-            status: geminiResponse.status,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-    }
-
-    const responseData = JSON.parse(rawGeminiResponseBody); // Parse the already read body
-    const generatedText = responseData.candidates?.[0]?.content?.parts?.[0]?.text;
+    const generatedText = response.text;
+    // #endregion
 
     if (typeof generatedText !== 'string') {
-        console.error('Gemini Proxy: No text found in Gemini API response:', responseData);
+        console.error('Gemini Proxy: No text found in Gemini API SDK response:', response);
         return new Response(JSON.stringify({ error: 'Failed to extract text from Gemini response.' }), {
             status: 500,
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -109,9 +90,12 @@ Você DEVE seguir TODAS as regras de formatação da resposta solicitadas pelo u
 
   } catch (error) {
     console.error('Gemini Proxy: Uncaught error:', error);
-    return new Response(JSON.stringify({ error: error.message || 'Internal server error in Gemini proxy.' }), {
+    // #region Fix: Melhora o tratamento de erro para incluir a mensagem do erro da API
+    const errorMessage = error.message || 'Internal server error in Gemini proxy.';
+    return new Response(JSON.stringify({ error: errorMessage }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
+    // #endregion
   }
 });

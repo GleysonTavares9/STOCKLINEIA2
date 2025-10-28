@@ -1,8 +1,7 @@
-import { Component, ChangeDetectionStrategy, inject, effect, computed, signal } from '@angular/core';
+import { Component, ChangeDetectionStrategy, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { MurekaService } from '../create/mureka.service';
-import { SupabaseService, Music } from '../services/supabase.service';
-import { Router } from '@angular/router';
+import { MurekaService } from '../services/mureka.service';
+import { type Music } from '../services/supabase.service';
 import { MusicPlayerComponent } from './music-player/music-player.component';
 
 @Component({
@@ -10,31 +9,22 @@ import { MusicPlayerComponent } from './music-player/music-player.component';
   standalone: true,
   imports: [CommonModule, MusicPlayerComponent],
   templateUrl: './library.component.html',
+  styleUrls: ['./library.component.css'],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class LibraryComponent {
   private readonly murekaService = inject(MurekaService);
-  private readonly supabaseService = inject(SupabaseService);
-  private readonly router = inject(Router);
-  
-  history = this.murekaService.userMusic;
-  currentUser = this.supabaseService.currentUser;
-  
-  hasFailedMusic = computed(() => this.history().some(item => item.status === 'failed'));
-  
-  // Filter out any songs that shouldn't be in the playlist (e.g. still processing)
-  playlist = computed(() => this.history().filter(m => m.status === 'succeeded' && m.audio_url));
 
+  userMusic = this.murekaService.userMusic;
   selectedMusic = signal<Music | null>(null);
+  deleteError = signal<string | null>(null);
+  clearError = signal<string | null>(null);
+  isDeleting = signal<string | null>(null); // store id of music being deleted
+  isClearing = signal(false);
 
-  constructor() {
-    effect(() => {
-      // If user logs out, redirect to auth page.
-      if (!this.currentUser()) {
-        this.router.navigate(['/auth']);
-      }
-    });
-  }
+  playlist = computed(() => this.userMusic().filter(m => m.status === 'succeeded' && m.audio_url));
+
+  hasFailedMusic = computed(() => this.userMusic().some(m => m.status === 'failed'));
 
   selectMusic(music: Music): void {
     if (music.status === 'succeeded' && music.audio_url) {
@@ -47,26 +37,30 @@ export class LibraryComponent {
   }
 
   async deleteMusic(musicId: string): Promise<void> {
-    if (window.confirm('Tem certeza de que deseja apagar esta música permanentemente?')) {
-      try {
-        await this.murekaService.deleteMusic(musicId);
-      } catch (error) {
-        console.error('Falha ao apagar música:', error);
-        const errorMessage = (error instanceof Error) ? error.message : 'Ocorreu um erro desconhecido.';
-        alert(`Não foi possível apagar a música: ${errorMessage}`);
-      }
+    this.isDeleting.set(musicId);
+    this.deleteError.set(null);
+    try {
+      await this.murekaService.deleteMusic(musicId);
+    } catch (error: any) {
+      this.deleteError.set(error.message || 'Falha ao apagar a música.');
+    } finally {
+      this.isDeleting.set(null);
     }
   }
 
   async clearFailedMusic(): Promise<void> {
-    if (window.confirm('Tem certeza de que deseja apagar TODAS as músicas com falha? Esta ação não pode ser desfeita.')) {
-      try {
-        await this.murekaService.clearFailedMusic();
-      } catch (error) {
-        console.error('Falha ao limpar músicas com falha:', error);
-        const errorMessage = (error instanceof Error) ? error.message : 'Ocorreu um erro desconhecido.';
-        alert(`Não foi possível limpar as músicas com falha: ${errorMessage}`);
-      }
+    this.isClearing.set(true);
+    this.clearError.set(null);
+    try {
+      await this.murekaService.clearFailedMusic();
+    } catch (error: any) {
+      this.clearError.set(error.message || 'Falha ao limpar as músicas com falha.');
+    } finally {
+      this.isClearing.set(false);
     }
+  }
+
+  getCoverArt(title: string): string {
+    return `https://picsum.photos/seed/art-${title}/400/400`;
   }
 }

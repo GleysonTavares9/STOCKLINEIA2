@@ -1,9 +1,6 @@
-
-
 import { Injectable, signal, inject, effect, untracked, computed } from '@angular/core';
-import { HttpClient, HttpHeaders, HttpErrorResponse } from '@angular/common/http';
-import { firstValueFrom } from 'rxjs';
-import { SupabaseService, Music } from '../services/supabase.service';
+import { HttpErrorResponse } from '@angular/common/http';
+import { SupabaseService, Music } from './supabase.service';
 import { environment } from '../auth/config';
 
 // Agora a Mureka API é chamada diretamente do frontend.
@@ -26,7 +23,6 @@ interface MurekaQueryResponse {
   providedIn: 'root',
 })
 export class MurekaService {
-  private readonly http = inject(HttpClient);
   private readonly supabase = inject(SupabaseService);
 
   userMusic = signal<Music[]>([]);
@@ -51,52 +47,132 @@ export class MurekaService {
     });
   }
 
-  private getApiErrorMessage(error: any, defaultMessage: string): string {
+  private async getApiErrorMessage(error: any, defaultMessage: string): Promise<string> {
+    console.groupCollapsed('🚨 MurekaService: getApiErrorMessage - Debugging');
+    console.log('Raw error object received:', error);
+
     // Check for Supabase client initialization error
     if (error?.message?.includes('Supabase client not initialized')) {
+      console.log('Error Type: Supabase client not initialized.');
+      console.groupEnd();
       return 'O Supabase não está configurado. Verifique as credenciais no `src/config.ts`.';
     }
 
-    // Specific error from Edge Function if MUREKA_API_KEY is missing
-    if (error?.message?.includes('MUREKA_API_KEY not configured on Supabase Edge Function.')) {
-        return 'Erro de configuração no servidor: a chave da API Mureka não foi configurada na Edge Function. Por favor, configure a variável de ambiente MUREKA_API_KEY no painel do Supabase para a função `mureka-proxy`.';
+    let bodyToParse: any = null;
+    const bodyStream = error?.context?.body || error?.body;
+
+    if (bodyStream && typeof bodyStream.getReader === 'function') { // Check if it's a ReadableStream
+        console.log('Found a ReadableStream in error body, attempting to read it.');
+        try {
+            const reader = bodyStream.getReader();
+            const decoder = new TextDecoder();
+            let result = '';
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                result += decoder.decode(value, { stream: true });
+            }
+            bodyToParse = result;
+            console.log('Successfully read stream to string:', bodyToParse);
+        } catch (streamError) {
+            console.error('Failed to read error body stream:', streamError);
+            bodyToParse = 'Failed to read error stream.';
+        }
+    } else if (error?.context?.body) {
+        bodyToParse = error.context.body;
+        console.log('Found error.context.body (not a stream):', bodyToParse);
+    } else if (error?.body) {
+        bodyToParse = error.body;
+        console.log('Found error.body (not a stream):', bodyToParse);
+    } else if (error?.error || (error?.message && error.message.includes('Mureka API call failed'))) {
+        // This case covers when `throw data` or `throw proxyError` happens
+        bodyToParse = error;
+        console.log('Error object itself is structured (e.g., from `throw data`):', bodyToParse);
     }
 
-    // Handle structured error response from the proxy for Mureka API failures
-    if (error?.error === 'Mureka API call failed') {
-        const murekaStatus = error.status; // This would be the *Mureka's* HTTP status propagated by the proxy
-        const murekaDetails = error.details;
-        
-        let detailMessage = '';
-        // Ensure murekaDetails is an object to prevent error on JSON.stringify if it's a primitive type
-        const detailsToParse = typeof murekaDetails === 'object' && murekaDetails !== null ? murekaDetails : { message: String(murekaDetails) };
+    let parsedEdgeFunctionDetails: any = null;
+    if (typeof bodyToParse === 'string') {
+        try {
+            parsedEdgeFunctionDetails = JSON.parse(bodyToParse);
+            console.log('Successfully JSON.parsed bodyToParse:', parsedEdgeFunctionDetails);
+        } catch (parseError) {
+            console.warn('Failed to JSON.parse bodyToParse. It might be plain text or malformed JSON.', bodyToParse, parseError);
+            parsedEdgeFunctionDetails = { message: bodyToParse };
+        }
+    } else if (typeof bodyToParse === 'object' && bodyToParse !== null) {
+        parsedEdgeFunctionDetails = bodyToParse;
+        console.log('bodyToParse was already an object:', parsedEdgeFunctionDetails);
+    }
+    
+    if (parsedEdgeFunctionDetails) {
+        // Specific error from Edge Function if MUREKA_API_KEY is missing
+        if (parsedEdgeFunctionDetails.error?.includes('MUREKA_API_KEY not configured on Supabase Edge Function.')) {
+            console.log('Error Type: MUREKA_API_KEY not configured.');
+            console.groupEnd();
+            return 'Erro de configuração no servidor: a chave da API Mureka não foi configurada na Edge Function. Por favor, configure a variável de ambiente MUREKA_API_KEY no painel do Supabase para a função `mureka-proxy`.';
+        }
 
-        if (detailsToParse.error) {
-            detailMessage = typeof detailsToParse.error === 'string' ? detailsToParse.error : JSON.stringify(detailsToParse.error);
-        } else if (detailsToParse.message) {
-            detailMessage = detailsToParse.message;
-        } else {
-            detailMessage = JSON.stringify(detailsToParse);
+        // Handle structured error response from the proxy for Mureka API failures
+        if (parsedEdgeFunctionDetails.error === 'Mureka API call failed') {
+            const murekaStatus = parsedEdgeFunctionDetails.status; 
+            const murekaDetails = parsedEdgeFunctionDetails.details;
+            
+            let detailMessage = '';
+            const detailsToParse = typeof murekaDetails === 'object' && murekaDetails !== null ? murekaDetails : { message: String(murekaDetails) };
+
+            if (detailsToParse.error) {
+                detailMessage = typeof detailsToParse.error === 'string' ? detailsToParse.error : JSON.stringify(detailsToParse.error);
+            } else if (detailsToParse.message) {
+                detailMessage = detailsToParse.message;
+            } else {
+                detailMessage = JSON.stringify(detailsToParse);
+            }
+            console.log('Error Type: Mureka API call failed (from proxy).');
+            console.groupEnd();
+            return `Erro da API Mureka (via proxy - Status: ${murekaStatus || 'desconhecido'}): ${detailMessage}`;
         }
         
-        return `Erro da API Mureka (via proxy - Status: ${murekaStatus}): ${detailMessage}`;
+        // Generic error returned by the Edge Function
+        if (parsedEdgeFunctionDetails.error) {
+            console.log('Error Type: Generic Edge Function error (with "error" field).');
+            console.groupEnd();
+            return `Erro da função do Supabase (mureka-proxy): ${parsedEdgeFunctionDetails.error}`;
+        }
+        // If there's a message but no specific 'error' field
+        if (parsedEdgeFunctionDetails.message && typeof parsedEdgeFunctionDetails.message === 'string') {
+            console.log('Error Type: Generic Edge Function error (with "message" field).');
+            console.groupEnd();
+             return `Erro da função do Supabase (mureka-proxy): ${parsedEdgeFunctionDetails.message}`;
+        }
     }
 
     // Trata erros que vêm da invokeFunction diretamente (erros de rede ou do runtime da função)
     // `error` aqui seria o `proxyError` retornado pela `invokeFunction`
     if (error?.message) {
+      if (error.message.includes('Edge Function returned a non-2xx status code')) {
+        console.log('Error Type: Raw Edge Function non-2xx message (fallback).');
+        console.groupEnd();
+        return `Erro de execução na função do Supabase. Verifique os logs da função 'mureka-proxy' no Supabase para mais detalhes. (Original: ${bodyToParse || error.message})`;
+      }
       if (error.message.includes('Function returned an error')) {
-        // This is a generic runtime error, try to extract more if possible
+        console.log('Error Type: Generic Supabase runtime error (fallback).');
+        console.groupEnd();
         return `Erro de execução na função do Supabase: ${error.message}`;
       }
       if (error.message.includes('Failed to send a request to the Edge Function')) {
+        console.log('Error Type: Network failure to Edge Function (fallback).');
+        console.groupEnd();
         return 'Falha de rede ao conectar com a Edge Function do Supabase. Verifique se a função `mureka-proxy` está implantada e acessível.';
       }
+      console.log('Error Type: Generic Supabase invokeFunction error message (fallback).');
+      console.groupEnd();
       return `Erro ao chamar a função do Supabase: ${error.message}`;
     }
 
     // Fallback for HttpErrorResponse if the error wasn't caught earlier (less likely with invokeFunction)
     if (error instanceof HttpErrorResponse) {
+      console.log('Error Type: HttpErrorResponse (fallback).');
+      console.groupEnd();
       if (error.status === 0) {
         return 'Falha de rede. Verifique sua conexão com a internet ou se o Supabase está online.';
       }
@@ -108,13 +184,15 @@ export class MurekaService {
       return `Erro na requisição ao backend: ${error.status} - ${error.statusText}`;
     }
 
+    console.log('Error Type: Completely unknown error (final fallback).');
+    console.groupEnd();
     return defaultMessage;
   }
 
   async generateMusic(title: string, style: string, lyrics: string): Promise<void> {
     if (!this.isConfigured()) {
         const errorMsg = 'O Supabase não está configurado. Verifique as credenciais em `src/config.ts`.';
-        console.error(errorMsg);
+        console.error('MurekaService: generateMusic: Supabase not configured.', errorMsg);
         await this.supabase.addMusic({ title, style, lyrics, status: 'failed', error: errorMsg });
         throw new Error(errorMsg);
     }
@@ -124,7 +202,7 @@ export class MurekaService {
     const session = await this.supabase.getSession();
     if (!session?.access_token) {
       const errorMsg = "Usuário não autenticado no Supabase. Impossível gerar música.";
-      console.error(errorMsg);
+      console.error('MurekaService: generateMusic: User not authenticated.', errorMsg);
       await this.supabase.addMusic({ title, style, lyrics, status: 'failed', error: 'Você precisa estar logado para criar músicas.' });
       throw new Error(errorMsg);
     }
@@ -165,12 +243,12 @@ export class MurekaService {
       });
 
       if (proxyError) {
-        console.error('MurekaService: Erro ao chamar a função proxy (`mureka-proxy`) para gerar música:', proxyError);
+        console.error('MurekaService: Erro ao chamar a função proxy (`mureka-proxy`) para gerar música (proxyError):', proxyError);
         throw proxyError; // Throw the actual error object from invokeFunction
       }
       // Check for proxied errors in data object from the proxy function
       if (!data || data.error) { 
-          console.error('MurekaService: Resposta inválida ou erro da API da Mureka via proxy:', data);
+          console.error('MurekaService: Resposta inválida ou erro da API da Mureka via proxy (data.error):', data);
           throw data; // Throw the data object containing the error
       }
       if (typeof data.id !== 'string') {
@@ -184,9 +262,9 @@ export class MurekaService {
       this.pollForResult(finalMusicRecord.id, taskId, 'song/query');
 
     } catch (error) {
-      console.error('MurekaService: Erro ao iniciar a geração da música:', error);
-      const errorMessage = this.getApiErrorMessage(error, 'Ocorreu um erro desconhecido ao contatar a API da Mureka.');
-      this.handleGenerationError(error, musicRecord, { title, style, lyrics, errorMessage });
+      console.error('MurekaService: Erro ao iniciar a geração da música (catch block):', error);
+      const errorMessage = await this.getApiErrorMessage(error, 'Ocorreu um erro desconhecido ao contatar a API da Mureka.');
+      await this.handleGenerationError(error, musicRecord, { title, style, lyrics, errorMessage });
       throw new Error(errorMessage);
     }
   }
@@ -194,7 +272,7 @@ export class MurekaService {
   async generateInstrumental(title: string, style: string): Promise<void> {
     if (!this.isConfigured()) {
         const errorMsg = 'O Supabase não está configurado. Verifique as credenciais em `src/config.ts`.';
-        console.error(errorMsg);
+        console.error('MurekaService: generateInstrumental: Supabase not configured.', errorMsg);
         await this.supabase.addMusic({ title, style, lyrics: '', status: 'failed', error: errorMsg });
         throw new Error(errorMsg);
     }
@@ -202,7 +280,7 @@ export class MurekaService {
     const session = await this.supabase.getSession();
     if (!session?.access_token) {
       const errorMsg = "Usuário não autenticado no Supabase. Impossível gerar música.";
-      console.error(errorMsg);
+      console.error('MurekaService: generateInstrumental: User not authenticated.', errorMsg);
       await this.supabase.addMusic({ title, style, lyrics: '', status: 'failed', error: 'Você precisa estar logado para criar músicas.' });
       throw new Error(errorMsg);
     }
@@ -239,12 +317,12 @@ export class MurekaService {
       });
 
       if (proxyError) {
-        console.error('MurekaService: Erro ao chamar a função proxy (`mureka-proxy`) para gerar instrumental:', proxyError);
+        console.error('MurekaService: Erro ao chamar a função proxy (`mureka-proxy`) para gerar instrumental (proxyError):', proxyError);
         throw proxyError; // Throw the actual error object from invokeFunction
       }
       // Check for proxied errors in data object from the proxy function
       if (!data || data.error) { 
-          console.error('MurekaService: Resposta inválida ou erro da API da Mureka via proxy:', data);
+          console.error('MurekaService: Resposta inválida ou erro da API da Mureka via proxy (data.error):', data);
           throw data; // Throw the data object containing the error
       }
       if (typeof data.id !== 'string') {
@@ -258,9 +336,9 @@ export class MurekaService {
       this.pollForResult(finalMusicRecord.id, taskId, 'instrumental/query');
 
     } catch (error) {
-      console.error('MurekaService: Erro ao iniciar a geração do instrumental:', error);
-      const errorMessage = this.getApiErrorMessage(error, 'Ocorreu um erro desconhecido ao contatar a API da Mureka.');
-      this.handleGenerationError(error, musicRecord, { title, style, lyrics: '', errorMessage });
+      console.error('MurekaService: Erro ao iniciar a geração do instrumental (catch block):', error);
+      const errorMessage = await this.getApiErrorMessage(error, 'Ocorreu um erro desconhecido ao contatar a API da Mureka.');
+      await this.handleGenerationError(error, musicRecord, { title, style, lyrics: '', errorMessage });
       throw new Error(errorMessage);
     }
   }
@@ -320,10 +398,10 @@ export class MurekaService {
         });
 
         if (proxyError) {
-          console.error(`MurekaService: Erro retornado pela invokeFunction para tarefa ${taskId}:`, proxyError);
+          console.error(`MurekaService: Erro retornado pela invokeFunction para tarefa ${taskId} (proxyError):`, proxyError);
           // Don't throw here, just update status and stop polling if this is a terminal error.
           // The error message from getApiErrorMessage will be more specific.
-          const errorMessage = this.getApiErrorMessage(proxyError, 'Erro ao verificar o status da música.');
+          const errorMessage = await this.getApiErrorMessage(proxyError, 'Erro ao verificar o status da música.');
           const updatedMusic = await this.supabase.updateMusic(musicId, { status: 'failed', error: errorMessage });
           if (updatedMusic) {
               this.userMusic.update(music => music.map(s => s.id === updatedMusic.id ? updatedMusic : s));
@@ -334,8 +412,8 @@ export class MurekaService {
 
         // Se data.error existe, significa que a Edge Function proxyou um erro da API Mureka
         if (queryResponse?.error) {
-            console.error(`MurekaService: A API Mureka (via proxy) reportou um erro para a tarefa ${taskId}:`, queryResponse);
-            const errorMessage = this.getApiErrorMessage(queryResponse, 'Erro ao verificar o status da música.');
+            console.error(`MurekaService: A API Mureka (via proxy) reportou um erro para a tarefa ${taskId} (queryResponse.error):`, queryResponse);
+            const errorMessage = await this.getApiErrorMessage(queryResponse, 'Erro ao verificar o status da música.');
             const updatedMusic = await this.supabase.updateMusic(musicId, { status: 'failed', error: errorMessage });
             if (updatedMusic) {
                 this.userMusic.update(music => music.map(s => s.id === updatedMusic.id ? updatedMusic : s));
@@ -387,8 +465,8 @@ export class MurekaService {
 
       } catch (error) {
         clearInterval(intervalId);
-        console.error(`MurekaService: Erro durante o polling para a tarefa ${taskId}:`, error);
-         const errorMessage = this.getApiErrorMessage(error, 'Erro ao verificar o status da música.');
+        console.error(`MurekaService: Erro durante o polling para a tarefa ${taskId} (catch block):`, error);
+         const errorMessage = await this.getApiErrorMessage(error, 'Erro ao verificar o status da música.');
          const updatedMusic = await this.supabase.updateMusic(musicId, { status: 'failed', error: errorMessage });
           if (updatedMusic) {
             this.userMusic.update(music => music.map(s => s.id === updatedMusic.id ? updatedMusic : s));

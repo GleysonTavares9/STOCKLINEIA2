@@ -1,231 +1,123 @@
-import { Component, ChangeDetectionStrategy, input, output, computed, signal, ElementRef, viewChild, OnDestroy, effect } from '@angular/core';
-import { CommonModule, NgOptimizedImage } from '@angular/common';
+import { Component, ChangeDetectionStrategy, input, output, signal, viewChild, ElementRef, effect } from '@angular/core';
+import { CommonModule } from '@angular/common';
 import { Music } from '../../services/supabase.service';
 
 @Component({
   selector: 'app-music-player',
   standalone: true,
-  imports: [CommonModule, NgOptimizedImage],
+  imports: [CommonModule],
   templateUrl: './music-player.component.html',
   styleUrls: ['./music-player.component.css'],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class MusicPlayerComponent implements OnDestroy {
-  music = input.required<Music>();
-  playlist = input.required<Music[]>();
-  isPublicContext = input(false); // New input to control download visibility
-  
+export class MusicPlayerComponent {
+  music = input.required<Music | null>();
+  playlist = input<Music[]>([]);
+  isPublicContext = input<boolean>(false);
+
   close = output<void>();
   changeSong = output<Music>();
 
-  audioPlayerRef = viewChild<ElementRef<HTMLAudioElement>>('audioPlayer');
-  
+  audioEl = viewChild<ElementRef<HTMLAudioElement>>('audioPlayer');
+
   isPlaying = signal(false);
-  currentTime = signal(0);
   duration = signal(0);
-
-  private audioCleanupFns: Array<() => void> = [];
-
-  currentIndex = computed(() => this.playlist().findIndex(item => item.id === this.music().id));
-  
-  canPlayPrevious = computed(() => this.currentIndex() > 0);
-  canPlayNext = computed(() => this.currentIndex() < this.playlist().length - 1);
+  currentTime = signal(0);
+  isSeeking = signal(false);
 
   constructor() {
     effect(() => {
+      const audio = this.audioEl()?.nativeElement;
       const currentMusic = this.music();
-      const audioEl = this.audioPlayerRef()?.nativeElement;
-
-      if (!audioEl) {
-        // If audio element is not yet rendered or removed, return.
-        // The effect will rerun when it becomes available.
-        return;
+      if (audio && currentMusic) {
+        if (audio.src !== currentMusic.audio_url) {
+            audio.src = currentMusic.audio_url;
+        }
+        audio.load();
+        audio.play().then(() => {
+          this.isPlaying.set(true);
+        }).catch(e => {
+          console.error("Audio autoplay failed:", e);
+          this.isPlaying.set(false);
+        });
       }
-      
-      // Cleanup existing listeners before setting up new ones or changing source
-      this.cleanupAudioListeners(); 
-
-      // Reset player state
-      this.isPlaying.set(false); 
-      this.currentTime.set(0);
-      this.duration.set(0);
-      
-      if (currentMusic.audio_url) {
-        audioEl.src = currentMusic.audio_url; // Set new source directly
-
-        // Attach listeners
-        const onLoadedMetadata = () => this.onLoadedMetadata();
-        const onTimeUpdate = () => this.onTimeUpdate();
-        const onEnded = () => this.onAudioEnded();
-        const onPlay = () => this.isPlaying.set(true);
-        const onPause = () => this.isPlaying.set(false);
-
-        audioEl.addEventListener('loadedmetadata', onLoadedMetadata);
-        audioEl.addEventListener('timeupdate', onTimeUpdate);
-        audioEl.addEventListener('ended', onEnded);
-        audioEl.addEventListener('play', onPlay);
-        audioEl.addEventListener('pause', onPause);
-
-        this.audioCleanupFns.push(
-          () => audioEl.removeEventListener('loadedmetadata', onLoadedMetadata),
-          () => audioEl.removeEventListener('timeupdate', onTimeUpdate),
-          () => audioEl.removeEventListener('ended', onEnded),
-          () => audioEl.removeEventListener('play', onPlay),
-          () => audioEl.removeEventListener('pause', onPause)
-        );
-
-        audioEl.load(); // Necessary for some browsers to pick up src change
-        audioEl.play().catch(e => console.error("Autoplay failed:", e));
-      } else {
-        // If no audio_url, ensure player is paused and source is cleared.
-        audioEl.pause();
-        audioEl.src = '';
-      }
-    }, { allowSignalWrites: true }); 
+    }, { allowSignalWrites: true });
   }
 
-  ngOnDestroy(): void {
-    this.cleanupAudioListeners();
-    // Also explicitly pause audio when component is destroyed
-    const audioEl = this.audioPlayerRef()?.nativeElement;
-    if (audioEl) {
-      audioEl.pause();
+  onTimeUpdate(event: Event): void {
+    if (!this.isSeeking()) {
+      this.currentTime.set((event.target as HTMLAudioElement).currentTime);
     }
   }
 
-  private cleanupAudioListeners(): void {
-    this.audioCleanupFns.forEach(cleanup => cleanup());
-    this.audioCleanupFns = [];
+  onLoadedMetadata(event: Event): void {
+    this.duration.set((event.target as HTMLAudioElement).duration);
   }
 
   togglePlayPause(): void {
-    const audioEl = this.audioPlayerRef()?.nativeElement;
-    if (audioEl) {
-      if (this.isPlaying()) {
-        audioEl.pause();
-      } else {
-        audioEl.play().catch(e => console.error("Play failed:", e));
-      }
-    }
-  }
-
-  onLoadedMetadata(): void {
-    const audioEl = this.audioPlayerRef()?.nativeElement;
-    if (audioEl) {
-      this.duration.set(audioEl.duration);
-      this.currentTime.set(audioEl.currentTime); // Initialize current time
-    }
-  }
-
-  onTimeUpdate(): void {
-    const audioEl = this.audioPlayerRef()?.nativeElement;
-    if (audioEl) {
-      this.currentTime.set(audioEl.currentTime);
-    }
-  }
-
-  onAudioEnded(): void {
-    this.isPlaying.set(false);
-    this.currentTime.set(0);
-    if (this.canPlayNext()) {
-      this.playNext();
+    const audio = this.audioEl()?.nativeElement;
+    if (!audio) return;
+    if (audio.paused) {
+      audio.play();
+      this.isPlaying.set(true);
     } else {
-      // If last song ended and no next song, reset player state
-      const audioEl = this.audioPlayerRef()?.nativeElement;
-      if (audioEl) {
-        audioEl.currentTime = 0; // Rewind to start
-      }
+      audio.pause();
+      this.isPlaying.set(false);
     }
+  }
+
+  onSeek(event: Event): void {
+    const audio = this.audioEl()?.nativeElement;
+    if (!audio) return;
+    const input = event.target as HTMLInputElement;
+    audio.currentTime = Number(input.value);
+    this.currentTime.set(audio.currentTime);
+  }
+
+  onEnded(): void {
+    this.playNext();
+  }
+
+  get canPlayNext(): boolean {
+    const pl = this.playlist();
+    const current = this.music();
+    if (!pl.length || !current) return false;
+    const currentIndex = pl.findIndex(s => s.id === current.id);
+    return currentIndex < pl.length - 1;
+  }
+
+  get canPlayPrev(): boolean {
+    const pl = this.playlist();
+    const current = this.music();
+    if (!pl.length || !current) return false;
+    const currentIndex = pl.findIndex(s => s.id === current.id);
+    return currentIndex > 0;
+  }
+  
+  playNext(): void {
+    if (!this.canPlayNext) return;
+    const pl = this.playlist();
+    const current = this.music();
+    const currentIndex = pl.findIndex(s => s.id === current!.id);
+    this.changeSong.emit(pl[currentIndex + 1]);
+  }
+
+  playPrev(): void {
+    if (!this.canPlayPrev) return;
+    const pl = this.playlist();
+    const current = this.music();
+    const currentIndex = pl.findIndex(s => s.id === current!.id);
+    this.changeSong.emit(pl[currentIndex - 1]);
   }
 
   formatTime(seconds: number): string {
-    if (isNaN(seconds) || seconds < 0) return '00:00';
     const minutes = Math.floor(seconds / 60);
-    const remainingSeconds = Math.floor(seconds % 60);
-    return `${String(minutes).padStart(2, '0')}:${String(remainingSeconds).padStart(2, '0')}`;
+    const secs = Math.floor(seconds % 60);
+    return `${minutes}:${secs.toString().padStart(2, '0')}`;
   }
-
-  seek(event: MouseEvent): void {
-    const audioEl = this.audioPlayerRef()?.nativeElement;
-    const progressBar = event.currentTarget as HTMLElement;
-    if (audioEl && progressBar && this.duration() > 0) { // Only seek if duration is known
-      const rect = progressBar.getBoundingClientRect();
-      const clickX = event.clientX - rect.left;
-      const percentage = Math.max(0, Math.min(1, clickX / rect.width)); // Clamp between 0 and 1
-      audioEl.currentTime = this.duration() * percentage;
-    }
-  }
-
-  playPrevious(): void {
-    const audioEl = this.audioPlayerRef()?.nativeElement;
-    if (audioEl) { audioEl.pause(); } // Pause current before changing
-    if (this.canPlayPrevious()) {
-      const newIndex = this.currentIndex() - 1;
-      this.changeSong.emit(this.playlist()[newIndex]);
-    }
-  }
-
-  playNext(): void {
-    const audioEl = this.audioPlayerRef()?.nativeElement;
-    if (audioEl) { audioEl.pause(); } // Pause current before changing
-    if (this.canPlayNext()) {
-      const newIndex = this.currentIndex() + 1;
-      this.changeSong.emit(this.playlist()[newIndex]);
-    }
-  }
-
-  closePlayer(): void {
-    const audioEl = this.audioPlayerRef()?.nativeElement;
-    if (audioEl) {
-      audioEl.pause(); 
-    }
-    this.close.emit();
-  }
-
-  onContentClick(event: MouseEvent): void {
-    event.stopPropagation();
-  }
-
-  async downloadMusic(): Promise<void> {
-    if (!this.music().audio_url) return;
-    try {
-      const response = await fetch(this.music().audio_url);
-      if (!response.ok) {
-        throw new Error(`Network response was not ok, status: ${response.status}`);
-      }
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.style.display = 'none';
-      a.href = url;
-      a.download = `${this.music().title.replace(/[^a-zA-Z0-9 ]/g, '') || 'mureka-song'}.mp3`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      a.remove();
-    } catch (error) {
-      console.error('Download failed:', error);
-      alert('O download direto falhou. Tentando abrir em uma nova aba. Por favor, salve a partir daí.');
-      window.open(this.music().audio_url, '_blank');
-    }
-  }
-
-  async shareMusic(): Promise<void> {
-    const shareData = {
-      title: `STOCKLINE AI Music: ${this.music().title}`,
-      text: `Ouça "${this.music().title}", uma música que criei com STOCKLINE AI!`,
-      url: window.location.origin, // Shares the main app URL
-    };
-    try {
-      if (navigator.share) {
-        await navigator.share(shareData);
-      } else {
-        await navigator.clipboard.writeText(`${shareData.text} Crie a sua: ${shareData.url}`);
-        alert('Link da música copiado para a área de transferência!');
-      }
-    } catch (error) {
-      console.error('Sharing failed:', error);
-      alert('Falha ao compartilhar.');
-    }
+  
+  getCoverArt(title: string | undefined): string {
+    if (!title) return `https://picsum.photos/seed/art-unknown/100/100`;
+    return `https://picsum.photos/seed/art-${title}/100/100`;
   }
 }

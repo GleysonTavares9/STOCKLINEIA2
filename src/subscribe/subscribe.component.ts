@@ -1,4 +1,4 @@
-import { Component, ChangeDetectionStrategy, signal, inject, computed, OnInit, effect } from '@angular/core';
+import { Component, ChangeDetectionStrategy, signal, inject, computed, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { SupabaseService, Plan } from '../services/supabase.service';
 import { Router } from '@angular/router';
@@ -65,12 +65,7 @@ export class SubscribeComponent implements OnInit {
   });
 
   constructor() {
-    effect(() => {
-      if (!this.supabase.authReady()) return;
-      if (!this.currentUser()) {
-        this.router.navigate(['/auth'], { queryParams: { message: 'Faça login para gerenciar suas assinaturas.' } });
-      }
-    });
+    // Redirection logic is handled globally by AppComponent.
   }
 
   ngOnInit(): void {

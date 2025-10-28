@@ -91,6 +91,9 @@ export class SupabaseService {
       return;
     }
 
+    // Explicitly initialize auth state to ensure `authReady` is set quickly
+    this.initializeAuthState();
+
     this.supabase.auth.onAuthStateChange(async (event, session) => {
       console.log('SupabaseService: Auth state change detected:', event);
       const user = session?.user ?? null;
@@ -102,8 +105,42 @@ export class SupabaseService {
         console.log('SupabaseService: User logged out or no user session. Clearing profile.');
         this.currentUserProfile.set(null);
       }
-      this.authReady.set(true); // Now safe to set authReady to true after initial auth check.
+      // The `authReady.set(true)` is now primarily handled by `initializeAuthState` for the initial load.
+      // This listener will still update `currentUser` and `currentUserProfile` for subsequent changes.
+      // No need to set authReady here again, as it's already true after initial call.
     });
+  }
+
+  // New method to explicitly check initial auth state
+  private async initializeAuthState(): Promise<void> {
+    if (!this.supabase) {
+      console.error('initializeAuthState: Supabase client not initialized.');
+      return;
+    }
+    try {
+      const { data: { session }, error } = await this.supabase.auth.getSession();
+      if (error) {
+        console.error('initializeAuthState: Error getting session:', error.message);
+        this.currentUser.set(null);
+        this.currentUserProfile.set(null);
+      } else if (session) {
+        console.log('initializeAuthState: Found existing session for user:', session.user.id);
+        this.currentUser.set(session.user);
+        await this.fetchUserProfile(session.user.id);
+      } else {
+        console.log('initializeAuthState: No active session found.');
+        this.currentUser.set(null);
+        this.currentUserProfile.set(null);
+      }
+    } catch (e: any) {
+      console.error('initializeAuthState: Uncaught error during session check:', e.message || e.toString());
+      this.currentUser.set(null);
+      this.currentUserProfile.set(null);
+    } finally {
+      // Ensure authReady is set to true after initial check, regardless of success or failure
+      this.authReady.set(true);
+      console.log('initializeAuthState: Auth state initialized. authReady set to true.');
+    }
   }
 
   async getSession(): Promise<Session | null> {

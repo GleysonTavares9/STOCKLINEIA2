@@ -62,10 +62,12 @@ const getEnvVar = (names: string[], defaultValue: string): string => {
   if (typeof process !== 'undefined' && process.env) {
     for (const name of names) {
       if (typeof process.env[name] === 'string' && process.env[name].trim() !== '') {
+        console.log(`Config: Using environment variable for ${name}: ${process.env[name].substring(0, 5)}...`);
         return process.env[name];
       }
     }
   }
+  console.warn(`Config: Environment variable not found for names: ${names.join(', ')}. Using default value (first 5 chars): ${defaultValue.substring(0, 5)}...`);
   return defaultValue;
 };
 
