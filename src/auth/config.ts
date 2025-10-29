@@ -14,15 +14,16 @@
  * 
  * --------------------------------------------------------------------------
  * 
- * **ATENÇÃO ESPECIAL: CHAVES DE API SECRETAS (MUREKA & GEMINI)**
+ * **ATENÇÃO ESPECIAL: CHAVES DE API SECRETAS (STRIPE, MUREKA & GEMINI)**
  * 
- * As chaves `MUREKA_API_KEY` e `GIMINI_AI_API_KEY` são **CHAVES SECRETAS DE BACKEND**. Elas NÃO DEVEM
+ * As chaves `STRIPE_SECRET_KEY`, `MUREKA_API_KEY` e `GIMINI_AI_API_KEY` são **CHAVES SECRETAS DE BACKEND**. Elas NÃO DEVEM
  * ser incluídas diretamente no frontend. A comunicação com essas APIs agora é feita através de 
- * Edge Functions do Supabase (`mureka-proxy`, `bright-worker`), que é a prática recomendada de 
+ * Edge Functions do Supabase (`dynamic-api`, `mureka-proxy`, `bright-worker`), que é a prática recomendada de 
  * segurança para proteger suas chaves.
  * 
  * Você DEVE configurar as seguintes variáveis de ambiente diretamente nas suas Edge Functions
- * no painel do Supabase:
+ * no painel do Supabase (em Settings -> Secrets):
+ *  - `STRIPE_SECRET_KEY`: Na Edge Function `dynamic-api`.
  *  - `MUREKA_API_KEY`: Na Edge Function `mureka-proxy`.
  *  - `GIMINI_AI_API_KEY`: Na Edge Function `bright-worker`.
  * 
@@ -39,7 +40,8 @@
  * 
  *    - `SUPABASE_URL` (ou `PRÓXIMO_URL_PÚBLICO_SUPABASE`): A URL do seu projeto Supabase (ex: `https://abcdefg.supabase.co`).
  *    - `SUPABASE_ANON_KEY` (ou `PRÓXIMA_CHAVE_PÚBLICA_SUPABASE_ANON_KEY`): A chave anônima (public) do seu projeto Supabase.
- *    - `STRIPE_PUBLISHABLE_KEY` (ou `PRÓXIMA_CHAVE_PUBLICÁVEL_DA_FAIXA_PÚBLICA`): Sua chave publicável (pk_...) do Stripe.
+ *    - `STRIPE_PUBLISHABLE_KEY` (ou `PRÓXIMA_CHAVE_PUBLICÁVEL_DA_FAIXA_PÚBLICA`): Sua chave publicável (pk_...) do Stripe, para ser usada pelo frontend.
+ *    - `STRIPE_SECRET_KEY`: Sua chave secreta (sk_...) do Stripe (para a Edge Function `dynamic-api` no Supabase).
  *    - `MUREKA_API_KEY`: Sua chave da API Mureka (para a Edge Function `mureka-proxy` no Supabase).
  *    - `GIMINI_AI_API_KEY`: Sua chave da API Gemini (para a Edge Function `bright-worker` no Supabase).
  * 
@@ -80,9 +82,32 @@ export const environment = {
   supabaseUrl: getEnvVar(['SUPABASE_URL', 'PRÓXIMO_URL_PÚBLICO_SUPABASE'], 'https://mranwpmfdqvuucgppiem.supabase.co'),
   supabaseKey: getEnvVar(['SUPABASE_ANON_KEY', 'PRÓXIMA_CHAVE_PÚBLICA_SUPABASE_ANON_KEY'], 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1yYW53cG1mZHF2dXVjZ3BwaWVtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjAwNTI3NzcsImV4cCI6MjA3NTYyODc3N30.iOkY-UiQO4NfSCUnw5is8TSTygNysqdWQXRRqixiwfU'),
 
-  // Chave publicável do Stripe (pk_...) - NUNCA a chave secreta (sk_...).
-  // Substitua este VALOR DE EXEMPLO pela sua chave publicável real do Stripe (começa com pk_...).
+  // --------------------------------------------------------------------------
+  // 🔑 CONFIGURAÇÃO DAS CHAVES STRIPE (LEIA COM ATENÇÃO) 🔑
+  // --------------------------------------------------------------------------
+  // Existem DOIS tipos de chaves Stripe: Publicável e Secreta.
+  
+  // 1. CHAVE PUBLICÁVEL (Publishable Key - começa com 'pk_...'):
+  //    Esta chave é segura para ser usada no frontend. Configure-a aqui.
+  //    - Para produção (AI Studio, Vercel), defina a variável de ambiente `STRIPE_PUBLISHABLE_KEY`.
+  //    - Para desenvolvimento local, substitua o placeholder abaixo.
+  //    🚨 NUNCA coloque sua chave secreta aqui.
   stripePublishableKey: getEnvVar(['STRIPE_PUBLISHABLE_KEY', 'PRÓXIMA_CHAVE_PUBLICÁVEL_DA_FAIXA_PÚBLICA'], 'pk_test_51FAKEFAKEFAKEFAKEFAKEFAKEFAKEFAKEFAKEFAKEFAKEFAKEFAKEFAKEFAKEFAKEDUMMY'),
+
+  // 2. CHAVE SECRETA (Secret Key - começa com 'sk_...'):
+  //    Esta chave NUNCA DEVE ser exposta no frontend.
+  //    Ela deve ser configurada EXCLUSIVAMENTE como um segredo (secret) na sua
+  //    Edge Function `dynamic-api` no painel do Supabase.
+  //
+  //    🚨 INSTRUÇÕES PRECISAS:
+  //    1. Vá para seu projeto Supabase -> Edge Functions -> dynamic-api -> Settings -> Secrets.
+  //    2. Crie um novo segredo com o NOME EXATO: `STRIPE_SECRET_KEY`
+  //    3. Cole o VALOR da sua chave secreta do Stripe (que começa com `sk_...`).
+  //
+  //    ERRO COMUM: Não confunda a chave secreta (`sk_...` para o backend) com a
+  //    chave publicável (`pk_...` para o frontend acima). Usar a chave errada no
+  //    lugar errado causará falhas no pagamento.
+  // --------------------------------------------------------------------------
 
   // --------------------------------------------------------------------------
   // 🚨🚨🚨 NOTA: A CHAVE_API_MUREKA AGORA É MANIPULADA EXCLUSIVAMENTE NO BACKEND. 🚨🚨🚨

@@ -101,6 +101,109 @@ export class SubscribeComponent implements OnInit {
     }
   }
 
+  private async getPurchaseErrorMessage(error: any): Promise<string> {
+    console.groupCollapsed('🚨 SubscribeComponent: getPurchaseErrorMessage - Debugging');
+    console.log('Raw error object received:', error);
+
+    // Default message if nothing else is found
+    const defaultMessage = 'Ocorreu um erro desconhecido durante o checkout. Verifique o console para mais detalhes.';
+
+    // Check for Supabase client initialization error first
+    if (error?.message?.includes('Supabase client not initialized')) {
+        console.log('Error Type: Supabase client not initialized.');
+        console.groupEnd();
+        return 'O Supabase não está configurado. Verifique as credenciais no `src/auth/config.ts`.';
+    }
+
+    // Attempt to extract detailed error from Supabase Edge Function's response body
+    let bodyToParse: any = null;
+    const bodyStream = error?.context?.body || error?.body; // Check both context.body and body
+
+    if (bodyStream && typeof bodyStream.getReader === 'function') { // It's a ReadableStream
+        console.log('Found a ReadableStream in error body, attempting to read it.');
+        try {
+            const reader = bodyStream.getReader();
+            const decoder = new TextDecoder();
+            let result = '';
+            // Read the stream to completion
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                result += decoder.decode(value, { stream: true });
+            }
+            bodyToParse = result;
+            console.log('Successfully read stream to string:', bodyToParse);
+        } catch (streamError) {
+            console.error('Failed to read error body stream:', streamError);
+            bodyToParse = 'Falha ao ler o stream do corpo do erro.';
+        }
+    } else if (error?.context?.body) {
+        bodyToParse = error.context.body;
+        console.log('Found error.context.body (not a stream):', bodyToParse);
+    } else if (error?.body) {
+        bodyToParse = error.body;
+        console.log('Found error.body (not a stream):', bodyToParse);
+    }
+
+    // Now, parse the extracted body content
+    let parsedEdgeFunctionDetails: any = null;
+    if (typeof bodyToParse === 'string') {
+        try {
+            parsedEdgeFunctionDetails = JSON.parse(bodyToParse);
+            console.log('Successfully JSON.parsed bodyToParse:', parsedEdgeFunctionDetails);
+        } catch (parseError) {
+            console.warn('Failed to JSON.parse bodyToParse. It might be plain text or malformed JSON.', bodyToParse);
+            // If it's not JSON, it could still be the error message itself
+            parsedEdgeFunctionDetails = { error: bodyToParse };
+        }
+    } else if (typeof bodyToParse === 'object' && bodyToParse !== null) {
+        // If it was already an object
+        parsedEdgeFunctionDetails = bodyToParse;
+        console.log('bodyToParse was already an object:', parsedEdgeFunctionDetails);
+    }
+
+    if (parsedEdgeFunctionDetails?.error) {
+        const serverError = parsedEdgeFunctionDetails.error as string;
+        console.log('Error Type: Specific message from Edge Function.');
+        console.groupEnd();
+
+        // Check for specific, actionable errors first
+        if (serverError.includes('Expired API Key provided')) {
+          return `Erro de pagamento: A chave da API do Stripe expirou. Por favor, gere uma nova chave secreta (sk_...) no seu painel do Stripe e atualize o segredo 'STRIPE_SECRET_KEY' na sua Edge Function 'dynamic-api' no Supabase.`;
+        }
+        if (serverError.includes('Invalid API Key provided')) {
+          return `Erro de pagamento: A chave da API do Stripe é inválida. Verifique se o segredo 'STRIPE_SECRET_KEY' na sua Edge Function 'dynamic-api' no Supabase está correto. A chave deve começar com 'sk_...'.`;
+        }
+        if (serverError.includes('No such price')) {
+          return `Erro de pagamento: O plano selecionado não foi encontrado no sistema de pagamento. Verifique a configuração do 'price_id' no Stripe e no banco de dados.`;
+        }
+        if (serverError.includes('ERRO DE CONFIGURAÇÃO CRÍTICO')) {
+          // This will catch the pk_ vs sk_ error from the Edge Function
+          return `Erro Crítico de Configuração: Uma chave publicável (pk_...) do Stripe foi usada no lugar da chave secreta (sk_...) no backend. Por favor, configure a chave secreta correta no segredo 'STRIPE_SECRET_KEY' da sua Edge Function 'dynamic-api'.`;
+        }
+
+        // If no specific pattern matched, return the generic server error
+        return `Erro do servidor de pagamento: ${serverError}`;
+    }
+
+    // Fallback for generic invokeFunction errors if body parsing failed
+    if (error?.message) {
+      if (error.message.includes('Edge Function returned a non-2xx status code')) {
+        console.log('Error Type: Raw Edge Function non-2xx message (fallback).');
+        console.groupEnd();
+        // At this point, body parsing failed or the body was empty.
+        return `Erro de comunicação com o servidor de pagamento. Verifique os logs da função 'dynamic-api' no Supabase para a causa raiz.`;
+      }
+      console.log('Error Type: Generic Supabase invokeFunction error message (fallback).');
+      console.groupEnd();
+      return `Erro ao chamar o servidor de pagamento: ${error.message}`;
+    }
+    
+    console.log('Error Type: Unknown error (final fallback).');
+    console.groupEnd();
+    return defaultMessage;
+  }
+
   async purchase(plan: Plan): Promise<void> {
     if (!this.isStripeConfigured() || !plan.price_id || !this.currentUser()) {
       this.purchaseError.set('Não é possível processar a compra: configuração de pagamento incompleta ou usuário não autenticado.');
@@ -114,7 +217,7 @@ export class SubscribeComponent implements OnInit {
     // seja usada apenas no lado do servidor, sem nunca ser exposta no navegador do cliente.
     try {
       const stripe = Stripe(environment.stripePublishableKey);
-      // #region Fix: Replaced direct access to private `supabase` client with the public `invokeFunction` method.
+      
       const { data, error: callError } = await this.supabase.invokeFunction('dynamic-api', {
           body: {
             priceId: plan.price_id,
@@ -123,24 +226,21 @@ export class SubscribeComponent implements OnInit {
             isCreditPack: plan.is_credit_pack, // Adicionado para informar o backend
           }
         });
-      // #endregion
 
       if (callError) {
-        throw new Error(callError.message);
+        throw callError; // Lança o objeto de erro completo para ser analisado
       }
 
-      // #region Fix: Access `session` directly from the `data` object returned by `invokeFunction`.
       if (data?.session?.url) {
-        window.location.href = data.session.url; // Redirect to Stripe Checkout
+        window.location.href = data.session.url; // Redireciona para o Checkout do Stripe
       } else {
-        throw new Error('Não foi possível iniciar a sessão de checkout do Stripe.');
+        // Isso pode acontecer se a função retornar 200, mas com uma mensagem de erro interna (que agora é tratada pelo getPurchaseErrorMessage)
+        throw new Error(data?.error || 'Não foi possível iniciar a sessão de checkout do Stripe.');
       }
-      // #endregion
 
-    } catch (error) {
-      console.error('Error during Stripe checkout:', error);
-      const message = error instanceof Error ? error.message : 'Ocorreu um erro desconhecido durante o checkout.';
-      this.purchaseError.set(`Erro na compra: ${message}`);
+    } catch (error: any) {
+      console.error('Erro durante o checkout do Stripe:', error);
+      this.purchaseError.set(await this.getPurchaseErrorMessage(error));
     } finally {
       this.isLoading.set(null);
     }
