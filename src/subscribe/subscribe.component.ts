@@ -217,13 +217,16 @@ export class SubscribeComponent implements OnInit {
     // seja usada apenas no lado do servidor, sem nunca ser exposta no navegador do cliente.
     try {
       const stripe = Stripe(environment.stripePublishableKey);
+      const profile = this.currentUserProfile();
       
       const { data, error: callError } = await this.supabase.invokeFunction('dynamic-api', {
           body: {
+            action: 'create_checkout_session',
             priceId: plan.price_id,
             userId: this.currentUser()!.id,
             userEmail: this.currentUser()!.email,
-            isCreditPack: plan.is_credit_pack, // Adicionado para informar o backend
+            isCreditPack: plan.is_credit_pack,
+            customerId: profile?.stripe_customer_id || null, // Passa o ID do cliente se existir
           }
         });
 

@@ -1,4 +1,4 @@
-import { Component, ChangeDetectionStrategy, inject, computed } from '@angular/core';
+import { Component, ChangeDetectionStrategy, inject, computed, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { SupabaseService } from '../services/supabase.service';
@@ -19,6 +19,11 @@ export class UsageComponent {
   currentUserProfile = this.supabase.currentUserProfile;
   userMusic = this.murekaService.userMusic;
 
+  isManaging = signal(false);
+  managementError = signal<string | null>(null);
+
+  hasActiveSubscription = computed(() => !!this.currentUserProfile()?.stripe_customer_id);
+
   accountCreationDate = computed(() => {
     const createdAt = this.currentUser()?.created_at;
     if (!createdAt) return 'Não disponível';
@@ -28,4 +33,27 @@ export class UsageComponent {
       year: 'numeric'
     });
   });
+
+  async manageSubscription(): Promise<void> {
+    this.isManaging.set(true);
+    this.managementError.set(null);
+
+    try {
+      const { url, error } = await this.supabase.createBillingPortalSession();
+
+      if (error) {
+        throw new Error(error);
+      }
+
+      if (url) {
+        window.location.href = url;
+      } else {
+        throw new Error('Não foi possível obter o link para o portal de gerenciamento.');
+      }
+    } catch (error: any) {
+      this.managementError.set(error.message || 'Ocorreu um erro inesperado ao tentar acessar o portal de faturamento.');
+    } finally {
+      this.isManaging.set(false);
+    }
+  }
 }

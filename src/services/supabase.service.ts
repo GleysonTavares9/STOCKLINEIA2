@@ -1,5 +1,6 @@
 import { Injectable, signal } from '@angular/core';
-import { createClient, SupabaseClient, type User, type AuthError, type Session } from '@supabase/supabase-js';
+// Fix: Corrected import statement for Supabase types to resolve module errors.
+import { createClient, type SupabaseClient, type User, type AuthError, type Session } from '@supabase/supabase-js';
 import { environment } from '../auth/config';
 
 // Define the structure of a Music object, matching the 'musics' table
@@ -21,6 +22,7 @@ export interface Profile {
   id: string; // Corresponds to user_id
   email?: string;
   credits: number;
+  stripe_customer_id?: string | null;
 }
 
 export interface Plan {
@@ -91,56 +93,35 @@ export class SupabaseService {
       return;
     }
 
-    // Explicitly initialize auth state to ensure `authReady` is set quickly
-    this.initializeAuthState();
-
+    // The onAuthStateChange listener is now the single source of truth for auth state.
+    // It fires with an 'INITIAL_SESSION' event on page load, which we use to
+    // set authReady to true, removing the loading screen. This is more robust
+    // than a separate getSession() call and avoids potential race conditions.
     this.supabase.auth.onAuthStateChange(async (event, session) => {
       console.log('SupabaseService: Auth state change detected:', event);
+
+      // On initial load, the 'INITIAL_SESSION' event is fired.
+      // This is the signal that Supabase has checked for a session and we can proceed.
+      // This event fires whether a session is found or not.
+      if (event === 'INITIAL_SESSION') {
+        this.authReady.set(true);
+        console.log('SupabaseService: Initial session processed. Auth is ready.');
+      }
+
       const user = session?.user ?? null;
       this.currentUser.set(user);
+
       if (user) {
-        console.log('SupabaseService: User logged in, fetching profile for ID:', user.id);
+        // If the user state changes (e.g., SIGNED_IN), fetch their profile.
+        // This also runs for INITIAL_SESSION if a user is already logged in.
+        console.log('SupabaseService: User found, fetching profile for ID:', user.id);
         await this.fetchUserProfile(user.id);
       } else {
-        console.log('SupabaseService: User logged out or no user session. Clearing profile.');
+        // If no user, clear the profile. This handles SIGNED_OUT and INITIAL_SESSION with no user.
+        console.log('SupabaseService: No user session. Clearing profile.');
         this.currentUserProfile.set(null);
       }
-      // The `authReady.set(true)` is now primarily handled by `initializeAuthState` for the initial load.
-      // This listener will still update `currentUser` and `currentUserProfile` for subsequent changes.
-      // No need to set authReady here again, as it's already true after initial call.
     });
-  }
-
-  // New method to explicitly check initial auth state
-  private async initializeAuthState(): Promise<void> {
-    if (!this.supabase) {
-      console.error('initializeAuthState: Supabase client not initialized.');
-      return;
-    }
-    try {
-      const { data: { session }, error } = await this.supabase.auth.getSession();
-      if (error) {
-        console.error('initializeAuthState: Error getting session:', error.message);
-        this.currentUser.set(null);
-        this.currentUserProfile.set(null);
-      } else if (session) {
-        console.log('initializeAuthState: Found existing session for user:', session.user.id);
-        this.currentUser.set(session.user);
-        await this.fetchUserProfile(session.user.id);
-      } else {
-        console.log('initializeAuthState: No active session found.');
-        this.currentUser.set(null);
-        this.currentUserProfile.set(null);
-      }
-    } catch (e: any) {
-      console.error('initializeAuthState: Uncaught error during session check:', e.message || e.toString());
-      this.currentUser.set(null);
-      this.currentUserProfile.set(null);
-    } finally {
-      // Ensure authReady is set to true after initial check, regardless of success or failure
-      this.authReady.set(true);
-      console.log('initializeAuthState: Auth state initialized. authReady set to true.');
-    }
   }
 
   async getSession(): Promise<Session | null> {
@@ -164,7 +145,7 @@ export class SupabaseService {
     }
     const { data, error } = await this.supabase
       .from('profiles')
-      .select('id, email, credits')
+      .select('id, email, credits, stripe_customer_id')
       .eq('id', userId)
       .single();
     
@@ -299,6 +280,36 @@ export class SupabaseService {
       console.error('signInWithGoogle: Error during Google sign in:', error.message);
     }
     return { error };
+  }
+
+  async createBillingPortalSession(): Promise<{ url: string | null, error: string | null }> {
+    const profile = this.currentUserProfile();
+    if (!profile?.stripe_customer_id) {
+      return { url: null, error: 'Nenhum cliente de faturamento encontrado para este usuário.' };
+    }
+  
+    const { data, error } = await this.invokeFunction('dynamic-api', {
+      body: {
+        action: 'create_billing_portal_session',
+        customerId: profile.stripe_customer_id
+      }
+    });
+  
+    if (error) {
+      // Assuming getPurchaseErrorMessage can handle these generic errors too
+      // If not, a simpler message is better.
+      return { url: null, error: `Falha ao comunicar com o servidor de faturamento: ${error.message}` };
+    }
+  
+    if (data?.error) {
+      return { url: null, error: data.error };
+    }
+    
+    if (!data?.url) {
+      return { url: null, error: 'O servidor de faturamento não retornou um URL válido.' };
+    }
+  
+    return { url: data.url, error: null };
   }
 
   // == Database Methods ==

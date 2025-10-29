@@ -247,4 +247,29 @@ export class MurekaService {
       this.userMusic.update(musics => musics.filter(m => m.status !== 'failed'));
     }
   }
+
+  async queryMusicStatus(taskId: string): Promise<MurekaQueryResponse> {
+    if (!this.isConfigured()) {
+      throw new Error('Supabase not configured. Cannot query music status.');
+    }
+    
+    const { data, error: proxyError } = await this.supabase.invokeFunction('mureka-proxy', {
+      body: {
+        murekaApiPath: 'song/query',
+        method: 'GET',
+        queryParams: { id: taskId }
+      }
+    });
+
+    if (proxyError) {
+      console.error('MurekaService: Error invoking proxy for query:', proxyError);
+      throw proxyError;
+    }
+    if (data.error) {
+      console.error('MurekaService: Error from Mureka API via proxy on query:', data);
+      throw data;
+    }
+
+    return data as MurekaQueryResponse;
+  }
 }
