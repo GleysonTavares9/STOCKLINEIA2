@@ -374,27 +374,79 @@ export class SupabaseService {
     return data as Music;
   }
 
-  async updateUserCredits(userId: string, newCreditCount: number): Promise<Profile | null> {
+  async updateUserProfile(userId: string, updates: Partial<Profile>): Promise<Profile | null> {
     if (!this.supabase) {
-      console.error('updateUserCredits: Supabase client not initialized.');
+      console.error('updateUserProfile: Supabase client not initialized.');
       return null;
     }
     
     const { data, error } = await this.supabase
       .from('profiles')
-      .update({ credits: newCreditCount })
+      .update(updates)
       .eq('id', userId)
       .select()
       .single();
       
     if (error) {
-      console.error('updateUserCredits: Error updating user credits:', error.message);
+      console.error('updateUserProfile: Error updating user profile:', error.message);
       return null;
     }
     
-    console.log('updateUserCredits: User credits updated for ID:', userId);
-    this.currentUserProfile.set(data as Profile);
+    console.log('updateUserProfile: User profile updated for ID:', userId, 'with', updates);
+    // Update the local signal with the new profile data, merging with existing data
+    this.currentUserProfile.update(currentProfile => {
+        if (currentProfile && currentProfile.id === userId) {
+            return { ...currentProfile, ...data };
+        }
+        return data as Profile; // Fallback in case there was no profile
+    });
     return data as Profile;
+  }
+
+  async updateUserCredits(userId: string, newCreditCount: number): Promise<Profile | null> {
+    return this.updateUserProfile(userId, { credits: newCreditCount });
+  }
+
+  async handlePurchaseSuccess(sessionId: string): Promise<{ error: string | null }> {
+    const user = this.currentUser();
+    if (!user) {
+      return { error: 'Usuário não autenticado.' };
+    }
+
+    try {
+        // 1. Chame a função de borda para obter os detalhes da sessão do Stripe
+        const { data: sessionData, error: funcError } = await this.invokeFunction('dynamic-api', {
+            body: {
+                action: 'get_checkout_session',
+                sessionId: sessionId
+            }
+        });
+
+        if (funcError || sessionData?.error) {
+            throw new Error(funcError?.message || sessionData?.error || 'Falha ao obter detalhes da compra.');
+        }
+
+        const customerId = sessionData?.customer;
+        if (!customerId) {
+            throw new Error('ID de cliente não encontrado na sessão de checkout.');
+        }
+        
+        // 2. Atualize o perfil do usuário com o stripe_customer_id
+        const profile = await this.updateUserProfile(user.id, { stripe_customer_id: customerId });
+
+        if (!profile) {
+            throw new Error('Falha ao salvar informações da assinatura no seu perfil.');
+        }
+        
+        // 3. (Opcional, mas recomendado) Atualize o perfil para garantir que todos os dados (como créditos) estejam atualizados
+        await this.fetchUserProfile(user.id);
+        
+        return { error: null };
+
+    } catch (e: any) {
+        console.error('handlePurchaseSuccess: Erro ao processar o sucesso da compra:', e);
+        return { error: e.message || 'Ocorreu um erro ao processar seu pagamento.' };
+    }
   }
 
   async getMusicForUser(userId: string): Promise<Music[]> {

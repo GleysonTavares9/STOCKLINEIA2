@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { MurekaService } from '../services/mureka.service';
 import { SupabaseService, type Music } from '../services/supabase.service';
 import { MusicPlayerService } from '../services/music-player.service';
+import { Router, ActivatedRoute } from '@angular/router';
 
 @Component({
   selector: 'app-library',
@@ -16,6 +17,8 @@ export class LibraryComponent implements OnDestroy {
   private readonly murekaService = inject(MurekaService);
   private readonly playerService = inject(MusicPlayerService);
   private readonly supabase = inject(SupabaseService);
+  private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
 
   private pollInterval: any = null;
 
@@ -25,11 +28,16 @@ export class LibraryComponent implements OnDestroy {
   isDeleting = signal<string | null>(null); // store id of music being deleted
   isClearing = signal(false);
 
+  purchaseStatus = signal<'success' | 'cancelled' | 'error' | null>(null);
+  purchaseStatusMessage = signal<string | null>(null);
+
   playlist = computed(() => this.userMusic().filter(m => m.status === 'succeeded' && m.audio_url));
 
   hasFailedMusic = computed(() => this.userMusic().some(m => m.status === 'failed'));
 
   constructor() {
+    this.handlePurchaseRedirect();
+
     effect(() => {
       const processingMusic = this.userMusic().filter(m => m.status === 'processing' && m.task_id);
       
@@ -41,6 +49,45 @@ export class LibraryComponent implements OnDestroy {
       } else {
         this.stopPolling();
       }
+    });
+  }
+
+  private handlePurchaseRedirect(): void {
+    this.route.queryParams.subscribe(async params => {
+        const status = params['status'];
+        const sessionId = params['session_id'];
+
+        if (status === 'success' && sessionId) {
+            this.purchaseStatus.set('success');
+            this.purchaseStatusMessage.set('Processando sua compra... por favor, aguarde.');
+
+            const { error } = await this.supabase.handlePurchaseSuccess(sessionId);
+            
+            if (error) {
+                this.purchaseStatus.set('error');
+                this.purchaseStatusMessage.set(`Erro ao finalizar a compra: ${error}`);
+            } else {
+                this.purchaseStatusMessage.set('Compra concluída com sucesso! Sua assinatura está ativa.');
+            }
+            
+            // Clean URL
+            this.router.navigate([], {
+                relativeTo: this.route,
+                queryParams: { status: null, session_id: null },
+                queryParamsHandling: 'merge', // remove only the handled params
+                replaceUrl: true
+            });
+        } else if (status === 'cancelled') {
+            this.purchaseStatus.set('cancelled');
+            this.purchaseStatusMessage.set('Sua compra foi cancelada. Você pode tentar novamente a qualquer momento.');
+            // Clean URL
+            this.router.navigate([], {
+                relativeTo: this.route,
+                queryParams: { status: null },
+                queryParamsHandling: 'merge',
+                replaceUrl: true
+            });
+        }
     });
   }
 

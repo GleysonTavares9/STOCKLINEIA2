@@ -1,4 +1,18 @@
 <div class="max-w-7xl mx-auto px-4 pt-8 md:px-8">
+  @if (purchaseStatus()) {
+    <div class="mb-6 p-4 rounded-lg text-center border"
+      [class.bg-teal-900/50]="purchaseStatus() === 'success'"
+      [class.border-teal-700]="purchaseStatus() === 'success'"
+      [class.text-teal-200]="purchaseStatus() === 'success'"
+      [class.bg-yellow-900/50]="purchaseStatus() === 'cancelled'"
+      [class.border-yellow-700]="purchaseStatus() === 'cancelled'"
+      [class.text-yellow-200]="purchaseStatus() === 'cancelled'"
+      [class.bg-red-900/50]="purchaseStatus() === 'error'"
+      [class.border-red-700]="purchaseStatus() === 'error'"
+      [class.text-red-200]="purchaseStatus() === 'error'">
+      <p>{{ purchaseStatusMessage() }}</p>
+    </div>
+  }
   <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-4 mb-8">
     <div>
       <h1 class="text-3xl font-bold text-white tracking-tight">Minha Biblioteca</h1>
@@ -107,3 +121,4 @@
       }
     </div>
   }
+</div>

@@ -93,6 +93,23 @@ const handleCreateBillingPortalSession = async (stripe: Stripe, siteUrl: string,
   });
 };
 
+const handleGetCheckoutSession = async (stripe: Stripe, body: any) => {
+  const { sessionId } = body;
+  if (!sessionId) {
+    throw new Error('Parâmetro obrigatório ausente: sessionId.');
+  }
+
+  const session = await stripe.checkout.sessions.retrieve(sessionId);
+
+  return new Response(JSON.stringify({ 
+      customer: session.customer,
+      subscription: session.subscription 
+  }), {
+    status: 200,
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  });
+};
+
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -131,6 +148,8 @@ serve(async (req) => {
         return await handleCreateCheckoutSession(stripe, siteUrl, body);
       case 'create_billing_portal_session':
         return await handleCreateBillingPortalSession(stripe, siteUrl, body);
+      case 'get_checkout_session':
+        return await handleGetCheckoutSession(stripe, body);
       default:
         return new Response(JSON.stringify({ error: 'Ação inválida ou não especificada.' }), {
           status: 400,
