@@ -1,25 +1,29 @@
 
 
 <div class="max-w-3xl mx-auto p-4 md:p-8 text-white">
-  @if (!isMurekaConfigured() || !isGeminiConfigured()) {
+  @if (!isMurekaConfigured() || !isGeminiConfigured() || supabaseInitError()) {
     <div class="mb-8 p-6 rounded-2xl bg-red-900/30 border border-red-700 text-red-300 text-center">
       <h2 class="font-bold text-lg mb-2">⚠️ Configuração de Backend Crítica Necessária ⚠️</h2>
       <p class="mb-2">
         @if (supabaseInitError()) {
           {{ supabaseInitError() }}
         } @else {
-          O cliente Supabase não está configurado corretamente. Isso impede a comunicação com as APIs de IA (Mureka e Gemini) e desativa as principais funcionalidades do aplicativo.
+          As APIs de IA (Mureka e Gemini) não estão configuradas ou acessíveis, o que desativa as principais funcionalidades do aplicativo.
+          Isso pode ocorrer devido a problemas de implantação das Edge Functions ou falta de configuração das chaves de API.
         }
       </p>
       <div class="mt-4 text-sm font-semibold">
         PARA CORRIGIR: <br>
-        1. Verifique se as credenciais do Supabase estão corretas em <code class="bg-red-700/30 text-white px-1 py-0.5 rounded">src/auth/config.ts</code>. <br>
-        2. Certifique-se de que as Edge Functions <strong>`mureka-proxy` e `bright-worker` (Gemini proxy)</strong> estão implantadas no seu projeto Supabase. <br>
-        3. Confirme que as seguintes variáveis de ambiente estão configuradas como segredos (secrets) nas respectivas Edge Functions no painel do Supabase:
+        1. Verifique se as credenciais do Supabase (URL e Anon Key) estão corretas em <code class="bg-red-700/30 text-white px-1 py-0.5 rounded">src/auth/config.ts</code>. <br>
+        2. Certifique-se de que as Edge Functions <strong>`mureka-proxy` e `bright-worker`</strong> estão <strong>implantadas (deployed)</strong> no seu projeto Supabase. <br>
+        3. Confirme que as seguintes variáveis de ambiente estão configuradas como <strong class="text-white">segredos (secrets)</strong> nas respectivas Edge Functions, no painel do Supabase (<code class="bg-red-700/30 text-white px-1 py-0.5 rounded">Projeto &gt; Edge Functions &gt; [Sua Função] &gt; Settings &gt; Secrets</code>):
         <ul class="list-disc list-inside text-left mt-2 ml-4">
-            <li><strong>`MUREKA_API_KEY`</strong> (para a função `mureka-proxy`)</li>
-            <li><strong>`GIMINI_AI_API_KEY`</strong> (para a função `bright-worker`)</li>
+            <li><strong>`MUREKA_API_KEY`</strong> (para a função <code class="bg-red-700/30 text-white px-1 py-0.5 rounded">mureka-proxy</code>)</li>
+            <li><strong>`GIMINI_AI_API_KEY`</strong> (para a função <code class="bg-red-700/30 text-white px-1 py-0.5 rounded">bright-worker</code>)</li>
         </ul>
+        <p class="mt-4 text-zinc-400">
+          <strong class="text-white">Importante:</strong> Após adicionar ou atualizar um segredo, você deve <strong class="text-white">reimplantar (re-deploy)</strong> a Edge Function para que as novas variáveis de ambiente sejam reconhecidas.
+        </p>
       </div>
     </div>
   }

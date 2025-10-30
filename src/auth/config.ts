@@ -102,18 +102,4 @@ export const environment = {
   //    🚨 INSTRUÇÕES PRECISAS:
   //    1. Vá para seu projeto Supabase -> Edge Functions -> dynamic-api -> Settings -> Secrets.
   //    2. Crie um novo segredo com o NOME EXATO: `STRIPE_SECRET_KEY`
-  //    3. Cole o VALOR da sua chave secreta do Stripe (que começa com `sk_...`).
-  //
-  //    ERRO COMUM: Não confunda a chave secreta (`sk_...` para o backend) com a
-  //    chave publicável (`pk_...` para o frontend acima). Usar a chave errada no
-  //    lugar errado causará falhas no pagamento.
-  // --------------------------------------------------------------------------
-
-  // --------------------------------------------------------------------------
-  // 🚨🚨🚨 NOTA: A CHAVE_API_MUREKA AGORA É MANIPULADA EXCLUSIVAMENTE NO BACKEND. 🚨🚨🚨
-  // Não é mais exposta diretamente no frontend. A comunicação com a Mureka API
-  // é feita através de uma Edge Function do Supabase, o que é a prática recomendada de segurança.
-  // Você DEVE configurar a variável de ambiente `MUREKA_API_KEY` na sua Edge Function `mureka-proxy`
-  // no painel do Supabase.
-  // --------------------------------------------------------------------------
-};
+  //    3. Cole o VALOR da sua chave secreta do Stripe (que começa com `sk_...`
