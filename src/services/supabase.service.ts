@@ -361,12 +361,20 @@ export class SupabaseService {
         if (!existingProfile) {
             console.log('ensureUserProfile: Profile not found. Creating manually as a fallback...');
             
+            // Replicate username generation from signUp method to satisfy not-null constraint
+            const emailPrefix = email.split('@')[0];
+            const uniqueSuffix = Math.random().toString(36).substring(2, 8);
+            const sanitizedEmailPrefixForUsername = emailPrefix.toLowerCase().replace(/[^a-z0-9]/g, '');
+            const baseUsername = sanitizedEmailPrefixForUsername.length > 0 ? sanitizedEmailPrefixForUsername.substring(0, 15) : 'user';
+            const defaultUsername = `${baseUsername}${uniqueSuffix}`;
+            
             const { error: insertError } = await this.supabase
                 .from('profiles')
                 .insert({
                     id: userId,
                     email: email,
-                    credits: 10
+                    credits: 10,
+                    username: defaultUsername // FIX: Added username to satisfy DB constraint.
                 });
 
             if (insertError) {
