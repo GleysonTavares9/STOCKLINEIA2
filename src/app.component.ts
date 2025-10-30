@@ -27,6 +27,7 @@ export class AppComponent {
   isProfileMenuOpen = signal(false);
 
   currentMusic = this.musicPlayerService.currentMusic;
+  unreadNotificationsCount = this.supabaseService.unreadNotificationsCount;
 
   constructor() {
     // Centralized effect to handle routing based on authentication state.

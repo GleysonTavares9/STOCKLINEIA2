@@ -28,6 +28,16 @@
                     <span class="hidden sm:inline">Créditos</span>
                   </a>
                 }
+
+                <!-- Notification Bell -->
+                <a routerLink="/account" [queryParams]="{ tab: 'notifications' }" class="relative p-2 rounded-full text-zinc-400 hover:text-white hover:bg-zinc-700 transition-colors" title="Notificações">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                  </svg>
+                  @if (unreadNotificationsCount() > 0) {
+                    <span class="absolute top-2 right-2 block h-2 w-2 rounded-full bg-teal-500 ring-2 ring-black/80"></span>
+                  }
+                </a>
                 
                 <!-- Profile Menu -->
                 <div class="relative">
@@ -43,7 +53,7 @@
                           <p class="text-sm text-white" role="none">Conectado como</p>
                           <p class="text-sm font-medium text-zinc-300 truncate" role="none">{{ currentUserProfile()?.email || currentUser()?.email }}</p>
                         </div>
-                        <a routerLink="/usage" (click)="toggleProfileMenu()" class="text-zinc-300 block px-4 py-2 text-sm hover:bg-zinc-700" role="menuitem" tabindex="-1">Gerenciamento</a>
+                        <a routerLink="/account" (click)="toggleProfileMenu()" class="text-zinc-300 block px-4 py-2 text-sm hover:bg-zinc-700" role="menuitem" tabindex="-1">Gerenciamento</a>
                         <a routerLink="/shortcuts" (click)="toggleProfileMenu()" class="text-zinc-300 block px-4 py-2 text-sm hover:bg-zinc-700" role="menuitem" tabindex="-1">Atalhos</a>
                         <div class="border-t border-zinc-700 my-1"></div>
                         <a (click)="signOut()" href="javascript:void(0);" class="text-zinc-300 block px-4 py-2 text-sm hover:bg-zinc-700 cursor-pointer" role="menuitem" tabindex="-1" id="user-menu-item-2">Sair</a>

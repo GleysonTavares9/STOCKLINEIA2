@@ -185,7 +185,7 @@
         </div>
       </div>
 
-      <div>
+      <div class="mb-6">
         <label for="custom-style" class="block text-sm font-medium text-zinc-300 mb-2">Ou descreva um estilo personalizado</label>
         <input 
           type="text" 
@@ -195,6 +195,29 @@
           placeholder="Ex: Future Bass com elementos de Jazz"
           class="w-full p-3 bg-zinc-900 border border-zinc-700 rounded-md text-gray-200 placeholder-zinc-500 focus:ring-1 focus:ring-teal-500 focus:border-teal-500">
       </div>
+
+      <div class="flex justify-between items-center p-3 rounded-md bg-zinc-900 border border-zinc-700">
+        <div>
+          <label for="public-toggle" class="font-medium text-zinc-300">Publicar no feed da comunidade</label>
+          <p class="text-xs text-zinc-500">Outros usuários poderão ver e ouvir sua música.</p>
+        </div>
+        <button 
+          type="button"
+          role="switch"
+          id="public-toggle"
+          [attr.aria-checked]="isPublic()"
+          (click)="isPublic.set(!isPublic())"
+          class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 focus:ring-offset-zinc-900"
+          [class.bg-teal-600]="isPublic()"
+          [class.bg-zinc-700]="!isPublic()">
+          <span
+            aria-hidden="true"
+            class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"
+            [class.translate-x-5]="isPublic()"
+            [class.translate-x-0]="!isPublic()"></span>
+        </button>
+      </div>
+
     </div>
 
     <!-- BOTÃO DE CRIAÇÃO -->

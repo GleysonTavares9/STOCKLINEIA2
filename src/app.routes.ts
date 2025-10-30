@@ -27,8 +27,8 @@ export const routes: Routes = [
     loadComponent: () => import('./subscribe/subscribe.component').then(m => m.SubscribeComponent)
   },
   {
-    path: 'usage',
-    loadComponent: () => import('./usage/usage.component').then(m => m.UsageComponent)
+    path: 'account',
+    loadComponent: () => import('./account/account.component').then(m => m.AccountComponent)
   },
   {
     path: 'shortcuts',

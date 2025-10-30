@@ -7,7 +7,7 @@ import { SupabaseService } from '../services/supabase.service';
   selector: 'app-auth',
   standalone: true,
   imports: [CommonModule],
-  templateUrl: './auth.component.html',
+  templateUrl: 'auth.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class AuthComponent {
@@ -24,6 +24,7 @@ export class AuthComponent {
   loading = signal(false);
   errorMessage = signal<string | null>(null);
   infoMessage = signal<string | null>(null);
+  isInvalidCredentialsError = signal(false);
 
   passwordsMatch = computed(() => {
     if (this.authMode() === 'signUp') {
@@ -60,6 +61,7 @@ export class AuthComponent {
     this.authMode.update(mode => (mode === 'signIn' ? 'signUp' : 'signIn'));
     this.errorMessage.set(null);
     this.infoMessage.set(null);
+    this.isInvalidCredentialsError.set(false);
     this.email.set('');
     this.password.set('');
     this.confirmPassword.set('');
@@ -68,6 +70,7 @@ export class AuthComponent {
   async handleGoogleSignIn(): Promise<void> {
     this.loading.set(true);
     this.errorMessage.set(null);
+    this.isInvalidCredentialsError.set(false);
     const { error } = await this.supabase.signInWithGoogle();
     if (error) {
       this.errorMessage.set(this.translateAuthError(error.message));
@@ -86,6 +89,7 @@ export class AuthComponent {
     this.loading.set(true);
     this.errorMessage.set(null);
     this.infoMessage.set(null);
+    this.isInvalidCredentialsError.set(false);
 
     try {
       const { user, error } = this.authMode() === 'signIn'
@@ -94,7 +98,9 @@ export class AuthComponent {
       
       if (error) {
         this.errorMessage.set(this.translateAuthError(error.message));
+        this.isInvalidCredentialsError.set(error.message.includes('Invalid login credentials'));
       } else if (user) {
+        this.isInvalidCredentialsError.set(false);
         if (this.authMode() === 'signUp') {
             this.infoMessage.set('Cadastro realizado! Por favor, verifique seu e-mail para confirmar sua conta.');
             this.authMode.set('signIn'); // Switch to sign in view
@@ -111,12 +117,58 @@ export class AuthComponent {
     }
   }
 
+  async resendConfirmation(): Promise<void> {
+    const emailToResend = this.email();
+    if (!emailToResend) {
+        this.errorMessage.set('Por favor, insira seu e-mail no campo acima para reenviar a confirmação.');
+        this.isInvalidCredentialsError.set(false);
+        return;
+    }
+    this.loading.set(true);
+    this.errorMessage.set(null);
+    this.infoMessage.set(null);
+    this.isInvalidCredentialsError.set(false);
+
+    const { error } = await this.supabase.resendConfirmationEmail(emailToResend);
+
+    if (error) {
+        console.error('Error resending confirmation:', error.message);
+    }
+    
+    // Always show a generic message to prevent leaking information.
+    this.infoMessage.set('Se uma conta para este e-mail existir e precisar de confirmação, um novo link foi enviado.');
+    this.loading.set(false);
+  }
+
+  async forgotPassword(): Promise<void> {
+      const emailToReset = this.email();
+      if (!emailToReset) {
+          this.errorMessage.set('Por favor, insira seu e-mail no campo acima para redefinir a senha.');
+          this.isInvalidCredentialsError.set(false);
+          return;
+      }
+      this.loading.set(true);
+      this.errorMessage.set(null);
+      this.infoMessage.set(null);
+      this.isInvalidCredentialsError.set(false);
+
+      const { error } = await this.supabase.sendPasswordResetEmail(emailToReset);
+      
+      if (error) {
+          console.error('Error sending password reset:', error.message);
+      }
+      
+      // Always show a generic message to prevent leaking information about which emails are registered.
+      this.infoMessage.set('Se existir uma conta para este e-mail, um link para redefinir a senha foi enviado.');
+      this.loading.set(false);
+  }
+
   private translateAuthError(message: string): string {
     if (message.includes('Supabase client not initialized')) {
         return 'A configuração do Supabase está ausente. Verifique o arquivo `src/config.ts`.';
     }
     if (message.includes('Invalid login credentials')) {
-        return 'E-mail ou senha inválidos.';
+        return 'E-mail ou senha inválidos. Se você se cadastrou recentemente, pode ser necessário confirmar seu e-mail primeiro.';
     }
     if (message.includes('User already registered')) {
         return 'Este e-mail já está cadastrado. Tente fazer login.';

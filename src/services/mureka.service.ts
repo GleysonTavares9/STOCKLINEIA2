@@ -189,11 +189,11 @@ export class MurekaService {
     return defaultMessage;
   }
 
-  async generateMusic(title: string, style: string, lyrics: string): Promise<void> {
+  async generateMusic(title: string, style: string, lyrics: string, isPublic: boolean): Promise<void> {
     if (!this.isConfigured()) {
         const errorMsg = 'O Supabase não está configurado. Verifique as credenciais em `src/config.ts`.';
         console.error('MurekaService: generateMusic: Supabase not configured.', errorMsg);
-        await this.supabase.addMusic({ title, style, lyrics, status: 'failed', error: errorMsg });
+        await this.supabase.addMusic({ title, style, lyrics, status: 'failed', error: errorMsg, is_public: isPublic });
         throw new Error(errorMsg);
     }
     
@@ -203,7 +203,7 @@ export class MurekaService {
     if (!session?.access_token) {
       const errorMsg = "Usuário não autenticado no Supabase. Impossível gerar música.";
       console.error('MurekaService: generateMusic: User not authenticated.', errorMsg);
-      await this.supabase.addMusic({ title, style, lyrics, status: 'failed', error: 'Você precisa estar logado para criar músicas.' });
+      await this.supabase.addMusic({ title, style, lyrics, status: 'failed', error: 'Você precisa estar logado para criar músicas.', is_public: isPublic });
       throw new Error(errorMsg);
     }
 
@@ -214,6 +214,7 @@ export class MurekaService {
         style,
         lyrics,
         status: 'processing',
+        is_public: isPublic,
       });
 
       if (!musicRecord) {
@@ -267,16 +268,16 @@ export class MurekaService {
     } catch (error) {
       console.error('MurekaService: Erro ao iniciar a geração da música (catch block):', error);
       const errorMessage = await this.getApiErrorMessage(error, 'Ocorreu um erro desconhecido ao contatar a API da Mureka.');
-      await this.handleGenerationError(error, musicRecord, { title, style, lyrics, errorMessage });
+      await this.handleGenerationError(error, musicRecord, { title, style, lyrics, errorMessage, is_public: isPublic });
       throw new Error(errorMessage);
     }
   }
 
-  async generateInstrumental(title: string, style: string): Promise<void> {
+  async generateInstrumental(title: string, style: string, isPublic: boolean): Promise<void> {
     if (!this.isConfigured()) {
         const errorMsg = 'O Supabase não está configurado. Verifique as credenciais em `src/config.ts`.';
         console.error('MurekaService: generateInstrumental: Supabase not configured.', errorMsg);
-        await this.supabase.addMusic({ title, style, lyrics: '', status: 'failed', error: errorMsg });
+        await this.supabase.addMusic({ title, style, lyrics: '', status: 'failed', error: errorMsg, is_public: isPublic });
         throw new Error(errorMsg);
     }
 
@@ -284,7 +285,7 @@ export class MurekaService {
     if (!session?.access_token) {
       const errorMsg = "Usuário não autenticado no Supabase. Impossível gerar música.";
       console.error('MurekaService: generateInstrumental: User not authenticated.', errorMsg);
-      await this.supabase.addMusic({ title, style, lyrics: '', status: 'failed', error: 'Você precisa estar logado para criar músicas.' });
+      await this.supabase.addMusic({ title, style, lyrics: '', status: 'failed', error: 'Você precisa estar logado para criar músicas.', is_public: isPublic });
       throw new Error(errorMsg);
     }
 
@@ -295,6 +296,7 @@ export class MurekaService {
         style,
         lyrics: '', // Instrumentals have no lyrics
         status: 'processing',
+        is_public: isPublic
       });
 
       if (!musicRecord) {
@@ -344,19 +346,19 @@ export class MurekaService {
     } catch (error) {
       console.error('MurekaService: Erro ao iniciar a geração do instrumental (catch block):', error);
       const errorMessage = await this.getApiErrorMessage(error, 'Ocorreu um erro desconhecido ao contatar a API da Mureka.');
-      await this.handleGenerationError(error, musicRecord, { title, style, lyrics: '', errorMessage });
+      await this.handleGenerationError(error, musicRecord, { title, style, lyrics: '', errorMessage, is_public: isPublic });
       throw new Error(errorMessage);
     }
   }
 
-  private async handleGenerationError(error: any, musicRecord: Music | null, details: { title: string, style: string, lyrics: string, errorMessage: string }) {
+  private async handleGenerationError(error: any, musicRecord: Music | null, details: { title: string, style: string, lyrics: string, errorMessage: string, is_public: boolean }) {
     if (musicRecord) {
       const updatedMusic = await this.supabase.updateMusic(musicRecord.id, { status: 'failed', error: details.errorMessage });
       if (updatedMusic) {
           this.userMusic.update(music => music.map(s => s.id === updatedMusic.id ? updatedMusic : s));
       }
     } else {
-       const newFailedMusic = await this.supabase.addMusic({ title: details.title, style: details.style, lyrics: details.lyrics, status: 'failed', error: details.errorMessage });
+       const newFailedMusic = await this.supabase.addMusic({ title: details.title, style: details.style, lyrics: details.lyrics, status: 'failed', error: details.errorMessage, is_public: details.is_public });
        if (newFailedMusic) {
           this.userMusic.update(current => [newFailedMusic, ...current]);
        }
@@ -503,6 +505,18 @@ export class MurekaService {
         console.error(`MurekaService: queryMusicStatus failed for task ${taskId}`, error);
         const errorMessage = await this.getApiErrorMessage(error, 'Erro ao verificar o status da música.');
         throw new Error(errorMessage); // Lança um erro simples com mensagem amigável
+    }
+  }
+
+  async updateMusicVisibility(music: Music, isPublic: boolean): Promise<void> {
+    const updatedMusic = await this.supabase.updateMusicVisibility(music.id, isPublic);
+    if (updatedMusic) {
+        this.userMusic.update(musics => 
+            musics.map(m => m.id === music.id ? updatedMusic : m)
+        );
+    } else {
+        // If the update failed, throw an error to be caught by the component
+        throw new Error('Falha ao atualizar a visibilidade da música.');
     }
   }
 

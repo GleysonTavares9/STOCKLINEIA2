@@ -36,6 +36,7 @@ export class CreateComponent {
   lyricsDescription = signal<string>(''); // For AI lyrics prompt
   vocalGender = signal<'male' | 'female'>('female');
   isInstrumental = signal<boolean>(false);
+  isPublic = signal<boolean>(true); // New signal for public visibility
 
   // Style options
   readonly musicStyles = [
@@ -176,6 +177,7 @@ export class CreateComponent {
       const currentLyrics = this.lyrics().trim();
       const currentVocalGender = this.vocalGender();
       const isInstrumentalMode = this.isInstrumental();
+      const isPublicFlag = this.isPublic();
 
       if (!finalStyle) {
         throw new Error('Por favor, selecione ou descreva um estilo para a música.');
@@ -188,9 +190,9 @@ export class CreateComponent {
       }
 
       if (isInstrumentalMode) {
-        await this.murekaService.generateInstrumental(title, finalStyle);
+        await this.murekaService.generateInstrumental(title, finalStyle, isPublicFlag);
       } else {
-        await this.murekaService.generateMusic(title, `${finalStyle}, ${currentVocalGender} vocals`, currentLyrics);
+        await this.murekaService.generateMusic(title, `${finalStyle}, ${currentVocalGender} vocals`, currentLyrics, isPublicFlag);
       }
 
       // Decrement credits

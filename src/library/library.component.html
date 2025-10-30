@@ -1,4 +1,5 @@
 
+
 <div class="max-w-7xl mx-auto px-4 pt-8 md:px-8">
   @if (purchaseStatus()) {
     <div class="mb-6 p-4 rounded-lg text-center border"
@@ -45,6 +46,11 @@
   @if(clearError()) {
     <div class="bg-red-900/30 border border-red-700 text-red-300 px-4 py-3 rounded-lg text-center mb-6">
       {{ clearError() }}
+    </div>
+  }
+   @if(visibilityError()) {
+    <div class="bg-red-900/30 border border-red-700 text-red-300 px-4 py-3 rounded-lg text-center mb-6">
+      {{ visibilityError() }}
     </div>
   }
 
@@ -117,6 +123,27 @@
                   <strong>Motivo:</strong> {{ music.metadata.error }}
                 </div>
               }
+            @if (music.status === 'succeeded') {
+              <div class="flex justify-between items-center mt-3 pt-3 border-t border-zinc-700">
+                <label for="public-toggle-{{music.id}}" class="text-sm text-zinc-400">Público</label>
+                <button 
+                  type="button"
+                  role="switch"
+                  id="public-toggle-{{music.id}}"
+                  [attr.aria-checked]="music.is_public"
+                  (click)="toggleVisibility(music)"
+                  [disabled]="isTogglingVisibility() === music.id"
+                  class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 focus:ring-offset-zinc-900 disabled:opacity-50 disabled:cursor-wait"
+                  [class.bg-teal-600]="music.is_public"
+                  [class.bg-zinc-700]="!music.is_public">
+                  <span
+                    aria-hidden="true"
+                    class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"
+                    [class.translate-x-5]="music.is_public"
+                    [class.translate-x-0]="!music.is_public"></span>
+                </button>
+              </div>
+            }
           </div>
         </div>
       }

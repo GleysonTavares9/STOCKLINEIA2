@@ -25,8 +25,10 @@ export class LibraryComponent implements OnDestroy {
   userMusic = this.murekaService.userMusic;
   deleteError = signal<string | null>(null);
   clearError = signal<string | null>(null);
+  visibilityError = signal<string | null>(null);
   isDeleting = signal<string | null>(null); // store id of music being deleted
   isClearing = signal(false);
+  isTogglingVisibility = signal<string | null>(null); // For visibility toggle loading state
 
   purchaseStatus = signal<'success' | 'cancelled' | 'error' | null>(null);
   purchaseStatusMessage = signal<string | null>(null);
@@ -160,6 +162,24 @@ export class LibraryComponent implements OnDestroy {
   selectMusic(music: Music): void {
     if (music.status === 'succeeded' && music.audio_url) {
       this.playerService.selectMusicAndPlaylist(music, this.playlist());
+    }
+  }
+  
+  async toggleVisibility(music: Music): Promise<void> {
+    this.isTogglingVisibility.set(music.id);
+    this.visibilityError.set(null);
+    const newVisibility = !music.is_public;
+    try {
+      await this.murekaService.updateMusicVisibility(music, newVisibility);
+    } catch (error: any) {
+      this.visibilityError.set(error.message || 'Falha ao atualizar visibilidade.');
+      // Revert optimistic update on failure by re-fetching
+      const user = this.supabase.currentUser();
+      if(user) {
+        this.murekaService.userMusic.set(await this.supabase.getMusicForUser(user.id));
+      }
+    } finally {
+      this.isTogglingVisibility.set(null);
     }
   }
 

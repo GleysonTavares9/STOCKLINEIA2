@@ -1,4 +1,4 @@
-import { Injectable, signal } from '@angular/core';
+import { Injectable, signal, computed } from '@angular/core';
 // Fix: Corrected import statement for Supabase types to resolve module errors.
 import { createClient, type SupabaseClient, type User, type AuthError, type Session } from '@supabase/supabase-js';
 import { environment } from '../auth/config';
@@ -14,6 +14,7 @@ export interface Music {
   description: string; // The 'lyrics' are stored in this column
   status: 'processing' | 'succeeded' | 'failed';
   audio_url: string; // This is NOT NULL in the DB
+  is_public?: boolean; // Controls visibility in the public feed
   metadata?: { error?: string };
   created_at: string; // ISO string
 }
@@ -26,7 +27,7 @@ export interface Profile {
 }
 
 export interface Plan {
-  id: string;
+  id:string;
   name: string;
   description: string | null;
   price: number;
@@ -39,6 +40,24 @@ export interface Plan {
   valid_days: number | null;
   // Nova propriedade para indicar explicitamente o ciclo de cobrança
   billing_cycle: 'monthly' | 'annual' | 'one-time';
+}
+
+export interface CreditTransaction {
+  id: string;
+  created_at: string;
+  amount: number;
+  type: 'purchase' | 'generation' | 'refund' | 'initial' | 'bonus';
+  description: string;
+  metadata: { [key: string]: any };
+}
+
+export interface Notification {
+  id: string;
+  created_at: string;
+  title: string;
+  message: string;
+  read: boolean;
+  type: 'info' | 'success' | 'warning' | 'error';
 }
 
 
@@ -54,6 +73,11 @@ export class SupabaseService {
   currentUserProfile = signal<Profile | null>(null);
   readonly isLoadingProfile = signal<boolean>(false); // Novo sinal para o estado de carregamento do perfil
   readonly supabaseInitError = signal<string | null>(null); // Novo sinal para erros de inicialização
+
+  // Centralized notifications state
+  notifications = signal<Notification[]>([]);
+  unreadNotificationsCount = computed(() => this.notifications().filter(n => !n.read).length);
+
 
   constructor() {
     const supabaseUrl = environment.supabaseUrl;
@@ -115,14 +139,16 @@ export class SupabaseService {
       if (user) {
         // If the user state changes (e.g., SIGNED_IN), fetch their profile.
         // This also runs for INITIAL_SESSION if a user is already logged in.
-        console.log('SupabaseService: User found, initiating profile fetch for ID:', user.id);
+        console.log('SupabaseService: User found, initiating profile and notifications fetch for ID:', user.id);
         // DO NOT AWAIT HERE. This allows the event handler to complete quickly.
         // The fetchUserProfile method will update currentUserProfile signal asynchronously.
         this.fetchUserProfile(user.id); 
+        this.loadNotifications(user.id);
       } else {
         // If no user, clear the profile. This handles SIGNED_OUT and INITIAL_SESSION with no user.
-        console.log('SupabaseService: No user session. Clearing profile.');
+        console.log('SupabaseService: No user session. Clearing profile and notifications.');
         this.currentUserProfile.set(null);
+        this.notifications.set([]);
       }
     });
   }
@@ -146,23 +172,31 @@ export class SupabaseService {
       console.error('fetchUserProfile: Supabase client not initialized.');
       return;
     }
-    this.isLoadingProfile.set(true); // Set loading true
+    this.isLoadingProfile.set(true);
     try {
+      // FIX: Replaced .single() with .maybeSingle() to gracefully handle cases where a user profile
+      // might not exist yet (e.g., right after sign-up) without throwing an error.
       const { data, error } = await this.supabase
         .from('profiles')
         .select('id, email, credits, stripe_customer_id')
         .eq('id', userId)
-        .single();
-      
+        .maybeSingle();
+  
       if (error) {
+        // An error here indicates a real DB or network issue, not just "no rows found".
         console.error('fetchUserProfile: Error fetching user profile:', error.message);
         this.currentUserProfile.set(null);
       } else {
-        console.log('fetchUserProfile: User profile fetched successfully for ID:', userId);
-        this.currentUserProfile.set(data as Profile);
+        // data can be a profile object or null if not found. This is now handled correctly.
+        this.currentUserProfile.set(data as Profile | null);
+        if (data) {
+          console.log('fetchUserProfile: User profile fetched successfully for ID:', userId);
+        } else {
+          console.warn(`fetchUserProfile: No profile found for user ID ${userId}. This can happen temporarily after signup.`);
+        }
       }
     } finally {
-      this.isLoadingProfile.set(false); // Set loading false
+      this.isLoadingProfile.set(false);
     }
   }
 
@@ -232,49 +266,120 @@ export class SupabaseService {
     return { user: data.user, error };
   }
 
-  async signUp(email: string, password: string): Promise<{ user: User | null, error: AuthError | null }> {
+  async signUp(email: string, password: string): Promise<{ user: User | null; error: AuthError | null }> {
     if (!this.supabase) {
-      console.error('signUp: Supabase client not initialized.');
-      return { user: null, error: { name: 'InitializationError', message: 'Supabase client not initialized.' } as AuthError };
+        console.error('signUp: Supabase client not initialized.');
+        return { user: null, error: { name: 'InitializationError', message: 'Supabase client not initialized.' } as AuthError };
     }
     console.log('signUp: Attempting to sign up with email:', email);
 
     const emailPrefix = email.split('@')[0];
     const uniqueSuffix = Math.random().toString(36).substring(2, 8);
 
-    // Sanitize for username (alphanumeric)
-    const sanitizedEmailPrefix = emailPrefix.toLowerCase().replace(/[^a-z0-9]/g, '');
-    const baseUsername = sanitizedEmailPrefix.length > 0 ? sanitizedEmailPrefix.substring(0, 15) : 'user';
+    const sanitizedEmailPrefixForUsername = emailPrefix.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const baseUsername = sanitizedEmailPrefixForUsername.length > 0 ? sanitizedEmailPrefixForUsername.substring(0, 15) : 'user';
     const defaultUsername = `${baseUsername}${uniqueSuffix}`;
 
-    // Create a more "name-like" string for full_name and display_name, avoiding numbers
-    // that might violate a CHECK constraint on the profiles table.
-    const namePart = (emailPrefix.match(/^[a-zA-Z]+/) || ['user'])[0];
-    const defaultFullName = namePart.charAt(0).toUpperCase() + namePart.slice(1);
+    let nameBase = emailPrefix
+        .replace(/[._-]/g, ' ')
+        .replace(/[^a-zA-Z\s]/g, '')
+        .trim()
+        .replace(/\s+/g, ' ');
+
+    if (nameBase.length === 0) {
+        nameBase = 'Music Lover';
+    }
+
+    const defaultFullName = nameBase
+        .split(' ')
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+        .join(' ');
 
     const { data, error } = await this.supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          username: defaultUsername,
-          display_name: defaultFullName,
-          full_name: defaultFullName,
-          credits: 10, // Provide initial credits to prevent NOT NULL violation in profile creation trigger.
-          avatar_url: `https://picsum.photos/seed/${defaultUsername}/200`,
+        email,
+        password,
+        options: {
+            data: {
+                username: defaultUsername,
+                display_name: defaultFullName,
+                full_name: defaultFullName,
+                credits: 10,
+                avatar_url: `https://picsum.photos/seed/${defaultUsername}/200`,
+            },
         },
-      },
     });
 
-    if (data.user) {
-      console.log('signUp: User signed up successfully (email verification might be required):', data.user.id);
-      // The client-side profile creation has been removed to prevent a race condition with the
-      // server-side trigger, which was the likely cause of the "Database error saving new user" error.
-      // The `onAuthStateChange` listener will now handle fetching the profile created by the trigger.
-    } else if (error) {
-      console.error('signUp: Error during sign up:', error.message);
+    // Handle case where sign up fails completely (no user object)
+    if (error && !data.user) {
+        console.error('signUp: Unrecoverable error during sign up:', error.message);
+        return { user: null, error };
     }
-    return { user: data.user, error };
+
+    // Handle case where sign up returns an error but ALSO a user object (e.g., "Database error saving new user")
+    if (error && data.user) {
+        console.warn(`signUp: A recoverable error occurred ('${error.message}'). A user was created, proceeding with profile creation fallback.`);
+    }
+
+    if (data.user) {
+        console.log('signUp: User signed up successfully:', data.user.id, '. Scheduling profile existence check.');
+        
+        // Non-blocking timeout to ensure the profile exists, acting as a fallback for a failed DB trigger.
+        setTimeout(() => {
+            this.ensureUserProfile(data.user!.id, email);
+        }, 2000);
+
+        // Even if there was a recoverable error, we return success from the user's perspective.
+        return { user: data.user, error: null };
+    }
+    
+    // Fallback for cases where there's no user and no error.
+    console.warn('signUp: Supabase signUp returned no user and no error.');
+    return { user: null, error };
+  }
+  
+  private async ensureUserProfile(userId: string, email: string): Promise<void> {
+    if (!this.supabase) {
+        console.error('ensureUserProfile: Supabase client not initialized.');
+        return;
+    }
+
+    console.log('ensureUserProfile: Checking for profile for user ID:', userId);
+
+    try {
+        const { data: existingProfile, error: checkError } = await this.supabase
+            .from('profiles')
+            .select('id')
+            .eq('id', userId)
+            .maybeSingle();
+
+        if (checkError) {
+            console.error('ensureUserProfile: Error while checking for profile:', checkError.message);
+            return;
+        }
+
+        if (!existingProfile) {
+            console.log('ensureUserProfile: Profile not found. Creating manually as a fallback...');
+            
+            const { error: insertError } = await this.supabase
+                .from('profiles')
+                .insert({
+                    id: userId,
+                    email: email,
+                    credits: 10
+                });
+
+            if (insertError) {
+                console.error('ensureUserProfile: Error creating profile manually:', insertError.message);
+            } else {
+                console.log('ensureUserProfile: Manual profile creation successful. Refetching profile for UI update.');
+                await this.fetchUserProfile(userId);
+            }
+        } else {
+            console.log('ensureUserProfile: Profile already exists. No action needed.');
+        }
+    } catch (e: any) {
+        console.error('ensureUserProfile: Exception during profile check/creation:', e.message);
+    }
   }
 
   async signInWithGoogle(): Promise<{ error: AuthError | null }> {
@@ -290,6 +395,30 @@ export class SupabaseService {
       console.error('signInWithGoogle: Error during Google sign in:', error.message);
     }
     return { error };
+  }
+
+  async resendConfirmationEmail(email: string): Promise<{ error: AuthError | null }> {
+    if (!this.supabase) {
+      console.error('resendConfirmationEmail: Supabase client not initialized.');
+      return { error: { name: 'InitializationError', message: 'Supabase client not initialized.' } as AuthError };
+    }
+    const { data, error } = await this.supabase.auth.resend({ type: 'signup', email });
+    if (error) {
+      console.error('resendConfirmationEmail: Error resending confirmation:', error.message);
+    }
+    return { error };
+  }
+
+  async sendPasswordResetEmail(email: string): Promise<{ error: AuthError | null }> {
+      if (!this.supabase) {
+        console.error('sendPasswordResetEmail: Supabase client not initialized.');
+        return { error: { name: 'InitializationError', message: 'Supabase client not initialized.' } as AuthError };
+      }
+      const { data, error } = await this.supabase.auth.resetPasswordForEmail(email);
+      if (error) {
+        console.error('sendPasswordResetEmail: Error sending password reset email:', error.message);
+      }
+      return { error };
   }
 
   async createBillingPortalSession(): Promise<{ url: string | null, error: string | null }> {
@@ -322,9 +451,113 @@ export class SupabaseService {
     return { url: data.url, error: null };
   }
 
+  async handlePurchaseSuccess(sessionId: string): Promise<{ error: string | null }> {
+    const user = this.currentUser();
+    if (!user) {
+      return { error: 'Usuário não autenticado.' };
+    }
+
+    try {
+        // 1. Chame a função de borda para obter os detalhes da sessão do Stripe
+        const { data: sessionData, error: funcError } = await this.invokeFunction('dynamic-api', {
+            body: {
+                action: 'get_checkout_session',
+                sessionId: sessionId
+            }
+        });
+
+        if (funcError || sessionData?.error) {
+            throw new Error(funcError?.message || sessionData?.error || 'Falha ao obter detalhes da compra.');
+        }
+
+        const customerId = sessionData?.customer;
+        if (!customerId) {
+            throw new Error('ID de cliente não encontrado na sessão de checkout.');
+        }
+        
+        // 2. Atualize o perfil do usuário com o stripe_customer_id
+        const profile = await this.updateUserProfile(user.id, { stripe_customer_id: customerId });
+
+        if (!profile) {
+            throw new Error('Falha ao salvar informações da assinatura no seu perfil.');
+        }
+        
+        // 3. (Opcional, mas recomendado) Atualize o perfil para garantir que todos os dados (como créditos) estejam atualizados
+        await this.fetchUserProfile(user.id);
+        
+        return { error: null };
+
+    } catch (e: any) {
+        console.error('handlePurchaseSuccess: Erro ao processar o sucesso da compra:', e);
+        return { error: e.message || 'Ocorreu um erro ao processar seu pagamento.' };
+    }
+  }
+
+  async getCreditTransactionsForUser(userId: string): Promise<CreditTransaction[]> {
+    if (!this.supabase) {
+      console.error('getCreditTransactionsForUser: Supabase client not initialized.');
+      return [];
+    }
+    const { data, error } = await this.supabase
+      .from('credit_transactions')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('getCreditTransactionsForUser: Error fetching transactions:', error.message);
+      return [];
+    }
+    return (data as CreditTransaction[]) || [];
+  }
+
+  async loadNotifications(userId: string): Promise<void> {
+    if (!this.supabase) {
+      console.error('loadNotifications: Supabase client not initialized.');
+      return;
+    }
+    const { data, error } = await this.supabase
+      .from('notifications')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('loadNotifications: Error fetching notifications:', error.message);
+      this.notifications.set([]);
+    } else {
+      this.notifications.set((data as Notification[]) || []);
+    }
+  }
+
+  async markNotificationAsRead(notificationId: string): Promise<Notification | null> {
+    if (!this.supabase) {
+        console.error('markNotificationAsRead: Supabase client not initialized.');
+        return null;
+    }
+    const { data, error } = await this.supabase
+        .from('notifications')
+        .update({ read: true, read_at: new Date().toISOString() })
+        .eq('id', notificationId)
+        .select()
+        .single();
+
+    if (error) {
+        console.error('markNotificationAsRead: Error updating notification:', error.message);
+        return null;
+    }
+    
+    // Update local state for immediate UI feedback
+    this.notifications.update(list => 
+      list.map(n => n.id === notificationId ? { ...n, read: true } : n)
+    );
+
+    return data as Notification;
+  }
+
   // == Database Methods ==
   
-  async addMusic(musicData: { title: string, style: string, lyrics: string, status: 'processing' | 'succeeded' | 'failed', error?: string }): Promise<Music | null> {
+  async addMusic(musicData: { title: string, style: string, lyrics: string, status: 'processing' | 'succeeded' | 'failed', error?: string, is_public?: boolean }): Promise<Music | null> {
     const user = this.currentUser();
     if (!this.supabase || !user) {
       console.error('addMusic: Supabase client not initialized or user not authenticated.');
@@ -340,6 +573,7 @@ export class SupabaseService {
         status: musicData.status,
         user_id: user.id,
         audio_url: '', // Satisfy NOT NULL constraint on creation
+        is_public: musicData.is_public ?? true, // Default to public
         metadata: musicData.error ? { error: musicData.error } : {},
       })
       .select()
@@ -383,6 +617,27 @@ export class SupabaseService {
     console.log('updateMusic: Music record updated successfully for ID:', musicId);
     return data as Music;
   }
+  
+  async updateMusicVisibility(musicId: string, isPublic: boolean): Promise<Music | null> {
+    if (!this.supabase) {
+      console.error('updateMusicVisibility: Supabase client not initialized.');
+      return null;
+    }
+
+    const { data, error } = await this.supabase
+      .from('musics')
+      .update({ is_public: isPublic })
+      .eq('id', musicId)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('updateMusicVisibility: Error updating music visibility:', error.message);
+      return null;
+    }
+    console.log(`updateMusicVisibility: Music ${musicId} visibility set to ${isPublic}`);
+    return data as Music;
+  }
 
   async updateUserProfile(userId: string, updates: Partial<Profile>): Promise<Profile | null> {
     if (!this.supabase) {
@@ -415,48 +670,6 @@ export class SupabaseService {
 
   async updateUserCredits(userId: string, newCreditCount: number): Promise<Profile | null> {
     return this.updateUserProfile(userId, { credits: newCreditCount });
-  }
-
-  async handlePurchaseSuccess(sessionId: string): Promise<{ error: string | null }> {
-    const user = this.currentUser();
-    if (!user) {
-      return { error: 'Usuário não autenticado.' };
-    }
-
-    try {
-        // 1. Chame a função de borda para obter os detalhes da sessão do Stripe
-        const { data: sessionData, error: funcError } = await this.invokeFunction('dynamic-api', {
-            body: {
-                action: 'get_checkout_session',
-                sessionId: sessionId
-            }
-        });
-
-        if (funcError || sessionData?.error) {
-            throw new Error(funcError?.message || sessionData?.error || 'Falha ao obter detalhes da compra.');
-        }
-
-        const customerId = sessionData?.customer;
-        if (!customerId) {
-            throw new Error('ID de cliente não encontrado na sessão de checkout.');
-        }
-        
-        // 2. Atualize o perfil do usuário com o stripe_customer_id
-        const profile = await this.updateUserProfile(user.id, { stripe_customer_id: customerId });
-
-        if (!profile) {
-            throw new Error('Falha ao salvar informações da assinatura no seu perfil.');
-        }
-        
-        // 3. (Opcional, mas recomendado) Atualize o perfil para garantir que todos os dados (como créditos) estejam atualizados
-        await this.fetchUserProfile(user.id);
-        
-        return { error: null };
-
-    } catch (e: any) {
-        console.error('handlePurchaseSuccess: Erro ao processar o sucesso da compra:', e);
-        return { error: e.message || 'Ocorreu um erro ao processar seu pagamento.' };
-    }
   }
 
   async getMusicForUser(userId: string): Promise<Music[]> {
@@ -523,57 +736,22 @@ export class SupabaseService {
   
   async getAllPublicMusic(): Promise<Music[]> {
     if (!this.supabase) {
-      console.error('getAllPublicMusic: Supabase client not initialized.');
+        console.warn('getAllPublicMusic: Supabase not configured, cannot fetch public music.');
+        return [];
+    }
+
+    // Use a database function (RPC) to securely fetch public music.
+    // This function runs with SECURITY DEFINER, bypassing the calling user's RLS policies,
+    // which solves the issue of logged-in users only seeing their own music in the public feed.
+    const { data, error } = await this.supabase.rpc('get_public_feed');
+
+    if (error) {
+      console.error('getAllPublicMusic: Error calling get_public_feed RPC:', error.message);
       return [];
     }
     
-    // 1. Fetch public music
-    const { data: musicData, error: musicError } = await this.supabase
-      .from('musics')
-      .select('*')
-      .eq('status', 'succeeded')
-      .order('created_at', { ascending: false })
-      .limit(50);
-
-    if (musicError) {
-      console.error('getAllPublicMusic: Error fetching public music:', musicError.message);
-      return [];
-    }
-
-    if (!musicData || musicData.length === 0) {
-      console.log('getAllPublicMusic: No public music found.');
-      return [];
-    }
-    console.log(`getAllPublicMusic: Fetched ${musicData.length} public music records.`);
-
-    // 2. Extract unique user IDs
-    const userIds = [...new Set(musicData.map(m => m.user_id).filter(id => !!id))];
-
-    if (userIds.length === 0) {
-      return musicData as Music[];
-    }
-    
-    // 3. Fetch corresponding profiles
-    const { data: profilesData, error: profilesError } = await this.supabase
-      .from('profiles')
-      .select('id, email')
-      .in('id', userIds);
-
-    if (profilesError) {
-      console.error('getAllPublicMusic: Error fetching profiles:', profilesError.message);
-      // Return music data without emails if profiles can't be fetched
-      return musicData as Music[];
-    }
-    console.log(`getAllPublicMusic: Fetched ${profilesData.length} profiles.`);
-
-    // 4. Create a map for efficient lookup
-    const emailMap = new Map(profilesData.map(p => [p.id, p.email]));
-
-    // 5. Combine music data with user emails
-    return musicData.map((item: any) => ({
-        ...item,
-        user_email: emailMap.get(item.user_id),
-    })) as Music[];
+    console.log(`getAllPublicMusic: Fetched ${data.length} public music records via RPC.`);
+    return (data as Music[]) || [];
   }
 
   async getPlans(): Promise<Plan[]> {
