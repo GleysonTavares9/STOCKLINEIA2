@@ -119,32 +119,41 @@ export class LibraryComponent implements OnDestroy {
 
   async checkMusicStatus(music: Music): Promise<void> {
     if (!music.task_id) return;
-
-    const result = await this.murekaService.queryMusicStatus(music.task_id);
     
-    // If status is final, update DB and local state
-    if (['succeeded', 'failed', 'timeouted', 'cancelled'].includes(result.status)) {
-      if (result.status === 'succeeded') {
-        const audio_url = result.choices?.[0]?.url;
-        if (audio_url) {
-          const updatedMusic = await this.supabase.updateMusic(music.id, { status: 'succeeded', audio_url: audio_url });
+    try {
+      const result = await this.murekaService.queryMusicStatus(music.task_id);
+    
+      // If status is final, update DB and local state
+      if (['succeeded', 'failed', 'timeouted', 'cancelled'].includes(result.status)) {
+        if (result.status === 'succeeded') {
+          const audio_url = result.choices?.[0]?.url;
+          if (audio_url) {
+            const updatedMusic = await this.supabase.updateMusic(music.id, { status: 'succeeded', audio_url: audio_url });
+            if (updatedMusic) {
+              this.userMusic.update(musics => musics.map(m => m.id === music.id ? updatedMusic : m));
+            }
+          } else {
+            const error = 'Geração bem-sucedida, mas a Mureka não forneceu um URL de áudio.';
+            const updatedMusic = await this.supabase.updateMusic(music.id, { status: 'failed', error: error });
+              if (updatedMusic) {
+              this.userMusic.update(musics => musics.map(m => m.id === music.id ? updatedMusic : m));
+            }
+          }
+        } else { // failed, timeouted, cancelled
+          const reason = result.failed_reason || `Geração falhou com status: ${result.status}`;
+          const updatedMusic = await this.supabase.updateMusic(music.id, { status: 'failed', error: reason });
           if (updatedMusic) {
             this.userMusic.update(musics => musics.map(m => m.id === music.id ? updatedMusic : m));
           }
-        } else {
-          const error = 'Geração bem-sucedida, mas a Mureka não forneceu um URL de áudio.';
-          const updatedMusic = await this.supabase.updateMusic(music.id, { status: 'failed', error: error });
-            if (updatedMusic) {
-            this.userMusic.update(musics => musics.map(m => m.id === music.id ? updatedMusic : m));
-          }
-        }
-      } else { // failed, timeouted, cancelled
-        const reason = result.failed_reason || `Geração falhou com status: ${result.status}`;
-        const updatedMusic = await this.supabase.updateMusic(music.id, { status: 'failed', error: reason });
-        if (updatedMusic) {
-          this.userMusic.update(musics => musics.map(m => m.id === music.id ? updatedMusic : m));
         }
       }
+    } catch (error: any) {
+        console.error(`Library: Failed to check status for task ${music.task_id}`, error);
+        // Se a consulta falhar, atualiza a música para o status 'failed' para interromper futuras tentativas.
+        const updatedMusic = await this.supabase.updateMusic(music.id, { status: 'failed', error: error.message || 'Falha ao buscar atualização.' });
+        if (updatedMusic) {
+            this.userMusic.update(musics => musics.map(m => m.id === music.id ? updatedMusic : m));
+        }
     }
   }
 

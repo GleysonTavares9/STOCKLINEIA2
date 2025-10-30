@@ -239,17 +239,18 @@ export class SupabaseService {
     }
     console.log('signUp: Attempting to sign up with email:', email);
 
-    // Generate a default username and full_name to be passed in metadata.
-    // This helps the server-side trigger to create a profile
-    // without violating a NOT NULL constraint on required columns.
     const emailPrefix = email.split('@')[0];
     const uniqueSuffix = Math.random().toString(36).substring(2, 8);
+
+    // Sanitize for username (alphanumeric)
     const sanitizedEmailPrefix = emailPrefix.toLowerCase().replace(/[^a-z0-9]/g, '');
     const baseUsername = sanitizedEmailPrefix.length > 0 ? sanitizedEmailPrefix.substring(0, 15) : 'user';
-    // FIX: A persistent "Database error" can be caused by a CHECK constraint on the username.
-    // Making the username purely alphanumeric (removing the '_') increases compatibility.
     const defaultUsername = `${baseUsername}${uniqueSuffix}`;
-    const defaultFullName = emailPrefix || baseUsername;
+
+    // Create a more "name-like" string for full_name and display_name, avoiding numbers
+    // that might violate a CHECK constraint on the profiles table.
+    const namePart = (emailPrefix.match(/^[a-zA-Z]+/) || ['user'])[0];
+    const defaultFullName = namePart.charAt(0).toUpperCase() + namePart.slice(1);
 
     const { data, error } = await this.supabase.auth.signUp({
       email,
@@ -257,6 +258,7 @@ export class SupabaseService {
       options: {
         data: {
           username: defaultUsername,
+          display_name: defaultFullName,
           full_name: defaultFullName,
           credits: 10, // Provide initial credits to prevent NOT NULL violation in profile creation trigger.
           avatar_url: `https://picsum.photos/seed/${defaultUsername}/200`,

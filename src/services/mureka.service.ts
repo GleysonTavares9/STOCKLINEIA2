@@ -258,7 +258,10 @@ export class MurekaService {
 
 
       const taskId = data.id;
-      await this.supabase.updateMusic(finalMusicRecord.id, { mureka_id: taskId });
+      const updatedRecord = await this.supabase.updateMusic(finalMusicRecord.id, { mureka_id: taskId });
+      if (updatedRecord) {
+        this.userMusic.update(music => music.map(s => s.id === finalMusicRecord.id ? updatedRecord : s));
+      }
       this.pollForResult(finalMusicRecord.id, taskId, 'song/query');
 
     } catch (error) {
@@ -332,7 +335,10 @@ export class MurekaService {
 
 
       const taskId = data.id;
-      await this.supabase.updateMusic(finalMusicRecord.id, { mureka_id: taskId });
+      const updatedRecord = await this.supabase.updateMusic(finalMusicRecord.id, { mureka_id: taskId });
+      if (updatedRecord) {
+        this.userMusic.update(music => music.map(s => s.id === finalMusicRecord.id ? updatedRecord : s));
+      }
       this.pollForResult(finalMusicRecord.id, taskId, 'instrumental/query');
 
     } catch (error) {
@@ -473,6 +479,31 @@ export class MurekaService {
           }
       }
     }, 10000); // Poll every 10 seconds
+  }
+
+  public async queryMusicStatus(taskId: string): Promise<MurekaQueryResponse> {
+    try {
+        const musicRecord = this.userMusic().find(m => m.task_id === taskId);
+        // Heurística: se não houver letra, é instrumental.
+        const isInstrumental = !musicRecord?.description || musicRecord.description.trim() === '';
+        const queryPath = isInstrumental ? 'instrumental/query' : 'song/query';
+
+        const { data: queryResponse, error: proxyError } = await this.supabase.invokeFunction('mureka-proxy', {
+            body: {
+                murekaApiPath: `${queryPath}/${taskId}`,
+                method: 'GET',
+            }
+        });
+
+        if (proxyError) throw proxyError;
+        if (queryResponse?.error) throw queryResponse;
+        
+        return queryResponse as MurekaQueryResponse;
+    } catch (error) {
+        console.error(`MurekaService: queryMusicStatus failed for task ${taskId}`, error);
+        const errorMessage = await this.getApiErrorMessage(error, 'Erro ao verificar o status da música.');
+        throw new Error(errorMessage); // Lança um erro simples com mensagem amigável
+    }
   }
 
   async deleteMusic(musicId: string): Promise<void> {
