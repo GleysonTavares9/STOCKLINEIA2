@@ -52,6 +52,7 @@ export class SupabaseService {
   readonly authReady = signal<boolean>(false);
   currentUser = signal<User | null>(null);
   currentUserProfile = signal<Profile | null>(null);
+  readonly isLoadingProfile = signal<boolean>(false); // Novo sinal para o estado de carregamento do perfil
   readonly supabaseInitError = signal<string | null>(null); // Novo sinal para erros de inicialização
 
   constructor() {
@@ -109,13 +110,15 @@ export class SupabaseService {
       }
 
       const user = session?.user ?? null;
-      this.currentUser.set(user);
+      this.currentUser.set(user); // Set currentUser immediately
 
       if (user) {
         // If the user state changes (e.g., SIGNED_IN), fetch their profile.
         // This also runs for INITIAL_SESSION if a user is already logged in.
-        console.log('SupabaseService: User found, fetching profile for ID:', user.id);
-        await this.fetchUserProfile(user.id);
+        console.log('SupabaseService: User found, initiating profile fetch for ID:', user.id);
+        // DO NOT AWAIT HERE. This allows the event handler to complete quickly.
+        // The fetchUserProfile method will update currentUserProfile signal asynchronously.
+        this.fetchUserProfile(user.id); 
       } else {
         // If no user, clear the profile. This handles SIGNED_OUT and INITIAL_SESSION with no user.
         console.log('SupabaseService: No user session. Clearing profile.');
@@ -143,18 +146,23 @@ export class SupabaseService {
       console.error('fetchUserProfile: Supabase client not initialized.');
       return;
     }
-    const { data, error } = await this.supabase
-      .from('profiles')
-      .select('id, email, credits, stripe_customer_id')
-      .eq('id', userId)
-      .single();
-    
-    if (error) {
-      console.error('fetchUserProfile: Error fetching user profile:', error.message);
-      this.currentUserProfile.set(null);
-    } else {
-      console.log('fetchUserProfile: User profile fetched successfully for ID:', userId);
-      this.currentUserProfile.set(data as Profile);
+    this.isLoadingProfile.set(true); // Set loading true
+    try {
+      const { data, error } = await this.supabase
+        .from('profiles')
+        .select('id, email, credits, stripe_customer_id')
+        .eq('id', userId)
+        .single();
+      
+      if (error) {
+        console.error('fetchUserProfile: Error fetching user profile:', error.message);
+        this.currentUserProfile.set(null);
+      } else {
+        console.log('fetchUserProfile: User profile fetched successfully for ID:', userId);
+        this.currentUserProfile.set(data as Profile);
+      }
+    } finally {
+      this.isLoadingProfile.set(false); // Set loading false
     }
   }
 

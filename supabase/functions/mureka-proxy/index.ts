@@ -1,145 +1,110 @@
-// Fix: Declare global Deno namespace to satisfy TypeScript for Deno.env.get.
-// This workaround is used if the TypeScript environment doesn't natively recognize Deno globals
-// or fails to resolve the 'deno.ns' reference library.
-declare global {
-  namespace Deno {
-    namespace env {
-      function get(key: string): string | undefined;
-    }
-  }
-}
+// /supabase/functions/mureka-proxy/index.ts
+import { serve } from "https://deno.land/std@0.192.0/http/server.ts";
 
-import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
+const MUREKA_API_KEY = Deno.env.get("MUREKA_API_KEY");
+const MUREKA_API_BASE_URL = "https://api.mureka.ai/v1";
 
-// Inlined CORS headers to make the function self-contained.
-// Adjust 'Access-Control-Allow-Origin' for production to your specific frontend URL, e.g., 'https://your-app.com'.
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*', 
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS, GET",
 };
 
-const MUREKA_API_BASE_URL = 'https://api.mureka.ai/v1';
-
 serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
   }
 
   try {
-    // 1. Busca a chave da API Mureka de forma segura a partir dos segredos da Edge Function.
-    //    Esta chave NUNCA é exposta no lado do cliente (frontend).
-    const murekaApiKey = Deno.env.get('MUREKA_API_KEY');
-
-    if (!murekaApiKey) {
-      console.error('Mureka Proxy Error: A variável de ambiente MUREKA_API_KEY não está configurada nos segredos da função.');
-      return new Response(JSON.stringify({ error: 'MUREKA_API_KEY not configured on Supabase Edge Function. Please check your Supabase secrets.' }), {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+    if (!MUREKA_API_KEY) {
+      throw new Error("MUREKA_API_KEY not configured on Supabase Edge Function.");
     }
 
-    // 2. Log para confirmar que a chave foi carregada com sucesso (mostrando apenas os 4 últimos caracteres por segurança).
-    console.log('Mureka Proxy: Chave da API Mureka carregada com sucesso (terminando em ...' + murekaApiKey.slice(-4) + ').');
-
-    // Log the raw incoming request body for debugging
-    const rawRequestBody = await req.clone().text();
-    console.log('Mureka Proxy: Received raw request body:', rawRequestBody);
-    
-    let parsedBody;
-    try {
-        parsedBody = JSON.parse(rawRequestBody);
-    } catch (parseError) {
-        console.error('Mureka Proxy: Failed to parse incoming request body as JSON:', parseError);
-        return new Response(JSON.stringify({ error: 'Invalid JSON in request body.' }), {
-            status: 400,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-    }
-
-    const { murekaApiPath, method, requestBody, queryParams } = parsedBody;
-
-    console.log('Mureka Proxy: Parsed request for Mureka:', { murekaApiPath, method, requestBody, queryParams });
+    const { murekaApiPath, method, requestBody, queryParams } = await req.json();
 
     if (!murekaApiPath || !method) {
-        return new Response(JSON.stringify({ error: 'Missing murekaApiPath or method in request body for Mureka proxy.' }), {
-            status: 400,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
+      return new Response(JSON.stringify({ error: "Missing required fields: murekaApiPath and method." }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
-    const headers = {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${murekaApiKey}`,
-    };
-
-    let murekaUrl = `${MUREKA_API_BASE_URL}/${murekaApiPath}`;
-    if (queryParams) {
-        const params = new URLSearchParams(queryParams);
-        murekaUrl += `?${params.toString()}`;
-    }
-
-    console.log(`Mureka Proxy: Forwarding ${method} request to Mureka URL: ${murekaUrl}`);
-    if (method === 'POST' && requestBody) {
-      console.log('Mureka Proxy: Mureka request body (POST):', JSON.stringify(requestBody, null, 2));
-    }
+    let targetUrl = `${MUREKA_API_BASE_URL}/${murekaApiPath}`;
     
-    let murekaResponse: Response;
-
-    if (method === 'POST') {
-      murekaResponse = await fetch(murekaUrl, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify(requestBody),
-      });
-    } else if (method === 'GET') {
-      murekaResponse = await fetch(murekaUrl, {
-        method: 'GET',
-        headers,
-      });
-    } else {
-      return new Response(JSON.stringify({ error: 'Unsupported method for Mureka API via proxy.' }), {
-        status: 405,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+    if (queryParams && Object.keys(queryParams).length > 0) {
+        const params = new URLSearchParams(queryParams);
+        targetUrl += `?${params.toString()}`;
     }
 
-    console.log('Mureka Proxy: Raw Mureka API response status:', murekaResponse.status);
-    const rawMurekaResponseBody = await murekaResponse.text();
-    console.log('Mureka Proxy: Raw Mureka API response body:', rawMurekaResponseBody);
+    console.log(`[Mureka Proxy] Forwarding ${method} request to: ${targetUrl}`);
+    if (requestBody) {
+        console.log(`[Mureka Proxy] With body:`, JSON.stringify(requestBody, null, 2));
+    }
 
-    // Check if Mureka API returned a non-OK status
+    const murekaResponse = await fetch(targetUrl, {
+      method: method,
+      headers: {
+        "Authorization": `Bearer ${MUREKA_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: requestBody ? JSON.stringify(requestBody) : undefined,
+    });
+
+    // FIX: Read body as text first to avoid parsing errors in the fetch client.
+    const responseBodyText = await murekaResponse.text();
+
     if (!murekaResponse.ok) {
-        let murekaErrorData;
-        try {
-            murekaErrorData = JSON.parse(rawMurekaResponseBody);
-        } catch {
-            murekaErrorData = { message: rawMurekaResponseBody || 'Could not parse Mureka API error response or empty body.' };
-        }
-        console.error(`Mureka Proxy: Mureka API returned error status ${murekaResponse.status}:`, murekaErrorData);
-        // Propagate the Mureka API error details and status code back to the client
-        return new Response(JSON.stringify({ 
-            error: 'Mureka API call failed', 
-            status: murekaResponse.status, 
-            details: murekaErrorData 
-        }), {
-            status: murekaResponse.status, // Use the actual status from Mureka
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
+      console.error(`[Mureka Proxy] Mureka API Error (Status: ${murekaResponse.status}):`, responseBodyText);
+      
+      let details;
+      try {
+        details = JSON.parse(responseBodyText);
+      } catch (e) {
+        details = { message: responseBodyText };
+      }
+      
+      return new Response(JSON.stringify({
+        error: "Mureka API request failed",
+        status: murekaResponse.status,
+        details: details
+      }), {
+        status: murekaResponse.status,
+        headers: { ...corsHeaders, "Content-Type": "application/json" }
+      });
     }
 
-    // Fix: Parse the raw response body into a variable and return it.
-    const murekaData = JSON.parse(rawMurekaResponseBody); 
-    return new Response(JSON.stringify(murekaData), {
-        status: 200,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    // Safely parse the JSON response from the text body
+    let responseData;
+    try {
+      // An empty response body will cause JSON.parse to throw an error.
+      // This is expected for some Mureka API responses, so we handle it gracefully.
+      if (responseBodyText) {
+        responseData = JSON.parse(responseBodyText);
+      } else {
+        responseData = {}; // Return an empty object for empty responses
+      }
+    } catch (e) {
+      console.error(`[Mureka Proxy] Failed to parse JSON from Mureka API. Raw text: "${responseBodyText}"`, e);
+      // Return a structured error that the client can understand
+      return new Response(JSON.stringify({ 
+        error: "Mureka API returned invalid JSON",
+        details: { message: e.message, rawResponse: responseBodyText }
+      }), {
+        status: 502, // Bad Gateway is more appropriate here
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    return new Response(JSON.stringify(responseData), {
+      status: 200,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
 
   } catch (error) {
-    console.error('Mureka Proxy: Uncaught error:', error);
-    return new Response(JSON.stringify({ error: error.message || 'Internal server error in Mureka proxy.' }), {
+    console.error("[Mureka Proxy] Internal Server Error:", error);
+    return new Response(JSON.stringify({ error: "Internal Server Error", message: error.message }), {
       status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 });
