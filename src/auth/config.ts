@@ -102,4 +102,5 @@ export const environment = {
   //    🚨 INSTRUÇÕES PRECISAS:
   //    1. Vá para seu projeto Supabase -> Edge Functions -> dynamic-api -> Settings -> Secrets.
   //    2. Crie um novo segredo com o NOME EXATO: `STRIPE_SECRET_KEY`
-  //    3. Cole o VALOR da sua chave secreta do Stripe (que começa com `sk_...`
+  //    3. Cole o VALOR da sua chave secreta do Stripe (que começa com `sk_...`).
+};
