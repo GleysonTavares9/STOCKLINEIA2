@@ -12,8 +12,9 @@ import { SupabaseService } from '../services/supabase.service';
 })
 export class AuthComponent {
   private readonly supabase = inject(SupabaseService);
-  private readonly router = inject(Router);
-  private readonly route = inject(ActivatedRoute);
+  // Fix: Explicitly type the injected Router and ActivatedRoute to resolve type inference issues.
+  private readonly router: Router = inject(Router);
+  private readonly route: ActivatedRoute = inject(ActivatedRoute);
   
   readonly isSupabaseConfigured = this.supabase.isConfigured;
 

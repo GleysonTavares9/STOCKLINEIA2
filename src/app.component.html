@@ -53,7 +53,7 @@
                       <div class="py-1" role="none">
                         <div class="px-4 py-2 border-b border-zinc-700">
                           <p class="text-sm text-white" role="none">Conectado como</p>
-                          <p class="text-sm font-medium text-zinc-300 truncate" role="none">{{ currentUserProfile()?.email || currentUser()?.email }}</p>
+                          <p class="text-sm font-medium text-zinc-300 truncate" role="none">{{ currentUserProfile()?.display_name || currentUserProfile()?.email || currentUser()?.email }}</p>
                         </div>
                         <a routerLink="/account" (click)="toggleProfileMenu()" class="text-zinc-300 block px-4 py-2 text-sm hover:bg-zinc-700" role="menuitem" tabindex="-1">Gerenciamento</a>
                         <a routerLink="/shortcuts" (click)="toggleProfileMenu()" class="text-zinc-300 block px-4 py-2 text-sm hover:bg-zinc-700" role="menuitem" tabindex="-1">Atalhos</a>

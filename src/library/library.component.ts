@@ -17,8 +17,9 @@ export class LibraryComponent implements OnDestroy {
   private readonly murekaService = inject(MurekaService);
   private readonly playerService = inject(MusicPlayerService);
   private readonly supabase = inject(SupabaseService);
-  private readonly route = inject(ActivatedRoute);
-  private readonly router = inject(Router);
+  // Fix: Explicitly type the injected ActivatedRoute and Router to resolve type inference issues.
+  private readonly route: ActivatedRoute = inject(ActivatedRoute);
+  private readonly router: Router = inject(Router);
 
   private pollInterval: any = null;
 

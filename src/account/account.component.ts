@@ -14,7 +14,8 @@ import { MurekaService } from '../services/mureka.service';
 export class AccountComponent implements OnInit {
   private readonly supabase = inject(SupabaseService);
   private readonly murekaService = inject(MurekaService);
-  private readonly route = inject(ActivatedRoute);
+  // Fix: Explicitly type the injected ActivatedRoute to resolve type inference issues.
+  private readonly route: ActivatedRoute = inject(ActivatedRoute);
 
   currentUser = this.supabase.currentUser;
   currentUserProfile = this.supabase.currentUserProfile;

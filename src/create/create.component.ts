@@ -18,7 +18,8 @@ export class CreateComponent {
   private readonly geminiService = inject(GeminiService);
   private readonly murekaService = inject(MurekaService);
   private readonly supabaseService = inject(SupabaseService);
-  private readonly router = inject(Router);
+  // Fix: Explicitly type the injected Router to resolve type inference issues.
+  private readonly router: Router = inject(Router);
 
   readonly currentUser = this.supabaseService.currentUser;
   readonly currentUserProfile = this.supabaseService.currentUserProfile;
