@@ -22,6 +22,7 @@ export interface Music {
 export interface Profile {
   id: string; // Corresponds to user_id
   email?: string;
+  display_name?: string;
   credits: number;
   stripe_customer_id?: string | null;
 }
@@ -178,7 +179,7 @@ export class SupabaseService {
       // might not exist yet (e.g., right after sign-up) without throwing an error.
       const { data, error } = await this.supabase
         .from('profiles')
-        .select('id, email, credits, stripe_customer_id')
+        .select('id, email, credits, stripe_customer_id, display_name')
         .eq('id', userId)
         .maybeSingle();
   

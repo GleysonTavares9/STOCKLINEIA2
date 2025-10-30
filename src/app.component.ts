@@ -1,4 +1,4 @@
-import { Component, ChangeDetectionStrategy, inject, signal, effect } from '@angular/core';
+import { Component, ChangeDetectionStrategy, inject, signal, effect, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterOutlet, RouterLink, RouterLinkActive } from '@angular/router';
 import { SupabaseService } from './services/supabase.service';
@@ -28,6 +28,39 @@ export class AppComponent {
 
   currentMusic = this.musicPlayerService.currentMusic;
   unreadNotificationsCount = this.supabaseService.unreadNotificationsCount;
+
+  userInitial = computed(() => {
+    const profile = this.currentUserProfile();
+    const name = profile?.display_name;
+    if (name && name.trim().length > 0) {
+      return name.trim().charAt(0).toUpperCase();
+    }
+    const email = profile?.email || this.currentUser()?.email;
+    if (email) {
+      return email.charAt(0).toUpperCase();
+    }
+    return '?';
+  });
+
+  avatarColor = computed(() => {
+    const userId = this.currentUser()?.id;
+    if (!userId) {
+      return 'bg-zinc-700'; // Fallback color
+    }
+    const colors = [
+      'bg-red-500', 'bg-orange-500', 'bg-amber-500',
+      'bg-lime-500', 'bg-green-500', 'bg-emerald-500', 'bg-teal-500',
+      'bg-cyan-500', 'bg-sky-500', 'bg-blue-500', 'bg-indigo-500',
+      'bg-violet-500', 'bg-purple-500', 'bg-fuchsia-500', 'bg-pink-500',
+      'bg-rose-500'
+    ];
+    let hash = 0;
+    for (let i = 0; i < userId.length; i++) {
+      hash = userId.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    const index = Math.abs(hash % colors.length);
+    return colors[index];
+  });
 
   constructor() {
     // Centralized effect to handle routing based on authentication state.
