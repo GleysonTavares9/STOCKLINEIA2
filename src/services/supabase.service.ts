@@ -138,13 +138,9 @@ export class SupabaseService {
       this.currentUser.set(user); // Set currentUser immediately
 
       if (user) {
-        // If the user state changes (e.g., SIGNED_IN), fetch their profile.
-        // This also runs for INITIAL_SESSION if a user is already logged in.
-        console.log('SupabaseService: User found, initiating profile and notifications fetch for ID:', user.id);
-        // DO NOT AWAIT HERE. This allows the event handler to complete quickly.
-        // The fetchUserProfile method will update currentUserProfile signal asynchronously.
-        this.fetchUserProfile(user.id); 
-        this.loadNotifications(user.id);
+        // Handle user session, which includes ensuring a profile exists for new users (e.g., from OAuth).
+        // This is not awaited to keep the event handler responsive.
+        this.handleUserSession(user);
       } else {
         // If no user, clear the profile. This handles SIGNED_OUT and INITIAL_SESSION with no user.
         console.log('SupabaseService: No user session. Clearing profile and notifications.');
@@ -152,6 +148,39 @@ export class SupabaseService {
         this.notifications.set([]);
       }
     });
+  }
+  
+  private async handleUserSession(user: User): Promise<void> {
+    if (!this.supabase) {
+        console.error('handleUserSession: Supabase client not initialized.');
+        return;
+    }
+    
+    console.log('SupabaseService: Handling user session for ID:', user.id);
+
+    // The database trigger 'on_auth_user_created' is now responsible for creating the profile.
+    // We will poll for the profile to appear, as there can be a slight delay.
+    let attempts = 0;
+    const maxAttempts = 5;
+    const delay = 300; // ms
+
+    const pollForProfile = async () => {
+      while (attempts < maxAttempts) {
+        await this.fetchUserProfile(user.id);
+        const profile = this.currentUserProfile();
+        if (profile) {
+          console.log(`handleUserSession: Profile found for user ${user.id} after ${attempts + 1} attempt(s).`);
+          this.loadNotifications(user.id);
+          return;
+        }
+        attempts++;
+        console.warn(`handleUserSession: Profile for ${user.id} not found, attempt ${attempts}. Retrying in ${delay * attempts}ms...`);
+        await new Promise(resolve => setTimeout(resolve, delay * attempts)); // increase delay
+      }
+      console.error(`handleUserSession: Critical error - Profile for user ${user.id} not found after ${maxAttempts} attempts. The 'on_auth_user_created' trigger might be missing or failing.`);
+    };
+
+    await pollForProfile();
   }
 
   async getSession(): Promise<Session | null> {
@@ -274,121 +303,36 @@ export class SupabaseService {
     }
     console.log('signUp: Attempting to sign up with email:', email);
 
+    // This data is passed to the auth.users table and can be used by the trigger
+    // to pre-populate the profile with a better display name than one derived from the email.
     const emailPrefix = email.split('@')[0];
-    const uniqueSuffix = Math.random().toString(36).substring(2, 8);
-
-    const sanitizedEmailPrefixForUsername = emailPrefix.toLowerCase().replace(/[^a-z0-9]/g, '');
-    const baseUsername = sanitizedEmailPrefixForUsername.length > 0 ? sanitizedEmailPrefixForUsername.substring(0, 15) : 'user';
-    const defaultUsername = `${baseUsername}${uniqueSuffix}`;
-
-    let nameBase = emailPrefix
-        .replace(/[._-]/g, ' ')
-        .replace(/[^a-zA-Z\s]/g, '')
-        .trim()
-        .replace(/\s+/g, ' ');
-
-    if (nameBase.length === 0) {
-        nameBase = 'Music Lover';
-    }
-
-    const defaultFullName = nameBase
-        .split(' ')
-        .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-        .join(' ');
+    const defaultUsername = `${emailPrefix.toLowerCase().replace(/[^a-z0-9]/g, '').substring(0, 15)}${Math.random().toString(36).substring(2, 8)}`;
+    let nameBase = emailPrefix.replace(/[._-]/g, ' ').replace(/[^a-zA-Z\s]/g, '').trim().replace(/\s+/g, ' ');
+    if (nameBase.length === 0) nameBase = 'Music Lover';
+    const defaultFullName = nameBase.split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join(' ');
 
     const { data, error } = await this.supabase.auth.signUp({
         email,
         password,
         options: {
             data: {
-                username: defaultUsername,
                 display_name: defaultFullName,
                 full_name: defaultFullName,
-                credits: 10,
                 avatar_url: `https://picsum.photos/seed/${defaultUsername}/200`,
             },
         },
     });
 
-    // Handle case where sign up fails completely (no user object)
-    if (error && !data.user) {
-        console.error('signUp: Unrecoverable error during sign up:', error.message);
-        return { user: null, error };
+    if (error) {
+        console.error('signUp: Error during sign up:', error.message);
     }
-
-    // Handle case where sign up returns an error but ALSO a user object (e.g., "Database error saving new user")
-    if (error && data.user) {
-        console.warn(`signUp: A recoverable error occurred ('${error.message}'). A user was created, proceeding with profile creation fallback.`);
-    }
-
     if (data.user) {
-        console.log('signUp: User signed up successfully:', data.user.id, '. Scheduling profile existence check.');
-        
-        // Non-blocking timeout to ensure the profile exists, acting as a fallback for a failed DB trigger.
-        setTimeout(() => {
-            this.ensureUserProfile(data.user!.id, email);
-        }, 2000);
-
-        // Even if there was a recoverable error, we return success from the user's perspective.
-        return { user: data.user, error: null };
+        console.log('signUp: User signed up successfully:', data.user.id, '. The DB trigger will create the profile.');
+        // The onAuthStateChange handler will call handleUserSession, which will then fetch the profile.
+        // No need to manually create/ensure profile here anymore.
     }
     
-    // Fallback for cases where there's no user and no error.
-    console.warn('signUp: Supabase signUp returned no user and no error.');
-    return { user: null, error };
-  }
-  
-  private async ensureUserProfile(userId: string, email: string): Promise<void> {
-    if (!this.supabase) {
-        console.error('ensureUserProfile: Supabase client not initialized.');
-        return;
-    }
-
-    console.log('ensureUserProfile: Checking for profile for user ID:', userId);
-
-    try {
-        const { data: existingProfile, error: checkError } = await this.supabase
-            .from('profiles')
-            .select('id')
-            .eq('id', userId)
-            .maybeSingle();
-
-        if (checkError) {
-            console.error('ensureUserProfile: Error while checking for profile:', checkError.message);
-            return;
-        }
-
-        if (!existingProfile) {
-            console.log('ensureUserProfile: Profile not found. Creating manually as a fallback...');
-            
-            // Replicate username generation from signUp method to satisfy not-null constraint
-            const emailPrefix = email.split('@')[0];
-            const uniqueSuffix = Math.random().toString(36).substring(2, 8);
-            const sanitizedEmailPrefixForUsername = emailPrefix.toLowerCase().replace(/[^a-z0-9]/g, '');
-            const baseUsername = sanitizedEmailPrefixForUsername.length > 0 ? sanitizedEmailPrefixForUsername.substring(0, 15) : 'user';
-            const defaultUsername = `${baseUsername}${uniqueSuffix}`;
-            
-            const { error: insertError } = await this.supabase
-                .from('profiles')
-                .insert({
-                    id: userId,
-                    email: email,
-                    credits: 10,
-                    username: defaultUsername // FIX: Added username to satisfy DB constraint.
-                });
-
-            if (insertError) {
-                console.error('ensureUserProfile: Error creating profile manually:', insertError.message);
-            } else {
-                console.log('ensureUserProfile: Manual profile creation successful. Refetching profile for UI update.');
-                await this.fetchUserProfile(userId);
-            }
-        } else {
-            console.log('ensureUserProfile: Profile already exists. No action needed.');
-        }
-    } catch (e: any) {
-        console.error('ensureUserProfile: Exception during profile check/creation:', e.message);
-    }
+    return { user: data.user, error };
   }
 
   async signInWithGoogle(): Promise<{ error: AuthError | null }> {
@@ -471,16 +415,16 @@ export class SupabaseService {
   async handlePurchaseSuccess(sessionId: string): Promise<{ error: string | null }> {
     const user = this.currentUser();
     if (!user) {
-      return { error: 'Usuário não autenticado.' };
+        return { error: 'Usuário não autenticado.' };
     }
 
     try {
-        // 1. Chame a função de borda para obter os detalhes da sessão do Stripe
+        if (!this.supabase) {
+            throw new Error('Cliente Supabase não inicializado.');
+        }
+
         const { data: sessionData, error: funcError } = await this.invokeFunction('dynamic-api', {
-            body: {
-                action: 'get_checkout_session',
-                sessionId: sessionId
-            }
+            body: { action: 'get_checkout_session', sessionId: sessionId }
         });
 
         if (funcError || sessionData?.error) {
@@ -488,20 +432,59 @@ export class SupabaseService {
         }
 
         const customerId = sessionData?.customer;
-        if (!customerId) {
-            throw new Error('ID de cliente não encontrado na sessão de checkout.');
-        }
-        
-        // 2. Atualize o perfil do usuário com o stripe_customer_id
-        const profile = await this.updateUserProfile(user.id, { stripe_customer_id: customerId });
+        const priceId = sessionData?.priceId;
 
-        if (!profile) {
-            throw new Error('Falha ao salvar informações da assinatura no seu perfil.');
+        if (!customerId || !priceId) {
+            throw new Error('Detalhes da compra (ID do cliente ou do plano) não encontrados na sessão de checkout.');
         }
-        
-        // 3. (Opcional, mas recomendado) Atualize o perfil para garantir que todos os dados (como créditos) estejam atualizados
+
+        const { data: plan, error: planError } = await this.supabase
+            .from('plans')
+            .select('credits, name')
+            .eq('price_id', priceId)
+            .single();
+
+        if (planError || !plan) {
+            throw new Error(planError?.message || `Plano com price_id ${priceId} não encontrado no banco de dados.`);
+        }
+
+        const creditsPurchased = plan.credits;
+        const planName = plan.name;
+
+        const currentProfile = this.currentUserProfile();
+        if (!currentProfile) {
+            throw new Error('Perfil do usuário não encontrado. Não é possível adicionar créditos.');
+        }
+        const newTotalCredits = (currentProfile.credits || 0) + creditsPurchased;
+
+        const { error: profileUpdateError } = await this.supabase
+            .from('profiles')
+            .update({
+                stripe_customer_id: customerId,
+                credits: newTotalCredits
+            })
+            .eq('id', user.id);
+
+        if (profileUpdateError) {
+            throw new Error(`Falha ao atualizar o perfil com novos créditos: ${profileUpdateError.message}`);
+        }
+
+        const { error: transactionError } = await this.supabase
+            .from('credit_transactions')
+            .insert({
+                user_id: user.id,
+                amount: creditsPurchased,
+                type: 'purchase',
+                description: `Compra do pacote "${planName}"`,
+                metadata: { sessionId, priceId }
+            });
+
+        if (transactionError) {
+            console.error('handlePurchaseSuccess: Falha ao registrar a transação de crédito:', transactionError.message);
+        }
+
         await this.fetchUserProfile(user.id);
-        
+
         return { error: null };
 
     } catch (e: any) {

@@ -99,11 +99,16 @@ const handleGetCheckoutSession = async (stripe: Stripe, body: any) => {
     throw new Error('Parâmetro obrigatório ausente: sessionId.');
   }
 
-  const session = await stripe.checkout.sessions.retrieve(sessionId);
+  const session = await stripe.checkout.sessions.retrieve(sessionId, {
+    expand: ['line_items']
+  });
+
+  const priceId = session.line_items?.data[0]?.price?.id;
 
   return new Response(JSON.stringify({ 
       customer: session.customer,
-      subscription: session.subscription 
+      subscription: session.subscription,
+      priceId: priceId
   }), {
     status: 200,
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
