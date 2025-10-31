@@ -1,5 +1,4 @@
-
-<div class="min-h-screen bg-black text-white flex items-center justify-center p-4">
+<div class="min-h-screen bg-black text-white flex flex-col items-center justify-center p-4 py-16">
   <div class="w-full max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-10 xl:gap-20 items-center">
 
     <!-- Left side: Brand and Feature Description -->
@@ -37,7 +36,7 @@
     </div>
     
     <!-- Right side: Auth Form -->
-    <div class="bg-[#121212] p-6 sm:p-8 rounded-2xl border border-zinc-800 w-full max-w-md mx-auto lg:mx-0">
+    <div id="auth-form-container" class="bg-[#121212] p-6 sm:p-8 rounded-2xl border border-zinc-800 w-full max-w-md mx-auto lg:mx-0">
         <div class="space-y-6">
             @if (!isSupabaseConfigured()) {
             <div class="bg-red-900/50 text-white flex flex-col items-center justify-center p-6 text-center rounded-2xl border-2 border-red-700">
@@ -211,4 +210,43 @@
         </div>
     </div>
   </div>
+
+  <!-- Music Showcase Section -->
+  @if(publicMusic().length > 0) {
+    <div class="w-full max-w-6xl mx-auto mt-20 text-center">
+      <h2 class="text-3xl font-bold tracking-tight text-white">Inspire-se com a Comunidade</h2>
+      <p class="mt-2 text-lg text-zinc-400">Veja o que outros usuários estão criando com a STOCKLINE AI.</p>
+      <div class="mt-8">
+        <button (click)="scrollToSignUp()" class="px-8 py-3 bg-teal-600 text-white font-bold rounded-full hover:bg-teal-500 transition-transform hover:scale-105">
+          Comece a Criar de Graça
+        </button>
+      </div>
+      <div class="mt-12 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        @for(song of publicMusic(); track song.id) {
+          <div
+            (click)="selectMusic(song)"
+            role="button"
+            tabindex="0"
+            class="bg-[#1A181A] rounded-lg overflow-hidden border border-zinc-800 text-left group transition-all duration-300 hover:border-teal-500 hover:scale-105 cursor-pointer">
+            <div class="relative">
+              <img src="https://picsum.photos/seed/music-{{song.title}}/400/225" alt="Capa do Álbum" class="w-full h-32 object-cover">
+              @if (song.status === 'succeeded' && song.audio_url) {
+                <div class="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button class="w-14 h-14 bg-teal-600/80 rounded-full flex items-center justify-center text-white backdrop-blur-sm transform hover:scale-110 transition-transform">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd" />
+                        </svg>
+                    </button>
+                </div>
+              }
+            </div>
+            <div class="p-3">
+              <h3 class="font-semibold text-white truncate text-sm">{{ song.title }}</h3>
+              <p class="text-xs text-zinc-400 truncate">{{ song.style }}</p>
+            </div>
+          </div>
+        }
+      </div>
+    </div>
+  }
 </div>

@@ -17,6 +17,7 @@ export class FeedComponent {
   publicMusic = signal<Music[]>([]);
   likedSongs = signal(new Set<string>()); // For tracking liked songs
   expandedLyricsId = signal<string | null>(null);
+  expandedStyles = signal(new Set<string>());
   
   trendingMusic = computed(() => this.publicMusic().slice(0, 4));
 
@@ -28,13 +29,9 @@ export class FeedComponent {
     const styleOrder: string[] = [];
 
     music.forEach(song => {
-        // Simple grouping by first tag
-        const mainStyleRaw = song.style.split(',')[0].trim();
-        if (!mainStyleRaw) return;
-        
-        const mainStyle = mainStyleRaw.toLowerCase();
-        // FIX: Corrected typo from `main.style` to `mainStyle` to properly capitalize the style for grouping.
-        const capitalizedStyle = mainStyle.charAt(0).toUpperCase() + mainStyle.slice(1);
+        // Simple grouping by first tag, with fallback
+        const mainStyleRaw = (song.style || 'Sem Categoria').split(',')[0].trim();
+        const capitalizedStyle = mainStyleRaw.charAt(0).toUpperCase() + mainStyleRaw.slice(1);
         
         if (!groups[capitalizedStyle]) {
             groups[capitalizedStyle] = [];
@@ -42,6 +39,8 @@ export class FeedComponent {
         }
         groups[capitalizedStyle].push(song);
     });
+    
+    styleOrder.sort((a, b) => a.localeCompare(b));
     
     return styleOrder.map(style => ({ style, songs: groups[style] }));
   });
@@ -96,7 +95,7 @@ export class FeedComponent {
     const shareData = {
       title: `STOCKLINE AI Music: ${song.title}`,
       text: `Ouça "${song.title}", uma música que criei com STOCKLINE AI!`,
-      url: window.location.origin, // Shares the main app URL
+      url: `${window.location.origin}/#/feed`, // Shares the feed page URL
     };
     try {
       if (navigator.share) {
@@ -109,5 +108,17 @@ export class FeedComponent {
       console.error('Sharing failed:', error);
       alert('Falha ao compartilhar.');
     }
+  }
+
+  toggleStyleExpansion(style: string): void {
+    this.expandedStyles.update(currentSet => {
+      const newSet = new Set(currentSet);
+      if (newSet.has(style)) {
+        newSet.delete(style);
+      } else {
+        newSet.add(style);
+      }
+      return newSet;
+    });
   }
 }

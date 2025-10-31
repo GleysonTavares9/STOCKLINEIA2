@@ -44,7 +44,7 @@
                 
                 <!-- Like, Share, and Lyrics buttons -->
                 <div class="flex items-center gap-4 mt-3 flex-wrap">
-                    <button (click)="$event.stopPropagation(); toggleLike(song.id)" class="flex items-center gap-1.5 text-zinc-400 hover:text-white transition-colors text-sm">
+                    <button (click)="$event.stopPropagation(); toggleLike(song.id)" class="flex items-center gap-1.5 text-zinc-400 hover:text-teal-500 transition-colors text-sm">
                         <svg xmlns="http://www.w3.org/2000/svg" 
                             class="h-5 w-5 transition-colors" 
                             [class.text-red-500]="likedSongs().has(song.id)" 
@@ -57,14 +57,14 @@
                         </svg>
                         <span>Gostar</span>
                     </button>
-                    <button (click)="$event.stopPropagation(); shareMusic(song)" class="flex items-center gap-1.5 text-zinc-400 hover:text-white transition-colors text-sm">
+                    <button (click)="$event.stopPropagation(); shareMusic(song)" class="flex items-center gap-1.5 text-zinc-400 hover:text-teal-500 transition-colors text-sm">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M8.684 13.342C8.886 12.938 9 12.482 9 12s-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.368a3 3 0 105.367 2.684 3 3 0 00-5.367 2.684z" />
                         </svg>
                         <span>Compartilhar</span>
                     </button>
                     @if(song.status === 'succeeded' && song.description && song.description.trim().length > 0) {
-                      <button (click)="$event.stopPropagation(); toggleLyrics(song.id)" class="flex items-center gap-1.5 text-zinc-400 hover:text-white transition-colors text-sm" [class.text-teal-400]="expandedLyricsId() === song.id">
+                      <button (click)="$event.stopPropagation(); toggleLyrics(song.id)" class="flex items-center gap-1.5 text-zinc-400 hover:text-teal-500 transition-colors text-sm" [class.text-teal-400]="expandedLyricsId() === song.id">
                           <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
                           <span>
                               @if (expandedLyricsId() === song.id) {
@@ -98,10 +98,19 @@
        <section class="mb-12">
         <div class="flex justify-between items-baseline mb-6">
           <h2 class="text-2xl font-bold text-white">{{ group.style }}</h2>
-          <a href="#" class="text-sm font-semibold text-zinc-400 hover:text-white">Mais</a>
+          @if (group.songs.length > 4) {
+            <button (click)="toggleStyleExpansion(group.style)" class="text-sm font-semibold text-zinc-400 hover:text-white transition-colors">
+              @if (expandedStyles().has(group.style)) {
+                Ver menos
+              } @else {
+                Ver mais
+              }
+            </button>
+          }
         </div>
+        @let songsToShow = expandedStyles().has(group.style) ? group.songs : group.songs.slice(0, 4);
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          @for (song of group.songs; track song.id) {
+          @for (song of songsToShow; track song.id) {
             <div class="flex flex-col">
               <div 
                 (click)="selectMusic(song)"
@@ -127,7 +136,7 @@
                   
                   <!-- Like, Share, and Lyrics buttons -->
                   <div class="flex items-center gap-4 mt-3 flex-wrap">
-                      <button (click)="$event.stopPropagation(); toggleLike(song.id)" class="flex items-center gap-1.5 text-zinc-400 hover:text-white transition-colors text-sm">
+                      <button (click)="$event.stopPropagation(); toggleLike(song.id)" class="flex items-center gap-1.5 text-zinc-400 hover:text-teal-500 transition-colors text-sm">
                           <svg xmlns="http://www.w3.org/2000/svg" 
                               class="h-5 w-5 transition-colors" 
                               [class.text-red-500]="likedSongs().has(song.id)" 
@@ -140,14 +149,14 @@
                           </svg>
                           <span>Gostar</span>
                       </button>
-                      <button (click)="$event.stopPropagation(); shareMusic(song)" class="flex items-center gap-1.5 text-zinc-400 hover:text-white transition-colors text-sm">
+                      <button (click)="$event.stopPropagation(); shareMusic(song)" class="flex items-center gap-1.5 text-zinc-400 hover:text-teal-500 transition-colors text-sm">
                           <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
                               <path stroke-linecap="round" stroke-linejoin="round" d="M8.684 13.342C8.886 12.938 9 12.482 9 12s-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.368a3 3 0 105.367 2.684 3 3 0 00-5.367 2.684z" />
                           </svg>
                           <span>Compartilhar</span>
                       </button>
                        @if(song.status === 'succeeded' && song.description && song.description.trim().length > 0) {
-                        <button (click)="$event.stopPropagation(); toggleLyrics(song.id)" class="flex items-center gap-1.5 text-zinc-400 hover:text-white transition-colors text-sm" [class.text-teal-400]="expandedLyricsId() === song.id">
+                        <button (click)="$event.stopPropagation(); toggleLyrics(song.id)" class="flex items-center gap-1.5 text-zinc-400 hover:text-teal-500 transition-colors text-sm" [class.text-teal-400]="expandedLyricsId() === song.id">
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
                             <span>
                                 @if (expandedLyricsId() === song.id) {

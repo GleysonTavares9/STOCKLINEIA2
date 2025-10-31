@@ -1,7 +1,8 @@
-import { Component, ChangeDetectionStrategy, signal, inject, effect, computed } from '@angular/core';
+import { Component, ChangeDetectionStrategy, signal, inject, effect, computed, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, ActivatedRoute } from '@angular/router';
-import { SupabaseService } from '../services/supabase.service';
+import { SupabaseService, Music } from '../services/supabase.service';
+import { MusicPlayerService } from '../services/music-player.service';
 
 @Component({
   selector: 'app-auth',
@@ -10,8 +11,9 @@ import { SupabaseService } from '../services/supabase.service';
   templateUrl: './auth.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class AuthComponent {
+export class AuthComponent implements OnInit {
   private readonly supabase = inject(SupabaseService);
+  private readonly playerService = inject(MusicPlayerService);
   // Fix: Explicitly type the injected Router and ActivatedRoute to resolve type inference issues.
   private readonly router: Router = inject(Router);
   private readonly route: ActivatedRoute = inject(ActivatedRoute);
@@ -26,6 +28,10 @@ export class AuthComponent {
   errorMessage = signal<string | null>(null);
   infoMessage = signal<string | null>(null);
   isInvalidCredentialsError = signal(false);
+
+  publicMusic = signal<Music[]>([]);
+
+  playlist = computed(() => this.publicMusic().filter(m => m.status === 'succeeded' && m.audio_url));
 
   passwordsMatch = computed(() => {
     if (this.authMode() === 'signUp') {
@@ -56,6 +62,26 @@ export class AuthComponent {
             this.infoMessage.set(params['message']);
         }
     });
+  }
+
+  ngOnInit(): void {
+    this.supabase.getAllPublicMusic().then(songs => {
+      this.publicMusic.set(songs.slice(0, 4)); // Show the 4 most recent public songs
+    });
+  }
+
+  selectMusic(music: Music): void {
+    if (music.status === 'succeeded' && music.audio_url) {
+      this.playerService.selectMusicAndPlaylist(music, this.playlist());
+    }
+  }
+
+  scrollToSignUp(): void {
+    const el = document.getElementById('auth-form-container');
+    if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        this.authMode.set('signUp');
+    }
   }
 
   toggleMode(): void {

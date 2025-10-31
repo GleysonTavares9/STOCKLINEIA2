@@ -97,11 +97,12 @@
           </a>
         </nav>
       </div>
-       @if (currentMusic()) {
-        <app-music-player />
-      }
     } @else {
       <router-outlet></router-outlet>
+    }
+    
+    @if (currentMusic()) {
+      <app-music-player />
     }
   } @else {
     <div class="fixed inset-0 bg-black flex items-center justify-center">
