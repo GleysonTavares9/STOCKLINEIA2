@@ -7,7 +7,7 @@ import { SupabaseService } from '../services/supabase.service';
   selector: 'app-auth',
   standalone: true,
   imports: [CommonModule],
-  templateUrl: 'auth.component.html',
+  templateUrl: './auth.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class AuthComponent {

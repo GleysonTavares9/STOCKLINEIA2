@@ -6,6 +6,7 @@ import { Music } from './supabase.service';
 })
 export class MusicPlayerService {
   private audio: HTMLAudioElement;
+  private lastVolume = signal(1); // To store volume before mute
 
   currentMusic = signal<Music | null>(null);
   playlist = signal<Music[]>([]);
@@ -15,8 +16,14 @@ export class MusicPlayerService {
   duration = signal(0);
   isSeeking = signal(false);
 
+  // New signals for advanced controls
+  volume = signal(1); // 0.0 to 1.0
+  isMuted = signal(false);
+  repeatMode = signal<'off' | 'all' | 'one'>('off');
+
   constructor() {
     this.audio = new Audio();
+    this.audio.volume = this.volume();
 
     this.audio.addEventListener('timeupdate', () => {
       if (!this.isSeeking()) {
@@ -29,7 +36,7 @@ export class MusicPlayerService {
     });
 
     this.audio.addEventListener('ended', () => {
-      this.playNext();
+      this.handleSongEnd();
     });
 
     this.audio.addEventListener('play', () => {
@@ -52,6 +59,13 @@ export class MusicPlayerService {
             this.audio.pause();
             this.audio.src = '';
         }
+    });
+    
+    effect(() => {
+        // Update audio element's volume when signal changes
+        this.audio.volume = this.volume();
+        // Update muted state based on volume
+        this.isMuted.set(this.volume() === 0);
     });
   }
 
@@ -77,6 +91,53 @@ export class MusicPlayerService {
     this.audio.currentTime = time;
   }
 
+  setVolume(level: number) {
+    const newVolume = Math.max(0, Math.min(1, level));
+    this.volume.set(newVolume);
+    if (newVolume > 0) {
+      this.lastVolume.set(newVolume);
+    }
+  }
+
+  toggleMute() {
+    if (this.isMuted()) {
+      this.volume.set(this.lastVolume() > 0 ? this.lastVolume() : 1);
+    } else {
+      this.lastVolume.set(this.volume());
+      this.volume.set(0);
+    }
+  }
+
+  toggleRepeatMode() {
+    this.repeatMode.update(current => {
+      if (current === 'off') return 'all';
+      if (current === 'all') return 'one';
+      return 'off';
+    });
+  }
+
+  private handleSongEnd() {
+    const mode = this.repeatMode();
+    if (mode === 'one') {
+      this.audio.currentTime = 0;
+      this.audio.play();
+    } else if (mode === 'all') {
+      if (this.canPlayNext()) {
+        this.playNext();
+      } else if (this.playlist().length > 0) {
+        // Loop back to the start
+        this.currentMusic.set(this.playlist()[0]);
+      }
+    } else { // 'off'
+      if (this.canPlayNext()) {
+        this.playNext();
+      } else {
+        this.isPlaying.set(false);
+        this.currentTime.set(0); // Reset for next play
+      }
+    }
+  }
+
   private get currentIndex(): number {
     const pl = this.playlist();
     const current = this.currentMusic();
@@ -97,8 +158,9 @@ export class MusicPlayerService {
     if (this.canPlayNext()) {
         const nextIndex = this.currentIndex + 1;
         this.currentMusic.set(this.playlist()[nextIndex]);
-    } else {
-        this.isPlaying.set(false);
+    } else if (this.repeatMode() === 'all' && this.playlist().length > 0) {
+        // Handle manual skip on last song when repeat all is on
+        this.currentMusic.set(this.playlist()[0]);
     }
   }
 

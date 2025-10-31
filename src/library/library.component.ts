@@ -33,10 +33,35 @@ export class LibraryComponent implements OnDestroy {
 
   purchaseStatus = signal<'success' | 'cancelled' | 'error' | null>(null);
   purchaseStatusMessage = signal<string | null>(null);
+  expandedStyles = signal(new Set<string>());
+  expandedLyricsId = signal<string | null>(null);
 
   playlist = computed(() => this.userMusic().filter(m => m.status === 'succeeded' && m.audio_url));
 
   hasFailedMusic = computed(() => this.userMusic().some(m => m.status === 'failed'));
+
+  groupedMusic = computed(() => {
+    const music = this.userMusic();
+    if (!music.length) return [];
+    
+    const groups: { [style: string]: Music[] } = {};
+    const styleOrder: string[] = [];
+
+    music.forEach(song => {
+      const mainStyleRaw = (song.style || 'Sem Categoria').split(',')[0].trim();
+      const capitalizedStyle = mainStyleRaw.charAt(0).toUpperCase() + mainStyleRaw.slice(1);
+      
+      if (!groups[capitalizedStyle]) {
+        groups[capitalizedStyle] = [];
+        styleOrder.push(capitalizedStyle);
+      }
+      groups[capitalizedStyle].push(song);
+    });
+    
+    styleOrder.sort((a, b) => a.localeCompare(b));
+    
+    return styleOrder.map(style => ({ style, songs: groups[style] }));
+  });
 
   constructor() {
     this.handlePurchaseRedirect();
@@ -166,6 +191,27 @@ export class LibraryComponent implements OnDestroy {
     }
   }
   
+  toggleStyleExpansion(style: string): void {
+    this.expandedStyles.update(currentSet => {
+      const newSet = new Set(currentSet);
+      if (newSet.has(style)) {
+        newSet.delete(style);
+      } else {
+        newSet.add(style);
+      }
+      return newSet;
+    });
+  }
+  
+  toggleLyrics(musicId: string): void {
+    this.expandedLyricsId.update(currentId => currentId === musicId ? null : musicId);
+  }
+
+  formatLyrics(lyrics: string | undefined): string {
+    if (!lyrics) return '';
+    return lyrics.replace(/\n/g, '<br>');
+  }
+
   async toggleVisibility(music: Music): Promise<void> {
     this.isTogglingVisibility.set(music.id);
     this.visibilityError.set(null);

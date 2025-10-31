@@ -23,6 +23,11 @@ export class MusicPlayerComponent {
   canPlayNext = this.playerService.canPlayNext;
   canPlayPrev = this.playerService.canPlayPrev;
 
+  // New state for advanced controls
+  volume = this.playerService.volume;
+  isMuted = this.playerService.isMuted;
+  repeatMode = this.playerService.repeatMode;
+
   // Delegate actions to the service
   close() {
     this.playerService.closePlayer();
@@ -45,7 +50,23 @@ export class MusicPlayerComponent {
     this.playerService.seek(Number(input.value));
   }
   
+  onVolumeChange(event: Event) {
+    const input = event.target as HTMLInputElement;
+    this.playerService.setVolume(Number(input.value));
+  }
+
+  toggleMute() {
+    this.playerService.toggleMute();
+  }
+
+  toggleRepeat() {
+    this.playerService.toggleRepeatMode();
+  }
+  
   formatTime(seconds: number): string {
+    if (isNaN(seconds) || !isFinite(seconds)) {
+      return '0:00';
+    }
     const minutes = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
     return `${minutes}:${secs.toString().padStart(2, '0')}`;

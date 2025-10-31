@@ -399,6 +399,14 @@ export class SupabaseService {
     console.log('signInWithGoogle: Attempting to sign in with Google OAuth.');
     const { error } = await this.supabase.auth.signInWithOAuth({
       provider: 'google',
+      options: {
+        // Definindo explicitamente a URL de redirecionamento para a origem da página atual.
+        // Isso garante que o usuário seja redirecionado de volta ao aplicativo após a autenticação com o Google.
+        // IMPORTANTE: Para que isso funcione, você deve adicionar esta URL (por exemplo, o domínio do seu aplicativo
+        // ou http://localhost:4200 para desenvolvimento local) à lista de "Additional Redirect URLs"
+        // nas configurações de autenticação do seu projeto Supabase.
+        redirectTo: window.location.origin,
+      }
     });
     if (error) {
       console.error('signInWithGoogle: Error during Google sign in:', error.message);

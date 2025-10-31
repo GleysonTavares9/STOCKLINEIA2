@@ -1,7 +1,3 @@
-
-
-
-
 import { Component, ChangeDetectionStrategy, inject, signal, computed } from '@angular/core';
 import { SupabaseService, Music } from '../services/supabase.service';
 import { CommonModule } from '@angular/common';
@@ -20,6 +16,7 @@ export class FeedComponent {
   
   publicMusic = signal<Music[]>([]);
   likedSongs = signal(new Set<string>()); // For tracking liked songs
+  expandedLyricsId = signal<string | null>(null);
   
   trendingMusic = computed(() => this.publicMusic().slice(0, 4));
 
@@ -82,6 +79,16 @@ export class FeedComponent {
       }
       return new Set(set);
     });
+  }
+
+  toggleLyrics(musicId: string): void {
+    this.expandedLyricsId.update(currentId => currentId === musicId ? null : musicId);
+  }
+
+  formatLyrics(lyrics: string | undefined): string {
+    if (!lyrics) return '';
+    // Replace newline characters with <br> tags for HTML rendering
+    return lyrics.replace(/\n/g, '<br>');
   }
 
   // Method to share a song using the Web Share API or clipboard fallback
