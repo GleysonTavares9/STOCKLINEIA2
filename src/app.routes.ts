@@ -33,5 +33,9 @@ export const routes: Routes = [
   {
     path: 'shortcuts',
     loadComponent: () => import('./shortcuts/shortcuts.component').then(m => m.ShortcutsComponent)
+  },
+  {
+    path: 'usage',
+    loadComponent: () => import('./usage/usage.component').then(m => m.UsageComponent)
   }
 ];

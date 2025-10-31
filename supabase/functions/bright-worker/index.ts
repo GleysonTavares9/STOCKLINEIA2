@@ -69,4 +69,51 @@ REGRAS ESTRITAS DE FORMATAÇÃO DA RESPOSTA:
 3.  **NÃO** inclua introduções, explicações ou qualquer texto que não seja parte da letra da música.
 4.  Responda APENAS com o texto bruto da letra.`;
       
-    const systemInstruction = `Você é um compositor de músicas profissional. Sua tarefa é`;
+    const systemInstruction = `Você é um compositor de músicas profissional. Sua tarefa é gerar letras de música criativas e de alta qualidade.`;
+    
+    const geminiRequestBody = {
+      contents: [{
+        parts: [{ text: fullPrompt }]
+      }],
+      systemInstruction: {
+        parts: [{ text: systemInstruction }]
+      },
+      generationConfig: {
+        temperature: 0.8,
+        topP: 1,
+        topK: 32,
+        maxOutputTokens: 1024,
+      },
+    };
+
+    const geminiResponse = await fetch(`${GEMINI_API_BASE_URL}?key=${geminiApiKey}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(geminiRequestBody),
+    });
+
+    const geminiData = await geminiResponse.json();
+
+    if (!geminiResponse.ok) {
+      console.error('Gemini API call failed:', geminiData);
+      return new Response(JSON.stringify({ error: 'Gemini API call failed', details: geminiData, status: geminiResponse.status }), {
+        status: geminiResponse.status,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    
+    const text = geminiData.candidates?.[0]?.content?.parts?.[0]?.text;
+
+    return new Response(JSON.stringify({ text }), {
+      status: 200,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+
+  } catch (error) {
+    console.error('Gemini Proxy Uncaught Error:', error);
+    return new Response(JSON.stringify({ error: error.message || 'Internal server error in Gemini proxy.' }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+});

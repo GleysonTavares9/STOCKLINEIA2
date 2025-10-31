@@ -55,6 +55,18 @@ export class CreateComponent {
   isGeneratingMusic = signal(false);
   generationError = signal<string | null>(null);
 
+  // New state for audio creation
+  audioCreationMode = signal<'upload' | 'youtube' | 'clone'>('upload');
+  uploadedFile = signal<File | null>(null);
+  youtubeUrl = signal<string>('');
+  audioTitle = signal<string>('');
+  isUploading = signal(false);
+  uploadError = signal<string | null>(null);
+
+  // New signals for voice cloning
+  cloneLyrics = signal<string>('');
+  cloneStyle = signal<string>('');
+
   // Lyrics character limit
   readonly lyricsCharLimit = 3000;
   lyricsCharCount = computed(() => this.lyrics().length);
@@ -108,6 +120,32 @@ export class CreateComponent {
 
     return (hasLyrics || hasLyricsDesc) && hasStyle && hasTitle;
   });
+  
+  canUploadAudio = computed(() => {
+    return this.uploadedFile() !== null && 
+           this.audioTitle().trim().length > 0 && 
+           !this.isUploading() &&
+           this.currentUserProfile() && this.currentUserProfile()!.credits > 0;
+  });
+
+  canProcessYouTube = computed(() => {
+    const url = this.youtubeUrl().trim();
+    const isYouTubeLink = url.includes('youtube.com/') || url.includes('youtu.be/');
+    return isYouTubeLink && 
+           this.audioTitle().trim().length > 0 && 
+           !this.isUploading() &&
+           this.currentUserProfile() && this.currentUserProfile()!.credits > 0;
+  });
+
+  canCloneVoice = computed(() => {
+    return this.uploadedFile() !== null &&
+           this.audioTitle().trim().length > 0 &&
+           this.cloneLyrics().trim().length > 0 &&
+           this.cloneStyle().trim().length > 0 &&
+           !this.isUploading() &&
+           this.currentUserProfile() && this.currentUserProfile()!.credits > 0;
+  });
+
 
   constructor() {
     // Redirection logic is handled globally by AppComponent.
@@ -215,6 +253,109 @@ export class CreateComponent {
       this.generationError.set(error.message || 'Falha ao gerar a música. Tente novamente.');
     } finally {
       this.isGeneratingMusic.set(false);
+    }
+  }
+  
+  setAudioMode(mode: 'upload' | 'youtube' | 'clone') {
+    if (this.audioCreationMode() === mode) return;
+
+    this.audioCreationMode.set(mode);
+    // Reset shared state to avoid confusion between tabs
+    this.uploadedFile.set(null);
+    this.youtubeUrl.set('');
+    this.audioTitle.set('');
+    this.uploadError.set(null);
+    this.cloneLyrics.set('');
+    this.cloneStyle.set('');
+  }
+
+  onFileSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    if (input.files && input.files.length > 0) {
+      this.uploadedFile.set(input.files[0]);
+    } else {
+      this.uploadedFile.set(null);
+    }
+  }
+
+  async handleAudioUpload(): Promise<void> {
+    if (!this.canUploadAudio()) return;
+
+    this.isUploading.set(true);
+    this.uploadError.set(null);
+
+    try {
+        await this.murekaService.uploadAudio(this.uploadedFile()!, this.audioTitle());
+        
+        const currentCredits = this.currentUserProfile()!.credits;
+        await this.supabaseService.updateUserCredits(this.currentUser()!.id, currentCredits - 1);
+        
+        this.audioTitle.set('');
+        this.uploadedFile.set(null);
+        
+        this.router.navigate(['/library']);
+    } catch (error: any) {
+        console.error('Erro ao fazer upload do áudio:', error);
+        this.uploadError.set(error.message || 'Falha ao enviar o arquivo. Tente novamente.');
+    } finally {
+        this.isUploading.set(false);
+    }
+  }
+  
+  async handleYouTubeProcess(): Promise<void> {
+    if (!this.canProcessYouTube()) return;
+
+    this.isUploading.set(true);
+    this.uploadError.set(null);
+    
+    try {
+        await this.murekaService.processYouTubeVideo(this.youtubeUrl(), this.audioTitle());
+
+        const currentCredits = this.currentUserProfile()!.credits;
+        await this.supabaseService.updateUserCredits(this.currentUser()!.id, currentCredits - 1);
+
+        this.audioTitle.set('');
+        this.youtubeUrl.set('');
+
+        this.router.navigate(['/library']);
+    } catch (error: any) {
+        console.error('Erro ao processar vídeo do YouTube:', error);
+        this.uploadError.set(error.message || 'Falha ao processar o vídeo. Verifique o link e tente novamente.');
+    } finally {
+        this.isUploading.set(false);
+    }
+  }
+  
+  async handleVoiceClone(): Promise<void> {
+    if (!this.canCloneVoice()) return;
+
+    this.isUploading.set(true);
+    this.uploadError.set(null);
+
+    try {
+        await this.murekaService.cloneVoice(
+          this.uploadedFile()!,
+          this.audioTitle(),
+          this.cloneLyrics(),
+          this.cloneStyle(),
+          true // Default to public for now
+        );
+        
+        const currentCredits = this.currentUserProfile()!.credits;
+        await this.supabaseService.updateUserCredits(this.currentUser()!.id, currentCredits - 1);
+        
+        // Clear form
+        this.audioTitle.set('');
+        this.uploadedFile.set(null);
+        this.cloneLyrics.set('');
+        this.cloneStyle.set('');
+        
+        this.router.navigate(['/library']);
+    } catch (error: any) {
+        console.error('Erro ao clonar voz:', error);
+        this.uploadError.set(error.message || 'Falha ao clonar a voz. Tente novamente.');
+    } finally {
+        this.isUploading.set(false);
     }
   }
 }

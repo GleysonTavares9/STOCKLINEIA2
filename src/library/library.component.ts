@@ -36,6 +36,12 @@ export class LibraryComponent implements OnDestroy {
   expandedStyles = signal(new Set<string>());
   expandedLyricsId = signal<string | null>(null);
 
+  // New state for extending music
+  musicToExtend = signal<Music | null>(null);
+  extendDuration = signal<number>(30);
+  isExtending = signal(false);
+  extendError = signal<string | null>(null);
+  
   playlist = computed(() => this.userMusic().filter(m => m.status === 'succeeded' && m.audio_url));
 
   hasFailedMusic = computed(() => this.userMusic().some(m => m.status === 'failed'));
@@ -61,6 +67,11 @@ export class LibraryComponent implements OnDestroy {
     styleOrder.sort((a, b) => a.localeCompare(b));
     
     return styleOrder.map(style => ({ style, songs: groups[style] }));
+  });
+
+  canExtendMusic = computed(() => {
+    const duration = this.extendDuration();
+    return !this.isExtending() && duration > 0 && duration <= 60 && this.supabase.currentUserProfile()!.credits > 0;
   });
 
   constructor() {
@@ -147,16 +158,31 @@ export class LibraryComponent implements OnDestroy {
 
   async checkMusicStatus(music: Music): Promise<void> {
     if (!music.task_id) return;
+
+    // FIX: Retrieve the correct query path from music metadata. Default to 'song/query' for backward compatibility.
+    const queryPath = (music.metadata?.queryPath as 'song/query' | 'instrumental/query' | 'voice_clone/query') || 'song/query';
     
     try {
-      const result = await this.murekaService.queryMusicStatus(music.task_id);
+      // FIX: Pass the correct queryPath to the status check.
+      const result = await this.murekaService.queryMusicStatus(music.task_id, queryPath);
     
       // If status is final, update DB and local state
       if (['succeeded', 'failed', 'timeouted', 'cancelled'].includes(result.status)) {
         if (result.status === 'succeeded') {
           const audio_url = result.choices?.[0]?.url;
+          const fileId = result.file_id;
           if (audio_url) {
-            const updatedMusic = await this.supabase.updateMusic(music.id, { status: 'succeeded', audio_url: audio_url });
+            let finalUrl = audio_url;
+            if (fileId) {
+              // FIX: Construct permanent URL for generated audio, consistent with mureka.service.ts
+              finalUrl = `https://api.mureka.ai/v1/files/${fileId}/download`;
+            }
+            // FIX: Preserve existing metadata when updating the music record.
+            const updatedMusic = await this.supabase.updateMusic(music.id, { 
+              status: 'succeeded', 
+              audio_url: finalUrl,
+              metadata: { ...music.metadata, file_id: fileId }
+            });
             if (updatedMusic) {
               this.userMusic.update(musics => musics.map(m => m.id === music.id ? updatedMusic : m));
             }
@@ -256,5 +282,38 @@ export class LibraryComponent implements OnDestroy {
 
   getCoverArt(title: string): string {
     return `https://picsum.photos/seed/art-${title}/400/400`;
+  }
+
+  openExtendModal(music: Music): void {
+    this.musicToExtend.set(music);
+    this.extendDuration.set(30);
+    this.extendError.set(null);
+  }
+
+  closeExtendModal(): void {
+    this.musicToExtend.set(null);
+  }
+
+  async handleExtendMusic(): Promise<void> {
+    if (!this.canExtendMusic()) return;
+    
+    this.isExtending.set(true);
+    this.extendError.set(null);
+    const music = this.musicToExtend();
+
+    try {
+        if (!music) throw new Error("Música não selecionada.");
+        await this.murekaService.extendMusic(music.id, this.extendDuration());
+        
+        const currentCredits = this.supabase.currentUserProfile()!.credits;
+        await this.supabase.updateUserCredits(this.supabase.currentUser()!.id, currentCredits - 1);
+
+        this.closeExtendModal();
+
+    } catch (error: any) {
+        this.extendError.set(error.message || 'Falha ao estender a música.');
+    } finally {
+        this.isExtending.set(false);
+    }
   }
 }
