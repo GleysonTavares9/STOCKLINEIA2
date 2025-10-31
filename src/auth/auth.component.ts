@@ -21,6 +21,7 @@ export class AuthComponent implements OnInit {
   readonly isSupabaseConfigured = this.supabase.isConfigured;
 
   authMode = signal<'signIn' | 'signUp'>('signIn');
+  fullName = signal('');
   email = signal('');
   password = signal('');
   confirmPassword = signal('');
@@ -46,7 +47,7 @@ export class AuthComponent implements OnInit {
     if (!this.password()) return false;
 
     if (this.authMode() === 'signUp') {
-      return this.passwordsMatch() && !!this.confirmPassword();
+      return this.passwordsMatch() && !!this.confirmPassword() && !!this.fullName();
     }
     return true;
   });
@@ -89,6 +90,7 @@ export class AuthComponent implements OnInit {
     this.errorMessage.set(null);
     this.infoMessage.set(null);
     this.isInvalidCredentialsError.set(false);
+    this.fullName.set('');
     this.email.set('');
     this.password.set('');
     this.confirmPassword.set('');
@@ -121,7 +123,7 @@ export class AuthComponent implements OnInit {
     try {
       const { user, error } = this.authMode() === 'signIn'
         ? await this.supabase.signInWithEmail(this.email(), this.password())
-        : await this.supabase.signUp(this.email(), this.password());
+        : await this.supabase.signUp(this.email(), this.password(), this.fullName());
       
       if (error) {
         this.errorMessage.set(this.translateAuthError(error.message));
@@ -205,6 +207,9 @@ export class AuthComponent implements OnInit {
     }
     if (message.includes('Unable to validate email address')) {
         return 'Formato de e-mail inválido.';
+    }
+    if (message.includes('Display name cannot be empty')) {
+        return 'O nome completo não pode estar vazio.';
     }
     return 'Ocorreu um erro durante a autenticação. Verifique suas credenciais.';
   }

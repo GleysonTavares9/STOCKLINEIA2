@@ -296,31 +296,21 @@ export class SupabaseService {
     return { user: data.user, error };
   }
 
-  async signUp(email: string, password: string): Promise<{ user: User | null; error: AuthError | null }> {
+  async signUp(email: string, password: string, fullName: string): Promise<{ user: User | null; error: AuthError | null }> {
     if (!this.supabase) {
         console.error('signUp: Supabase client not initialized.');
         return { user: null, error: { name: 'InitializationError', message: 'Supabase client not initialized.' } as AuthError };
     }
     console.log('signUp: Attempting to sign up with email:', email);
 
-    // This data is passed to the auth.users table and can be used by the trigger
-    // to pre-populate the profile with a better display name than one derived from the email.
-    const emailPrefix = email.split('@')[0];
-    const defaultUsername = `${emailPrefix.toLowerCase().replace(/[^a-z0-9]/g, '').substring(0, 15)}${Math.random().toString(36).substring(2, 8)}`;
-    let nameBase = emailPrefix.replace(/[._-]/g, ' ').replace(/[^a-zA-Z\s]/g, '').trim().replace(/\s+/g, ' ');
-    if (nameBase.length === 0) nameBase = 'Music Lover';
-    const defaultFullName = nameBase.split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join(' ');
-
     const { data, error } = await this.supabase.auth.signUp({
         email,
         password,
         options: {
-            data: {
-                display_name: defaultFullName,
-                full_name: defaultFullName,
-                avatar_url: `https://picsum.photos/seed/${defaultUsername}/200`,
-            },
-        },
+          data: {
+            full_name: fullName
+          }
+        }
     });
 
     if (error) {

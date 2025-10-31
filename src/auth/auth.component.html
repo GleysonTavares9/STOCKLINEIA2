@@ -134,6 +134,22 @@
 
             <form class="space-y-6" (submit)="handleAuth($event)">
               <div class="rounded-md shadow-sm -space-y-px">
+                @if(authMode() === 'signUp') {
+                  <div>
+                    <label for="full-name" class="sr-only">Nome Completo</label>
+                    <input 
+                      id="full-name" 
+                      name="full-name" 
+                      type="text" 
+                      autocomplete="name" 
+                      required
+                      [value]="fullName()"
+                      (input)="fullName.set($event.target.value)"
+                      [disabled]="!isSupabaseConfigured()"
+                      class="appearance-none rounded-none relative block w-full px-3 py-3 border border-zinc-700 bg-zinc-800 text-gray-200 placeholder-zinc-500 rounded-t-md focus:outline-none focus:ring-teal-500 focus:border-teal-500 focus:z-10 sm:text-sm disabled:opacity-50" 
+                      placeholder="Nome Completo">
+                  </div>
+                }
                 <div>
                   <label for="email-address" class="sr-only">E-mail</label>
                   <input 
@@ -145,7 +161,8 @@
                     [value]="email()"
                     (input)="email.set($event.target.value)"
                     [disabled]="!isSupabaseConfigured()"
-                    class="appearance-none rounded-none relative block w-full px-3 py-3 border border-zinc-700 bg-zinc-800 text-gray-200 placeholder-zinc-500 rounded-t-md focus:outline-none focus:ring-teal-500 focus:border-teal-500 focus:z-10 sm:text-sm disabled:opacity-50" 
+                    class="appearance-none rounded-none relative block w-full px-3 py-3 border border-zinc-700 bg-zinc-800 text-gray-200 placeholder-zinc-500 focus:outline-none focus:ring-teal-500 focus:border-teal-500 focus:z-10 sm:text-sm disabled:opacity-50" 
+                    [class.rounded-t-md]="authMode() === 'signIn'"
                     placeholder="Endereço de e-mail">
                 </div>
                 <div>
