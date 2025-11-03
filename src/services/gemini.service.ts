@@ -134,9 +134,14 @@ export class GeminiService {
     return 'Falha ao comunicar com a API do Gemini via proxy. Verifique sua conexão com a internet e a implantação da Edge Function.';
   }
 
-  async generateLyrics(prompt: string): Promise<string> {
+  async generateLyrics(prompt: string, cost: number): Promise<string> {
     if (!this.isConfigured()) {
       throw new Error('O serviço Gemini não está configurado porque o Supabase não está configurado. Verifique sua chave de API em `src/auth/config.ts`.');
+    }
+
+    const user = this.supabase.currentUser();
+    if (!user) {
+        throw new Error('Usuário não autenticado.');
     }
 
     // A chamada para a API Gemini é feita através da Edge Function 'bright-worker' do Supabase.
@@ -163,6 +168,15 @@ export class GeminiService {
       if (!text) {
         throw new Error('A resposta da API do Gemini via proxy está vazia ou malformada.');
       }
+
+      // Consome créditos apenas após a geração bem-sucedida da letra.
+      await this.supabase.consumeCredits(
+        user.id,
+        cost,
+        'Geração de letra com IA',
+        undefined, 
+        { prompt: prompt }
+      );
 
       return text.trim();
     } catch (error) {

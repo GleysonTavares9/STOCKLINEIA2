@@ -15,7 +15,7 @@ export class FeedComponent {
   private readonly playerService = inject(MusicPlayerService);
   
   publicMusic = signal<Music[]>([]);
-  likedSongs = signal(new Set<string>()); // For tracking liked songs
+  likedSongs = this.supabase.userLikes; // Use signal from the service for persistence
   expandedLyricsId = signal<string | null>(null);
   expandedStyles = signal(new Set<string>());
   
@@ -72,15 +72,24 @@ export class FeedComponent {
   }
 
   // Method to toggle the like status of a song
-  toggleLike(songId: string): void {
-    this.likedSongs.update(set => {
-      if (set.has(songId)) {
-        set.delete(songId);
+  async toggleLike(songId: string): Promise<void> {
+    const user = this.supabase.currentUser();
+    if (!user) {
+      console.log('FeedComponent: User must be logged in to like songs.');
+      // Optionally, you can redirect to login or show a toast message.
+      return;
+    }
+
+    try {
+      if (this.likedSongs().has(songId)) {
+        await this.supabase.removeLike(songId);
       } else {
-        set.add(songId);
+        await this.supabase.addLike(songId);
       }
-      return new Set(set);
-    });
+    } catch (error) {
+      console.error('FeedComponent: Failed to toggle like state.', error);
+      // Optionally show an error to the user
+    }
   }
 
   toggleLyrics(musicId: string): void {

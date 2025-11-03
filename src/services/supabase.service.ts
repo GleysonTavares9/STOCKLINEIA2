@@ -78,7 +78,11 @@ export class SupabaseService {
 
   // Centralized notifications state
   notifications = signal<Notification[]>([]);
+  readonly isLoadingNotifications = signal<boolean>(false);
   unreadNotificationsCount = computed(() => this.notifications().filter(n => !n.read).length);
+
+  // Signal for user's liked songs (music IDs)
+  readonly userLikes = signal<Set<string>>(new Set());
 
 
   constructor() {
@@ -147,6 +151,7 @@ export class SupabaseService {
         console.log('SupabaseService: No user session. Clearing profile and notifications.');
         this.currentUserProfile.set(null);
         this.notifications.set([]);
+        this.userLikes.set(new Set());
       }
     });
   }
@@ -172,6 +177,7 @@ export class SupabaseService {
         if (profile) {
           console.log(`handleUserSession: Profile found for user ${user.id} after ${attempts + 1} attempt(s).`);
           this.loadNotifications(user.id);
+          this.loadUserLikes(user.id);
           return;
         }
         attempts++;
@@ -507,17 +513,22 @@ export class SupabaseService {
       console.error('loadNotifications: Supabase client not initialized.');
       return;
     }
-    const { data, error } = await this.supabase
-      .from('notifications')
-      .select('*')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false });
+    this.isLoadingNotifications.set(true);
+    try {
+      const { data, error } = await this.supabase
+        .from('notifications')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false });
 
-    if (error) {
-      console.error('loadNotifications: Error fetching notifications:', error.message);
-      this.notifications.set([]);
-    } else {
-      this.notifications.set((data as Notification[]) || []);
+      if (error) {
+        console.error('loadNotifications: Error fetching notifications:', error.message);
+        this.notifications.set([]);
+      } else {
+        this.notifications.set((data as Notification[]) || []);
+      }
+    } finally {
+      this.isLoadingNotifications.set(false);
     }
   }
 
@@ -544,6 +555,83 @@ export class SupabaseService {
     );
 
     return data as Notification;
+  }
+
+  async loadUserLikes(userId: string): Promise<void> {
+    if (!this.supabase) return;
+    try {
+      const { data, error } = await this.supabase
+        .from('user_activities')
+        .select('metadata->>music_id')
+        .eq('user_id', userId)
+        .eq('action', 'like_song');
+
+      if (error) throw error;
+      
+      const likedIds = new Set(data.map((item: any) => item.music_id).filter(Boolean));
+      this.userLikes.set(likedIds);
+      console.log(`SupabaseService: Loaded ${likedIds.size} liked songs for user.`);
+    } catch (error: any) {
+      console.error('SupabaseService: Error loading user likes:', error.message);
+      this.userLikes.set(new Set());
+    }
+  }
+
+  async addLike(musicId: string): Promise<void> {
+    const user = this.currentUser();
+    if (!this.supabase || !user) throw new Error('User not authenticated.');
+    
+    // Optimistic update for immediate UI feedback
+    this.userLikes.update(set => {
+      set.add(musicId);
+      return new Set(set);
+    });
+  
+    // FIX: Use a database function (RPC) to handle liking a song.
+    // This abstracts the database logic, is more secure, and correctly handles
+    // RLS policies by using `auth.uid()` on the backend, which resolves the RLS error.
+    const { error } = await this.supabase.rpc('like_song', {
+      song_id: musicId
+    });
+    
+    if (error) {
+      console.error('SupabaseService: Error calling like_song RPC:', error.message);
+      // Revert optimistic update on failure
+      this.userLikes.update(set => {
+        set.delete(musicId);
+        return new Set(set);
+      });
+      // Re-throw the error to be caught by the component
+      throw error;
+    }
+  }
+  
+  async removeLike(musicId: string): Promise<void> {
+    const user = this.currentUser();
+    if (!this.supabase || !user) throw new Error('User not authenticated.');
+  
+    // Optimistic update for immediate UI feedback
+    this.userLikes.update(set => {
+      set.delete(musicId);
+      return new Set(set);
+    });
+  
+    // FIX: Use a database function (RPC) to handle unliking a song.
+    // This aligns with the `like_song` RPC approach for consistency and security.
+    const { error } = await this.supabase.rpc('unlike_song', {
+      song_id: musicId
+    });
+      
+    if (error) {
+      console.error('SupabaseService: Error calling unlike_song RPC:', error.message);
+      // Revert optimistic update on failure
+      this.userLikes.update(set => {
+        set.add(musicId);
+        return new Set(set);
+      });
+      // Re-throw the error to be caught by the component
+      throw error;
+    }
   }
 
   // == Database Methods ==
@@ -585,8 +673,8 @@ export class SupabaseService {
     return data as Music;
   }
 
-  // FIX: Update method signature to accept `description` and `metadata`, and remove the unsafe `error` property.
-  async updateMusic(musicId: string, updates: { description?: string, mureka_id?: string, status?: 'processing' | 'succeeded' | 'failed', audio_url?: string, metadata?: { [key: string]: any } }): Promise<Music | null> {
+  // FIX: Update method signature to accept `title`, `description`, and `metadata`, and remove the unsafe `error` property.
+  async updateMusic(musicId: string, updates: { title?: string, description?: string, mureka_id?: string, status?: 'processing' | 'succeeded' | 'failed', audio_url?: string, metadata?: { [key: string]: any } }): Promise<Music | null> {
     if (!this.supabase) {
       console.error('updateMusic: Supabase client not initialized.');
       return null;
@@ -665,8 +753,71 @@ export class SupabaseService {
     return data as Profile;
   }
 
-  async updateUserCredits(userId: string, newCreditCount: number): Promise<Profile | null> {
-    return this.updateUserProfile(userId, { credits: newCreditCount });
+  async consumeCredits(userId: string, amount: number, description: string, referenceId?: string, metadata?: object): Promise<Profile | null> {
+    if (!this.supabase) {
+      throw new Error('Cliente Supabase não inicializado.');
+    }
+  
+    const currentProfile = this.currentUserProfile();
+    if (!currentProfile) {
+      throw new Error('Perfil do usuário não carregado.');
+    }
+  
+    const currentCredits = currentProfile.credits;
+    if (currentCredits < amount) {
+      throw new Error('Créditos insuficientes.');
+    }
+  
+    const newCreditCount = currentCredits - amount;
+  
+    const updatedProfile = await this.updateUserProfile(userId, { credits: newCreditCount });
+  
+    if (!updatedProfile) {
+      throw new Error('Falha ao debitar créditos do perfil.');
+    }
+  
+    const { error: transactionError } = await this.supabase
+      .from('credit_transactions')
+      .insert({
+        user_id: userId,
+        amount: -amount,
+        type: 'generation',
+        description: description,
+        reference_id: referenceId,
+        metadata: metadata || {}
+      });
+  
+    if (transactionError) {
+      console.warn('consumeCredits: Perfil atualizado, mas falha ao criar o log de transação de crédito:', transactionError.message);
+    }
+  
+    return updatedProfile;
+  }
+
+  async addNotification(userId: string, title: string, message: string, type: 'info' | 'success' | 'warning' | 'error'): Promise<Notification | null> {
+    if (!this.supabase) {
+      console.error('addNotification: Supabase client not initialized.');
+      return null;
+    }
+    const { data, error } = await this.supabase
+      .from('notifications')
+      .insert({
+        user_id: userId,
+        title,
+        message,
+        type
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error('addNotification: Error creating notification:', error.message);
+      return null;
+    }
+
+    this.notifications.update(list => [data as Notification, ...list]);
+
+    return data as Notification;
   }
 
   async getMusicForUser(userId: string): Promise<Music[]> {

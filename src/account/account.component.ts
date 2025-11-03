@@ -1,4 +1,4 @@
-import { Component, ChangeDetectionStrategy, inject, computed, signal, OnInit } from '@angular/core';
+import { Component, ChangeDetectionStrategy, inject, computed, signal, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink, ActivatedRoute } from '@angular/router';
 import { SupabaseService, CreditTransaction, Notification } from '../services/supabase.service';
@@ -11,10 +11,9 @@ import { MurekaService } from '../services/mureka.service';
   templateUrl: './account.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class AccountComponent implements OnInit {
+export class AccountComponent {
   private readonly supabase = inject(SupabaseService);
   private readonly murekaService = inject(MurekaService);
-  // Fix: Explicitly type the injected ActivatedRoute to resolve type inference issues.
   private readonly route: ActivatedRoute = inject(ActivatedRoute);
 
   currentUser = this.supabase.currentUser;
@@ -30,7 +29,7 @@ export class AccountComponent implements OnInit {
   // Use notifications from the centralized service
   notifications = this.supabase.notifications;
   isLoadingTransactions = signal(true);
-  isLoadingNotifications = signal(false); // No longer loading here, data comes from service
+  isLoadingNotifications = this.supabase.isLoadingNotifications;
 
   hasActiveSubscription = computed(() => !!this.currentUserProfile()?.stripe_customer_id);
 
@@ -47,12 +46,17 @@ export class AccountComponent implements OnInit {
   // Use computed signal from the centralized service
   unreadNotificationsCount = this.supabase.unreadNotificationsCount;
 
-  ngOnInit(): void {
-    const user = this.currentUser();
-    if (user) {
-      this.loadTransactions(user.id);
-      // Notifications are now loaded automatically by SupabaseService on auth change.
-    }
+  constructor() {
+    effect(() => {
+      const user = this.currentUser();
+      if (user) {
+        this.loadTransactions(user.id);
+        // Notifications are loaded by SupabaseService effect, so that's fine.
+      } else {
+        // If user logs out while on this page, clear the data
+        this.transactions.set([]);
+      }
+    });
 
     // Check for 'tab' query parameter to set the active tab
     this.route.queryParams.subscribe(params => {

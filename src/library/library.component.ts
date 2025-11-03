@@ -18,6 +18,7 @@ export class LibraryComponent implements OnDestroy {
   private readonly playerService = inject(MusicPlayerService);
   private readonly supabase = inject(SupabaseService);
   // Fix: Explicitly type the injected ActivatedRoute and Router to resolve type inference issues.
+  // FIX: Correctly inject ActivatedRoute instead of Router.
   private readonly route: ActivatedRoute = inject(ActivatedRoute);
   private readonly router: Router = inject(Router);
 
@@ -42,13 +43,32 @@ export class LibraryComponent implements OnDestroy {
   extendDuration = signal<number>(30);
   isExtending = signal(false);
   extendError = signal<string | null>(null);
+
+  // New state for editing music
+  musicToEdit = signal<Music | null>(null);
+  isEditing = signal(false);
+  editError = signal<string | null>(null);
+  
+  // New state for search
+  searchTerm = signal<string>('');
   
   playlist = computed(() => this.userMusic().filter(m => m.status === 'succeeded' && m.audio_url));
 
   hasFailedMusic = computed(() => this.userMusic().some(m => m.status === 'failed'));
+  
+  filteredMusic = computed(() => {
+    const term = this.searchTerm().toLowerCase().trim();
+    if (!term) {
+        return this.userMusic();
+    }
+    return this.userMusic().filter(music => 
+        music.title.toLowerCase().includes(term) ||
+        music.style.toLowerCase().includes(term)
+    );
+  });
 
   groupedMusic = computed(() => {
-    const music = this.userMusic();
+    const music = this.filteredMusic();
     if (!music.length) return [];
     
     const groups: { [style: string]: Music[] } = {};
@@ -300,6 +320,7 @@ export class LibraryComponent implements OnDestroy {
     return `https://picsum.photos/seed/art-${title}/400/400`;
   }
 
+  // == Extend Music Methods ==
   openExtendModal(music: Music): void {
     this.musicToExtend.set(music);
     this.extendDuration.set(30);
@@ -321,9 +342,9 @@ export class LibraryComponent implements OnDestroy {
         if (!music) throw new Error("Música não selecionada.");
         await this.murekaService.extendMusic(music.id, this.extendDuration());
         
-        const currentCredits = this.supabase.currentUserProfile()!.credits;
-        await this.supabase.updateUserCredits(this.supabase.currentUser()!.id, currentCredits - 1);
-
+        // FIX: Removed redundant credit consumption logic.
+        // The murekaService.extendMusic method already handles this.
+        
         this.closeExtendModal();
 
     } catch (error: any) {
@@ -331,5 +352,57 @@ export class LibraryComponent implements OnDestroy {
     } finally {
         this.isExtending.set(false);
     }
+  }
+  
+  // == Edit Music Methods ==
+  openEditModal(music: Music): void {
+    // Deep copy to avoid mutating the original object while editing
+    this.musicToEdit.set(JSON.parse(JSON.stringify(music)));
+    this.editError.set(null);
+  }
+
+  closeEditModal(): void {
+    this.musicToEdit.set(null);
+  }
+
+  onEditInput(field: 'title' | 'description', event: Event): void {
+    const value = (event.target as HTMLInputElement).value;
+    this.musicToEdit.update(music => {
+        if (music) {
+            return { ...music, [field]: value };
+        }
+        return null;
+    });
+  }
+
+  async handleUpdateMusic(event: Event): Promise<void> {
+      event.preventDefault();
+      const music = this.musicToEdit();
+      if (!music || !music.title.trim()) {
+          this.editError.set('O título não pode estar vazio.');
+          return;
+      }
+
+      this.isEditing.set(true);
+      this.editError.set(null);
+
+      try {
+          const updatedMusic = await this.supabase.updateMusic(music.id, {
+              title: music.title.trim(),
+              description: music.description.trim()
+          });
+
+          if (!updatedMusic) {
+              throw new Error('A resposta do servidor estava vazia após a atualização.');
+          }
+          
+          this.murekaService.updateLocalMusic(updatedMusic);
+          this.closeEditModal();
+
+      } catch (error: any) {
+          this.editError.set(error.message || 'Falha ao atualizar a música.');
+      } finally {
+          this.isEditing.set(false);
+      }
   }
 }
