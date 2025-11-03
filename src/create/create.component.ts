@@ -15,17 +15,24 @@ import { Router, RouterLink } from '@angular/router';
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class CreateComponent {
+  // Fix: Explicitly type the injected services to resolve 'Property does not exist on type unknown' errors.
   private readonly geminiService: GeminiService = inject(GeminiService);
   private readonly murekaService: MurekaService = inject(MurekaService);
   private readonly supabaseService: SupabaseService = inject(SupabaseService);
+  // Fix: Explicitly type the injected Router to resolve type inference issues.
   private readonly router: Router = inject(Router);
 
+  // Fix: Access currentUser from the explicitly typed supabaseService.
   readonly currentUser = this.supabaseService.currentUser;
+  // Fix: Access currentUserProfile from the explicitly typed supabaseService.
   readonly currentUserProfile = this.supabaseService.currentUserProfile;
 
   // Config signals
+  // Fix: Access isConfigured from the explicitly typed geminiService.
   readonly isGeminiConfigured = this.geminiService.isConfigured;
+  // Fix: Access isConfigured from the explicitly typed murekaService.
   readonly isMurekaConfigured = this.murekaService.isConfigured;
+  // Fix: Access supabaseInitError from the explicitly typed supabaseService.
   readonly supabaseInitError = this.supabaseService.supabaseInitError; // Expose the error
 
   // Form signals
@@ -73,22 +80,45 @@ export class CreateComponent {
 
   // Computed signal to enable/disable the "Gerar Letra com IA" button
   canGenerateLyrics = computed(() => {
-    if (!this.isGeminiConfigured()) return false;
-    if (!this.currentUserProfile() || this.currentUserProfile()!.credits < this.lyricsCost()) return false;
-    if (this.generatingLyrics()) return false;
-    if (!this.lyricsDescription().trim()) return false;
+    // If Gemini is not configured, disable
+    if (!this.isGeminiConfigured()) {
+      return false;
+    }
+    // If no user profile or insufficient credits, disable
+    if (!this.currentUserProfile() || this.currentUserProfile()!.credits < this.lyricsCost()) {
+      return false;
+    }
+    // If currently generating lyrics, disable
+    if (this.generatingLyrics()) {
+      return false;
+    }
+    // If lyrics description is empty, disable
+    if (!this.lyricsDescription().trim()) {
+      return false;
+    }
     return true;
   });
 
   // Computed signal to enable/disable the "Criar" button
   canGenerateMusic = computed(() => {
-    if (!this.isMurekaConfigured() || !this.currentUserProfile()) return false;
-    if (this.currentUserProfile()!.credits <= 0) return false;
-    if (this.generatingLyrics() || this.isGeneratingMusic()) return false;
+    // If Supabase/Mureka is not configured, disable
+    if (!this.isMurekaConfigured() || !this.currentUserProfile()) {
+      return false;
+    }
+    // If there are no credits, disable
+    if (this.currentUserProfile()!.credits <= 0) {
+      return false;
+    }
+    // If generating lyrics or music, disable
+    if (this.generatingLyrics() || this.isGeneratingMusic()) {
+      return false;
+    }
+    // If instrumental, only require style and title
     if (this.isInstrumental()) {
       const hasStyle = this.selectedStyles().size > 0 || this.customStyle().trim().length > 0;
       return hasStyle && this.songTitle().trim().length > 0;
     }
+    // If with vocals, require lyrics or description, style, and title
     const hasLyrics = this.lyrics().trim().length > 0 && !this.isLyricsTooLong();
     const hasLyricsDesc = this.lyricsDescription().trim().length > 0;
     const hasStyle = this.selectedStyles().size > 0 || this.customStyle().trim().length > 0;
@@ -141,7 +171,18 @@ export class CreateComponent {
 
   async generateLyrics(): Promise<void> {
     const description = this.lyricsDescription().trim();
-    if (!this.canGenerateLyrics()) {
+    if (!this.canGenerateLyrics()) { // Use the new computed signal
+      let errorMessage = 'Você não pode gerar letras no momento.';
+      if (!this.isGeminiConfigured()) {
+        errorMessage = 'O serviço Gemini não está configurado. Verifique a configuração da IA.';
+      } else if (!this.currentUserProfile() || this.currentUserProfile()!.credits < this.lyricsCost()) {
+        errorMessage = `Créditos insuficientes para gerar letras. Custa ${this.lyricsCost()} crédito.`;
+      } else if (this.generatingLyrics()) {
+        errorMessage = 'A geração de letras já está em andamento.';
+      } else if (!description) {
+        errorMessage = 'Por favor, descreva a ideia para gerar a letra.';
+      }
+      this.lyricsError.set(errorMessage);
       return;
     }
 
@@ -149,8 +190,10 @@ export class CreateComponent {
     this.lyricsError.set(null);
 
     try {
+      // Pass the cost to the service, which now handles credit consumption.
       const generatedText = await this.geminiService.generateLyrics(description, this.lyricsCost());
       this.lyrics.set(generatedText);
+
     } catch (error: any) {
       console.error('Erro ao gerar letras:', error);
       this.lyricsError.set(error.message || 'Falha ao gerar letras. Tente novamente.');
@@ -168,6 +211,7 @@ export class CreateComponent {
     this.generationError.set(null);
 
     try {
+      // Construct the style string
       const stylesArray = Array.from(this.selectedStyles());
       const finalStyle = stylesArray.length > 0 ? stylesArray.join(', ') : this.customStyle().trim();
 
@@ -177,16 +221,25 @@ export class CreateComponent {
       const isInstrumentalMode = this.isInstrumental();
       const isPublicFlag = this.isPublic();
 
-      if (!finalStyle) throw new Error('Por favor, selecione ou descreva um estilo para a música.');
-      if (!title) throw new Error('Por favor, digite um título para a música.');
-      if (!isInstrumentalMode && !currentLyrics) throw new Error('Por favor, insira a letra da música ou gere com IA.');
+      if (!finalStyle) {
+        throw new Error('Por favor, selecione ou descreva um estilo para a música.');
+      }
+      if (!title) {
+        throw new Error('Por favor, digite um título para a música.');
+      }
+      if (!isInstrumentalMode && !currentLyrics) {
+        throw new Error('Por favor, insira a letra da música ou gere com IA.');
+      }
 
       if (isInstrumentalMode) {
+        // The service now handles credit consumption.
         await this.murekaService.generateInstrumental(title, finalStyle, isPublicFlag);
       } else {
+        // The service now handles credit consumption.
         await this.murekaService.generateMusic(title, `${finalStyle}, ${currentVocalGender} vocals`, currentLyrics, isPublicFlag);
       }
 
+      // Clear form after successful generation request
       this.songTitle.set('');
       this.selectedStyles.set(new Set<string>());
       this.customStyle.set('');
@@ -194,7 +247,7 @@ export class CreateComponent {
       this.lyricsDescription.set('');
       this.isInstrumental.set(false);
       
-      this.router.navigate(['/library']);
+      this.router.navigate(['/library']); // Redirect to library to see processing song
 
     } catch (error: any) {
       console.error('Erro ao iniciar geração de música:', error);
@@ -208,6 +261,7 @@ export class CreateComponent {
     if (this.audioCreationMode() === mode) return;
 
     this.audioCreationMode.set(mode);
+    // Reset shared state to avoid confusion between tabs
     this.uploadedFile.set(null);
     this.youtubeUrl.set('');
     this.audioTitle.set('');
@@ -232,6 +286,7 @@ export class CreateComponent {
     this.uploadError.set(null);
 
     try {
+        // The service now handles credit consumption.
         await this.murekaService.uploadAudio(this.uploadedFile()!, this.audioTitle());
         
         this.audioTitle.set('');
@@ -253,6 +308,7 @@ export class CreateComponent {
     this.uploadError.set(null);
     
     try {
+        // The service now handles credit consumption.
         await this.murekaService.processYouTubeVideo(this.youtubeUrl(), this.audioTitle());
 
         this.audioTitle.set('');
@@ -274,14 +330,16 @@ export class CreateComponent {
     this.uploadError.set(null);
 
     try {
+        // The service now handles credit consumption.
         await this.murekaService.cloneVoice(
           this.uploadedFile()!,
           this.audioTitle(),
           this.cloneLyrics(),
           this.cloneStyle(),
-          true
+          true // Default to public for now
         );
         
+        // Clear form
         this.audioTitle.set('');
         this.uploadedFile.set(null);
         this.cloneLyrics.set('');

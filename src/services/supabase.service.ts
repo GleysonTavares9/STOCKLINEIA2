@@ -562,13 +562,16 @@ export class SupabaseService {
     try {
       const { data, error } = await this.supabase
         .from('user_activities')
-        .select('metadata->>music_id')
+        // FIX: Alias the JSON property to `music_id` for easier access, fixing a logic bug where liked songs were not loaded.
+        .select('music_id:metadata->>music_id')
         .eq('user_id', userId)
         .eq('action', 'like_song');
 
       if (error) throw error;
       
-      const likedIds = new Set(data.map((item: any) => item.music_id).filter(Boolean));
+      // FIX: Explicitly specify the Set's type as <string> to resolve the TypeScript error.
+      // The `->>` operator ensures the values are strings.
+      const likedIds = new Set<string>(data.map((item: any) => item.music_id).filter(Boolean));
       this.userLikes.set(likedIds);
       console.log(`SupabaseService: Loaded ${likedIds.size} liked songs for user.`);
     } catch (error: any) {

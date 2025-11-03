@@ -102,7 +102,7 @@
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
               @for (music of songsToShow; track music.id) {
                 <div class="flex flex-col">
-                  <div class="bg-[#1A181A] rounded-lg border border-zinc-800 flex flex-col group overflow-hidden h-full">
+                  <div class="bg-[#1A181A] rounded-lg border-2 border-teal-500 flex flex-col group overflow-hidden h-full">
                     <div 
                       class="relative"
                       [class.cursor-pointer]="music.status === 'succeeded'"
@@ -224,8 +224,14 @@
                   </div>
 
                   @if (expandedLyricsId() === music.id) {
-                    <div class="bg-[#101010] border-x border-b border-teal-700/50 rounded-b-lg p-4 -mt-2 animate-fade-in-down">
-                      <h4 class="font-semibold text-teal-400 mb-2">Letra</h4>
+                    <div class="bg-[#101010] border-x-2 border-b-2 border-teal-500 rounded-b-lg p-4 -mt-2 animate-fade-in-down">
+                      <h4 class="font-semibold text-teal-400 mb-2 flex items-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                          <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" />
+                          <path fill-rule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z" clip-rule="evenodd" />
+                        </svg>
+                        <span>Letra</span>
+                      </h4>
                       <div class="text-zinc-200 whitespace-pre-wrap font-sans font-medium text-sm max-h-60 overflow-y-auto pr-2" [innerHTML]="formatLyrics(music.description)"></div>
                     </div>
                   }
@@ -242,7 +248,7 @@
 <!-- Modal para Estender Música -->
 @if (musicToExtend(); as music) {
   <div class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4" (click)="closeExtendModal()">
-    <div class="bg-[#1A181A] rounded-2xl border border-zinc-700 p-8 w-full max-w-md" (click)="$event.stopPropagation()">
+    <div class="bg-[#1A181A] rounded-2xl border border-teal-500 p-8 w-full max-w-md" (click)="$event.stopPropagation()">
         <h2 class="text-2xl font-bold text-white mb-4">Estender "{{ music.title }}"</h2>
         <p class="text-zinc-400 mb-6">Insira por quantos segundos adicionais você deseja estender esta música.</p>
         
@@ -281,7 +287,7 @@
 <!-- Modal para Editar Música -->
 @if (musicToEdit(); as music) {
   <div class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4" (click)="closeEditModal()">
-    <form (submit)="handleUpdateMusic($event)" class="bg-[#1A181A] rounded-2xl border border-zinc-700 p-8 w-full max-w-lg" (click)="$event.stopPropagation()">
+    <form (submit)="handleUpdateMusic($event)" class="bg-[#1A181A] rounded-2xl border border-teal-500 p-8 w-full max-w-lg" (click)="$event.stopPropagation()">
         <h2 class="text-2xl font-bold text-white mb-4">Editar Música</h2>
         
         @if (editError()) {
