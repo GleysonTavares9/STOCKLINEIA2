@@ -310,7 +310,7 @@ export class MurekaService {
     const user = this.supabase.currentUser();
     if (!this.isConfigured() || !user) {
         const errorMsg = 'O Supabase não está configurado ou o usuário não está autenticado.';
-        await this.handleGenerationError(null, { title, style, lyrics, errorMessage: errorMsg, is_public: isPublic });
+        await this.handleGenerationError(null, null, { title, style, lyrics, errorMessage: errorMsg, is_public: isPublic });
         throw new Error(errorMsg);
     }
     
@@ -375,7 +375,7 @@ export class MurekaService {
     const user = this.supabase.currentUser();
     if (!this.isConfigured() || !user) {
         const errorMsg = 'O Supabase não está configurado ou o usuário não está autenticado.';
-        await this.handleGenerationError(null, { title, style, lyrics: '', errorMessage: errorMsg, is_public: isPublic });
+        await this.handleGenerationError(null, null, { title, style, lyrics: '', errorMessage: errorMsg, is_public: isPublic });
         throw new Error(errorMsg);
     }
 

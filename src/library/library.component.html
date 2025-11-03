@@ -99,10 +99,10 @@
             </div>
 
             @let songsToShow = expandedStyles().has(group.style) ? group.songs : group.songs.slice(0, 3);
-            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
               @for (music of songsToShow; track music.id) {
                 <div class="flex flex-col">
-                  <div class="bg-[#1A181A] rounded-lg border border-zinc-800 flex flex-col group overflow-hidden">
+                  <div class="bg-[#1A181A] rounded-lg border border-zinc-800 flex flex-col group overflow-hidden h-full">
                     <div 
                       class="relative"
                       [class.cursor-pointer]="music.status === 'succeeded'"
@@ -136,93 +136,89 @@
                         </div>
                       }
                     </div>
-                    <div class="p-4 flex-grow flex flex-col">
-                      <h3 class="font-semibold text-white truncate">{{ music.title }}</h3>
-                      <p class="text-sm text-zinc-400 truncate">{{ music.style }}</p>
-                      <div class="flex-grow"></div>
-                      <div class="text-xs text-zinc-500 mt-3 pt-3 border-t border-zinc-700 flex justify-between items-center">
-                        <span>{{ music.created_at | date:'dd/MM/yy' }}</span>
+                    
+                    <div class="p-4 flex-grow flex flex-col justify-between">
+                      <div>
+                        <div class="flex justify-between items-start gap-2">
+                            <h3 class="font-semibold text-white truncate">{{ music.title }}</h3>
+                            @if (music.status === 'succeeded') {
+                                <span class="flex-shrink-0 text-xs font-medium px-2 py-0.5 rounded-full"
+                                      [class.bg-teal-900]="music.is_public" [class.text-teal-300]="music.is_public"
+                                      [class.bg-zinc-700]="!music.is_public" [class.text-zinc-300]="!music.is_public">
+                                    {{ music.is_public ? 'Público' : 'Privado' }}
+                                </span>
+                            }
+                        </div>
+                        <p class="text-sm text-zinc-400 truncate">{{ music.style }}</p>
                       </div>
-                       @if(music.status === 'failed' && music.metadata?.error) {
-                          <div class="mt-2 text-xs text-red-400 bg-red-900/30 p-2 rounded">
+
+                      <div class="mt-4">
+                        @if(music.status === 'failed' && music.metadata?.error) {
+                          <div class="mb-3 text-xs text-red-400 bg-red-900/30 p-2 rounded max-h-20 overflow-y-auto">
                             <strong>Motivo:</strong> {{ music.metadata.error }}
                           </div>
                         }
-                      
-                      <div class="mt-3 pt-3 border-t border-zinc-700 min-h-[44px]"> <!-- Altura mínima para evitar pulos de layout -->
-                        @if (musicPendingDeletion() === music.id) {
-                          <div class="flex justify-between items-center gap-2 animate-fade-in-down">
-                            <p class="text-sm text-zinc-300 mr-auto">Tem certeza?</p>
-                            <button (click)="cancelDelete()" class="px-3 py-1 text-xs font-semibold rounded-md bg-zinc-700 hover:bg-zinc-600 transition-colors">
-                              Cancelar
-                            </button>
-                            <button 
-                              (click)="confirmDelete(music.id)" 
-                              [disabled]="isDeleting() === music.id" 
-                              class="px-3 py-1 text-xs font-semibold rounded-md bg-red-700 hover:bg-red-600 transition-colors text-white flex items-center justify-center min-w-[80px]">
-                              @if(isDeleting() === music.id) {
-                                <svg class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                              } @else {
-                                <span>Confirmar</span>
-                              }
-                            </button>
-                          </div>
-                        } @else {
-                          @if (music.status === 'succeeded') {
+
+                        <div class="pt-3 border-t border-zinc-700 min-h-[44px]">
+                          @if (musicPendingDeletion() === music.id) {
+                            <div class="flex justify-between items-center gap-2 animate-fade-in-down">
+                              <p class="text-sm text-zinc-300 mr-auto">Tem certeza?</p>
+                              <button (click)="cancelDelete()" class="px-3 py-1 text-xs font-semibold rounded-md bg-zinc-700 hover:bg-zinc-600 transition-colors">
+                                Cancelar
+                              </button>
+                              <button 
+                                (click)="confirmDelete(music.id)" 
+                                [disabled]="isDeleting() === music.id" 
+                                class="px-3 py-1 text-xs font-semibold rounded-md bg-red-700 hover:bg-red-600 transition-colors text-white flex items-center justify-center min-w-[80px]">
+                                @if(isDeleting() === music.id) {
+                                  <svg class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                                } @else {
+                                  <span>Confirmar</span>
+                                }
+                              </button>
+                            </div>
+                          } @else {
                             <div class="flex justify-between items-center">
-                              <div class="flex items-center gap-2">
-                                 <label for="public-toggle-{{music.id}}" class="text-sm text-zinc-400">Público</label>
-                                  <button 
-                                    type="button"
-                                    role="switch"
-                                    id="public-toggle-{{music.id}}"
-                                    [attr.aria-checked]="music.is_public"
-                                    (click)="toggleVisibility(music)"
-                                    [disabled]="isTogglingVisibility() === music.id"
-                                    class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 focus:ring-offset-zinc-900 disabled:opacity-50 disabled:cursor-wait"
-                                    [class.bg-teal-600]="music.is_public"
-                                    [class.bg-zinc-700]="!music.is_public">
-                                    <span
-                                      aria-hidden="true"
-                                      class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"
-                                      [class.translate-x-5]="music.is_public"
-                                      [class.translate-x-0]="!music.is_public"></span>
+                              <span class="text-xs text-zinc-500">{{ music.created_at | date:'dd/MM/yy' }}</span>
+                              <div class="flex items-center gap-1">
+                                @if (music.status === 'succeeded') {
+                                  <button (click)="toggleVisibility(music)" [disabled]="isTogglingVisibility() === music.id" class="p-2 rounded-full text-zinc-400 hover:bg-zinc-700 transition-colors disabled:opacity-50 disabled:cursor-wait" [class.text-teal-400]="music.is_public" title="{{ music.is_public ? 'Tornar privado' : 'Tornar público' }}">
+                                    @if (music.is_public) {
+                                      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M10 12a2 2 0 100-4 2 2 0 000 4z" /><path fill-rule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.022 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clip-rule="evenodd" /></svg>
+                                    } @else {
+                                      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M3.707 2.293a1 1 0 00-1.414 1.414l14 14a1 1 0 001.414-1.414l-1.473-1.473A10.014 10.014 0 0019.542 10C18.27 6.957 14.547 4 10 4a9.954 9.954 0 00-4.433 1.034L3.707 2.293zM10 12a2 2 0 110-4 2 2 0 010 4z" clip-rule="evenodd" /><path d="M2 10s3.923-6 8-6 8 6 8 6-3.923 6-8 6-8-6-8-6zm7.25-1.336a2.75 2.75 0 00-3.586 3.586l3.586-3.586z" /></svg>
+                                    }
                                   </button>
-                              </div>
-                              <div class="flex items-center">
-                                <a [href]="music.audio_url" [download]="music.title + '.mp3'" target="_blank" rel="noopener noreferrer" class="p-2 rounded-full text-zinc-400 hover:text-teal-500 hover:bg-zinc-700 transition-colors" title="Baixar música">
-                                  <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                     <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                                  </svg>
-                                </a>
-                                @if (music.description && music.description.trim().length > 0) {
-                                  <button (click)="$event.stopPropagation(); toggleLyrics(music.id)" class="p-2 rounded-full text-zinc-400 hover:text-teal-500 hover:bg-zinc-700 transition-colors" [class.text-teal-400]="expandedLyricsId() === music.id" title="Ver Letra">
+                                  <a [href]="music.audio_url" [download]="music.title + '.mp3'" target="_blank" rel="noopener noreferrer" class="p-2 rounded-full text-zinc-400 hover:text-teal-500 hover:bg-zinc-700 transition-colors" title="Baixar música">
                                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                      <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                       <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                    </svg>
+                                  </a>
+                                  @if (music.description && music.description.trim().length > 0) {
+                                    <button (click)="$event.stopPropagation(); toggleLyrics(music.id)" class="p-2 rounded-full text-zinc-400 hover:text-teal-500 hover:bg-zinc-700 transition-colors" [class.text-teal-400]="expandedLyricsId() === music.id" title="Ver Letra">
+                                      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                      </svg>
+                                    </button>
+                                  }
+                                   <button (click)="openExtendModal(music)" class="p-2 rounded-full text-zinc-400 hover:text-teal-500 hover:bg-zinc-700 transition-colors" title="Estender música">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                      <path stroke-linecap="round" stroke-linejoin="round" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5v4m0 0h4" />
                                     </svg>
                                   </button>
+                                  <button (click)="openEditModal(music)" class="p-2 rounded-full text-zinc-400 hover:text-teal-500 hover:bg-zinc-700 transition-colors" title="Editar música">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M17.414 2.586a2 2 0 00-2.828 0L7 10.172V13h2.828l7.586-7.586a2 2 0 000-2.828z" /><path fill-rule="evenodd" d="M2 6a2 2 0 012-2h4a1 1 0 010 2H4v10h10v-4a1 1 0 112 0v4a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" clip-rule="evenodd" /></svg>
+                                  </button>
                                 }
-                                 <button (click)="openExtendModal(music)" class="p-2 rounded-full text-zinc-400 hover:text-teal-500 hover:bg-zinc-700 transition-colors" title="Estender música">
-                                  <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5v4m0 0h4" />
-                                  </svg>
-                                </button>
-                                <button (click)="openEditModal(music)" class="p-2 rounded-full text-zinc-400 hover:text-teal-500 hover:bg-zinc-700 transition-colors" title="Editar música">
-                                  <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M17.414 2.586a2 2 0 00-2.828 0L7 10.172V13h2.828l7.586-7.586a2 2 0 000-2.828z" /><path fill-rule="evenodd" d="M2 6a2 2 0 012-2h4a1 1 0 010 2H4v10h10v-4a1 1 0 112 0v4a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" clip-rule="evenodd" /></svg>
-                                </button>
-                                <button (click)="requestDelete(music.id)" class="p-2 rounded-full text-zinc-400 hover:text-red-500 transition-colors" title="Apagar música">
-                                  <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                                </button>
+                                @if (music.status === 'succeeded' || music.status === 'failed') {
+                                  <button (click)="requestDelete(music.id)" class="p-2 rounded-full text-zinc-400 hover:text-red-500 hover:bg-zinc-700 transition-colors" title="Apagar música">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                  </button>
+                                }
                               </div>
                             </div>
-                          } @else if (music.status === 'failed') {
-                            <div class="flex justify-end items-center">
-                               <button (click)="requestDelete(music.id)" class="p-2 rounded-full text-zinc-400 hover:text-red-500 transition-colors" title="Apagar música">
-                                  <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                               </button>
-                            </div>
                           }
-                        }
+                        </div>
                       </div>
                     </div>
                   </div>
