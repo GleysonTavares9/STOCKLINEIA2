@@ -56,7 +56,10 @@ export class FeedComponent {
     this.publicMusic.set(songs);
   }
 
-  maskEmail(email?: string): string {
+  public maskEmail(email?: string, displayName?: string): string {
+    if (displayName && displayName.trim().length > 0) {
+      return displayName; // Prefer display name if available
+    }
     if (!email) return 'Anônimo';
     const [user, domain] = email.split('@');
     return `${user.substring(0, 2)}***@${domain}`;

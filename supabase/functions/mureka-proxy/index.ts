@@ -123,7 +123,25 @@ serve(async (req) => {
         });
     }
 
-    const murekaData = JSON.parse(rawMurekaResponseBody); 
+    // Safely parse the JSON body, handling cases where the response might be empty.
+    // This prevents the function from crashing on a successful (2xx) but empty response.
+    let murekaData = {};
+    if (rawMurekaResponseBody.trim()) {
+      try {
+        murekaData = JSON.parse(rawMurekaResponseBody);
+      } catch (e) {
+        console.error('Mureka Proxy: Failed to parse successful Mureka API response:', e.message);
+        // This is a server-side issue: the proxy's contract with Mureka is broken.
+        return new Response(JSON.stringify({ 
+          error: 'Mureka API returned a malformed successful response.', 
+          details: rawMurekaResponseBody 
+        }), {
+          status: 502, // Bad Gateway, as the upstream response was invalid
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+    }
+
     return new Response(JSON.stringify(murekaData), {
         status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

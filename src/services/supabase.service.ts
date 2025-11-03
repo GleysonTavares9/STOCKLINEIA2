@@ -15,8 +15,7 @@ export interface Music {
   status: 'processing' | 'succeeded' | 'failed';
   audio_url: string; // This is NOT NULL in the DB
   is_public?: boolean; // Controls visibility in the public feed
-  // FIX: Broaden metadata type to support arbitrary properties beyond just 'error'.
-  // This allows storing additional information like 'file_id' or 'youtube_url'.
+  // FIX: Broaden metadata type to allow for flexible properties beyond just 'error'.
   metadata?: { [key: string]: any };
   created_at: string; // ISO string
 }
@@ -160,68 +159,29 @@ export class SupabaseService {
     
     console.log('SupabaseService: Handling user session for ID:', user.id);
 
-    // --- Polling for profile ---
-    // The database trigger 'on_auth_user_created' should create the profile.
-    // We poll to allow for replication delay.
+    // The database trigger 'on_auth_user_created' is now responsible for creating the profile.
+    // We will poll for the profile to appear, as there can be a slight delay.
     let attempts = 0;
     const maxAttempts = 5;
-    const delay = 300;
+    const delay = 300; // ms
 
-    while (attempts < maxAttempts) {
+    const pollForProfile = async () => {
+      while (attempts < maxAttempts) {
         await this.fetchUserProfile(user.id);
-        if (this.currentUserProfile()) {
-            console.log(`handleUserSession: Profile found for user ${user.id} after ${attempts + 1} attempt(s).`);
-            this.loadNotifications(user.id);
-            return; // Success, profile found.
+        const profile = this.currentUserProfile();
+        if (profile) {
+          console.log(`handleUserSession: Profile found for user ${user.id} after ${attempts + 1} attempt(s).`);
+          this.loadNotifications(user.id);
+          return;
         }
         attempts++;
         console.warn(`handleUserSession: Profile for ${user.id} not found, attempt ${attempts}. Retrying in ${delay * attempts}ms...`);
-        await new Promise(resolve => setTimeout(resolve, delay * attempts));
-    }
+        await new Promise(resolve => setTimeout(resolve, delay * attempts)); // increase delay
+      }
+      console.error(`handleUserSession: Critical error - Profile for user ${user.id} not found after ${maxAttempts} attempts. The 'on_auth_user_created' trigger might be missing or failing.`);
+    };
 
-    // --- Fallback: Create profile from client ---
-    // If polling fails, the trigger might be missing, broken, or severely delayed.
-    // We create the profile as a fallback to ensure the user can log in.
-    if (!this.currentUserProfile()) {
-        console.warn(`handleUserSession: DB trigger failed or timed out. Attempting to create profile for user ${user.id} from the client as a fallback.`);
-        try {
-            const { data: newProfile, error: insertError } = await this.supabase
-                .from('profiles')
-                .insert({
-                    id: user.id,
-                    email: user.email,
-                    display_name: user.user_metadata?.full_name || '',
-                    credits: 10 // Default starting credits
-                })
-                .select()
-                .single();
-
-            if (insertError) {
-                // If the insert fails with a unique constraint violation, it means the trigger
-                // finally ran and created the profile between our last poll and our insert attempt.
-                // This is a race condition we can recover from.
-                if (insertError.code === '23505') { // 'unique_violation'
-                    console.log('handleUserSession: Fallback insert failed (unique_violation), likely due to a race condition. Refetching the now-existing profile.');
-                    await this.fetchUserProfile(user.id);
-                    if (this.currentUserProfile()) {
-                         this.loadNotifications(user.id);
-                    } else {
-                        // This is a more critical state - insert failed and refetch failed.
-                         console.error(`handleUserSession: CRITICAL - Fallback failed to create profile and could not refetch it for user ${user.id}.`, insertError);
-                    }
-                } else {
-                    // Another, more serious error occurred during insert.
-                    console.error(`handleUserSession: Fallback failed to create profile for user ${user.id}.`, insertError);
-                }
-            } else {
-                console.log(`handleUserSession: Fallback successfully created profile for user ${user.id}.`);
-                this.currentUserProfile.set(newProfile as Profile);
-                this.loadNotifications(user.id); // Load notifications for the new profile
-            }
-        } catch (e) {
-            console.error(`handleUserSession: Unhandled exception in profile creation fallback for user ${user.id}.`, e);
-        }
-    }
+    await pollForProfile();
   }
 
   async getSession(): Promise<Session | null> {
@@ -375,11 +335,12 @@ export class SupabaseService {
     const { error } = await this.supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        // FIX: Alterado de `window.location.origin` para `window.location.href`.
-        // `href` inclui o caminho completo e o fragmento de hash, o que é essencial para o roteamento
-        // baseado em hash, garantindo que o usuário retorne ao estado correto do aplicativo após a autenticação OAuth.
-        // `origin` fornece apenas o protocolo, hostname e porta, perdendo o contexto da rota atual do app.
-        redirectTo: window.location.href,
+        // Definindo explicitamente a URL de redirecionamento para a origem da página atual.
+        // Isso garante que o usuário seja redirecionado de volta ao aplicativo após a autenticação com o Google.
+        // IMPORTANTE: Para que isso funcione, você deve adicionar esta URL (por exemplo, o domínio do seu aplicativo
+        // ou http://localhost:4200 para desenvolvimento local) à lista de "Additional Redirect URLs"
+        // nas configurações de autenticação do seu projeto Supabase.
+        redirectTo: window.location.origin,
       }
     });
     if (error) {
@@ -554,223 +515,318 @@ export class SupabaseService {
 
     if (error) {
       console.error('loadNotifications: Error fetching notifications:', error.message);
-      return;
+      this.notifications.set([]);
+    } else {
+      this.notifications.set((data as Notification[]) || []);
     }
-    this.notifications.set(data as Notification[]);
   }
 
-  async markNotificationAsRead(notificationId: string): Promise<void> {
+  async markNotificationAsRead(notificationId: string): Promise<Notification | null> {
     if (!this.supabase) {
-      console.error('markNotificationAsRead: Supabase client not initialized.');
-      return;
+        console.error('markNotificationAsRead: Supabase client not initialized.');
+        return null;
+    }
+    const { data, error } = await this.supabase
+        .from('notifications')
+        .update({ read: true, read_at: new Date().toISOString() })
+        .eq('id', notificationId)
+        .select()
+        .single();
+
+    if (error) {
+        console.error('markNotificationAsRead: Error updating notification:', error.message);
+        return null;
     }
     
-    // Optimistic update: mark as read immediately in the UI
-    this.notifications.update(current => 
-      current.map(n => n.id === notificationId ? { ...n, read: true } : n)
+    // Update local state for immediate UI feedback
+    this.notifications.update(list => 
+      list.map(n => n.id === notificationId ? { ...n, read: true } : n)
     );
 
-    const { error } = await this.supabase
-      .from('notifications')
-      .update({ read: true })
-      .eq('id', notificationId);
+    return data as Notification;
+  }
+
+  // == Database Methods ==
+  
+  // FIX: Update method signature to accept a metadata object.
+  async addMusic(musicData: { title: string, style: string, lyrics: string, status: 'processing' | 'succeeded' | 'failed', error?: string, is_public?: boolean, metadata?: { [key: string]: any } }): Promise<Music | null> {
+    const user = this.currentUser();
+    if (!this.supabase || !user) {
+      console.error('addMusic: Supabase client not initialized or user not authenticated.');
+      return null;
+    }
+
+    // FIX: Correctly handle merging the optional error into the metadata object.
+    const metadataToInsert = musicData.metadata || {};
+    if (musicData.error) {
+      metadataToInsert.error = musicData.error;
+    }
+
+    const { data, error } = await this.supabase
+      .from('musics')
+      .insert({
+        title: musicData.title,
+        style: musicData.style,
+        description: musicData.lyrics,
+        status: musicData.status,
+        user_id: user.id,
+        audio_url: '', // Satisfy NOT NULL constraint on creation
+        is_public: musicData.is_public ?? true, // Default to public
+        metadata: metadataToInsert,
+      })
+      .select()
+      .single();
 
     if (error) {
-      console.error('markNotificationAsRead: Error updating notification:', error.message);
-      // Revert if API call fails
-      this.notifications.update(current => 
-        current.map(n => n.id === notificationId ? { ...n, read: false } : n)
-      );
+      console.error('addMusic: Error adding music:', error.message);
+      return null;
     }
-  }
-  
-  // A wrapper for invoking functions to standardize error handling a bit
-  async invokeFunction(functionName: string, options: { body: { [key: string]: any } }) {
-    if (!this.supabase) {
-      throw new Error('Supabase client not initialized.');
-    }
-    return this.supabase.functions.invoke(functionName, options);
+    console.log('addMusic: Music record added successfully with ID:', data.id);
+    return data as Music;
   }
 
-  async updateUserCredits(userId: string, newCreditAmount: number): Promise<void> {
+  // FIX: Update method signature to accept `description` and `metadata`, and remove the unsafe `error` property.
+  async updateMusic(musicId: string, updates: { description?: string, mureka_id?: string, status?: 'processing' | 'succeeded' | 'failed', audio_url?: string, metadata?: { [key: string]: any } }): Promise<Music | null> {
     if (!this.supabase) {
-        console.error('updateUserCredits: Supabase client not initialized.');
-        return;
+      console.error('updateMusic: Supabase client not initialized.');
+      return null;
     }
-    // Update local profile signal first for immediate UI feedback (optimistic update)
-    this.currentUserProfile.update(profile => {
-        if (profile) {
-            return { ...profile, credits: newCreditAmount };
+
+    // FIX: Simplified implementation. The caller is now responsible for constructing the metadata object.
+    const { mureka_id, ...rest } = updates;
+    const dbUpdates: { [key: string]: any } = { ...rest };
+
+    if (mureka_id) {
+        dbUpdates.task_id = mureka_id;
+    }
+    
+    const { data, error: updateError } = await this.supabase
+      .from('musics')
+      .update(dbUpdates)
+      .eq('id', musicId)
+      .select()
+      .single();
+    
+    if (updateError) {
+      console.error('updateMusic: Error updating music:', updateError.message);
+      return null;
+    }
+    console.log('updateMusic: Music record updated successfully for ID:', musicId);
+    return data as Music;
+  }
+  
+  async updateMusicVisibility(musicId: string, isPublic: boolean): Promise<Music | null> {
+    if (!this.supabase) {
+      console.error('updateMusicVisibility: Supabase client not initialized.');
+      return null;
+    }
+
+    const { data, error } = await this.supabase
+      .from('musics')
+      .update({ is_public: isPublic })
+      .eq('id', musicId)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('updateMusicVisibility: Error updating music visibility:', error.message);
+      return null;
+    }
+    console.log(`updateMusicVisibility: Music ${musicId} visibility set to ${isPublic}`);
+    return data as Music;
+  }
+
+  async updateUserProfile(userId: string, updates: Partial<Profile>): Promise<Profile | null> {
+    if (!this.supabase) {
+      console.error('updateUserProfile: Supabase client not initialized.');
+      return null;
+    }
+    
+    const { data, error } = await this.supabase
+      .from('profiles')
+      .update(updates)
+      .eq('id', userId)
+      .select()
+      .single();
+      
+    if (error) {
+      console.error('updateUserProfile: Error updating user profile:', error.message);
+      return null;
+    }
+    
+    console.log('updateUserProfile: User profile updated for ID:', userId, 'with', updates);
+    // Update the local signal with the new profile data, merging with existing data
+    this.currentUserProfile.update(currentProfile => {
+        if (currentProfile && currentProfile.id === userId) {
+            return { ...currentProfile, ...data };
         }
-        return null;
+        return data as Profile; // Fallback in case there was no profile
     });
+    return data as Profile;
+  }
 
-    const { error } = await this.supabase
-        .from('profiles')
-        .update({ credits: newCreditAmount })
-        .eq('id', userId);
+  async updateUserCredits(userId: string, newCreditCount: number): Promise<Profile | null> {
+    return this.updateUserProfile(userId, { credits: newCreditCount });
+  }
+
+  async getMusicForUser(userId: string): Promise<Music[]> {
+    if (!this.supabase) {
+      console.error('getMusicForUser: Supabase client not initialized.');
+      return [];
+    }
+    
+    const { data, error } = await this.supabase
+      .from('musics')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
 
     if (error) {
-        console.error('updateUserCredits: Error updating credits in DB:', error.message);
-        // If the DB update fails, re-fetch the profile from the server to revert the optimistic update
-        // and ensure UI consistency with the backend state.
-        await this.fetchUserProfile(userId);
+      console.error('getMusicForUser: Error fetching user music:', error.message);
+      return [];
     }
+    console.log('getMusicForUser: Fetched music for user ID:', userId);
+    return (data as Music[]) || [];
   }
 
-  async addMusic(
-    musicData: { 
-      title: string; 
-      style: string; 
-      lyrics: string; 
-      status: 'processing' | 'succeeded' | 'failed'; 
-      error?: string; 
-      is_public?: boolean;
-      mureka_id?: string;
-      metadata?: { [key: string]: any };
+  async deleteMusic(musicId: string): Promise<{ error: any; count: number | null }> {
+    if (!this.supabase) {
+      console.error('deleteMusic: Supabase client not initialized.');
+      return { error: { message: 'Supabase client not initialized.' }, count: null };
     }
-  ): Promise<Music | null> {
-      if (!this.supabase) return null;
-      const user = this.currentUser();
-      if (!user) return null;
-  
-      const { data, error } = await this.supabase
-          .from('musics')
-          .insert({
-              user_id: user.id,
-              title: musicData.title,
-              style: musicData.style,
-              description: musicData.lyrics, // Mapeia 'lyrics' para a coluna 'description'
-              status: musicData.status,
-              task_id: musicData.mureka_id, // Mapeia 'mureka_id' para a coluna 'task_id'
-              metadata: { ...musicData.metadata, error: musicData.error },
-              is_public: musicData.is_public ?? false,
-          })
-          .select()
-          .single();
-  
-      if (error) {
-          console.error('addMusic: Error inserting music:', error.message);
-          return null;
-      }
-      return data as Music;
-  }
-  
-  async updateMusic(
-    musicId: string, 
-    updates: { 
-      status?: 'processing' | 'succeeded' | 'failed'; 
-      audio_url?: string; 
-      error?: string; 
-      mureka_id?: string;
-      metadata?: { [key: string]: any };
-      description?: string;
+    
+    const user = this.currentUser();
+    if (!user) {
+      console.error('deleteMusic: User not authenticated.');
+      return { error: { message: 'User not authenticated.' }, count: null };
     }
-  ): Promise<Music | null> {
-      if (!this.supabase) return null;
-      
-      const updateData: { [key: string]: any } = {};
-      if (updates.status) updateData.status = updates.status;
-      if (updates.audio_url) updateData.audio_url = updates.audio_url;
-      if (updates.mureka_id) updateData.task_id = updates.mureka_id;
-      if (updates.description) updateData.description = updates.description;
 
-      // Merge metadata instead of overwriting
-      if (updates.metadata || updates.error) {
-        const { data: existingMusic } = await this.supabase.from('musics').select('metadata').eq('id', musicId).single();
-        const existingMetadata = existingMusic?.metadata || {};
-        updateData.metadata = { ...existingMetadata, ...updates.metadata, error: updates.error };
+    const { error, count } = await this.supabase
+        .from('musics')
+        .delete({ count: 'exact' })
+        .match({ id: musicId, user_id: user.id });
+
+    console.log(`deleteMusic: Attempted to delete music ID ${musicId}. Rows affected: ${count}`);
+    if (error) {
+      console.error('deleteMusic: Error deleting music:', error.message);
+    }
+    return { error, count };
+  }
+
+  async deleteFailedMusicForUser(userId: string): Promise<{ error: any; count: number | null }> {
+      if (!this.supabase) {
+        console.error('deleteFailedMusicForUser: Supabase client not initialized.');
+        return { error: { message: 'Supabase client not initialized.' }, count: null };
       }
       
-      const { data, error } = await this.supabase
+      const { error, count } = await this.supabase
           .from('musics')
-          .update(updateData)
-          .eq('id', musicId)
-          .select()
-          .single();
+          .delete({ count: 'exact' })
+          .match({ user_id: userId, status: 'failed' });
   
+      console.log(`deleteFailedMusicForUser: Attempted to clear failed music for user ${userId}. Rows affected: ${count}`);
       if (error) {
-          console.error(`updateMusic: Error updating music ID ${musicId}:`, error.message);
-          return null;
+        console.error('deleteFailedMusicForUser: Error deleting failed music:', error.message);
       }
-      return data as Music;
-  }
-  
-  async getMusicForUser(userId: string): Promise<Music[]> {
-      if (!this.supabase) return [];
-      const { data, error } = await this.supabase
-          .from('musics')
-          .select('*')
-          .eq('user_id', userId)
-          .order('created_at', { ascending: false });
-      if (error) {
-          console.error('getMusicForUser: Error fetching music:', error.message);
-          return [];
-      }
-      return (data as Music[]) || [];
+      return { error, count };
   }
   
   async getAllPublicMusic(): Promise<Music[]> {
-      if (!this.supabase) return [];
-      const { data, error } = await this.supabase
-          .from('musics')
-          .select('*, profiles(email, display_name)')
-          .eq('is_public', true)
-          .eq('status', 'succeeded')
-          .order('created_at', { ascending: false })
-          .limit(50);
-      
-      if (error) {
-          console.error('getAllPublicMusic: Error fetching public music:', error.message);
-          return [];
-      }
-      
-      // Mapeia os dados para incluir 'user_email' no objeto Music
-      const formattedData = data.map((item: any) => ({
-          ...item,
-          user_email: item.profiles?.email || null,
-      }));
+    if (!this.supabase) {
+        console.warn('getAllPublicMusic: Supabase not configured, cannot fetch public music.');
+        return [];
+    }
 
-      return formattedData as Music[];
+    // Use a database function (RPC) to securely fetch public music.
+    // This function runs with SECURITY DEFINER, bypassing the calling user's RLS policies,
+    // which solves the issue of logged-in users only seeing their own music in the public feed.
+    const { data, error } = await this.supabase.rpc('get_public_feed');
+
+    if (error) {
+      console.error('getAllPublicMusic: Error calling get_public_feed RPC:', error.message);
+      return [];
+    }
+    
+    console.log(`getAllPublicMusic: Fetched ${data.length} public music records via RPC.`);
+    return (data as Music[]) || [];
   }
 
   async getPlans(): Promise<Plan[]> {
-    if (!this.supabase) return [];
-    const { data, error } = await this.supabase
+    const supabaseUrl = environment.supabaseUrl;
+    const supabaseKey = environment.supabaseKey;
+
+    if (!this.isConfigured()) {
+        console.warn('getPlans: Supabase not configured, cannot fetch plans.');
+        return [];
+    }
+    
+    // Use a dedicated anonymous client to fetch public plans.
+    // This avoids RLS issues if the user is logged in and the policy only allows 'anon' role.
+    const anonClient = createClient(supabaseUrl, supabaseKey);
+    
+    const { data, error } = await anonClient
       .from('plans')
       .select('*')
       .eq('is_active', true)
+      .neq('id', 'free') // Exclude the free plan from purchasable plans
       .order('price', { ascending: true });
-    
+
     if (error) {
       console.error('getPlans: Error fetching plans:', error.message);
       return [];
     }
-    return data as Plan[];
-  }
-
-  async deleteMusic(musicId: string) {
-    if (!this.supabase) throw new Error("Supabase client not initialized.");
-    return this.supabase.from('musics').delete().eq('id', musicId);
-  }
-
-  async deleteFailedMusicForUser(userId: string) {
-    if (!this.supabase) throw new Error("Supabase client not initialized.");
-    return this.supabase.from('musics').delete().eq('user_id', userId).eq('status', 'failed');
-  }
-
-  async updateMusicVisibility(musicId: string, isPublic: boolean): Promise<Music | null> {
-    if (!this.supabase) return null;
-    const { data, error } = await this.supabase
-        .from('musics')
-        .update({ is_public: isPublic })
-        .eq('id', musicId)
-        .select()
-        .single();
-    if (error) {
-        console.error('updateMusicVisibility: Error updating visibility:', error.message);
-        return null;
+    
+    if (!data) {
+      console.log('getPlans: No plan data received.');
+      return [];
     }
-    return data as Music;
+    console.log(`getPlans: Fetched ${data.length} plans.`);
+
+    // Defensively parse 'features' which is stored as a JSON string or is already an array.
+    return (data as any[]).map(plan => {
+      let parsedFeatures: string[] = [];
+      if (typeof plan.features === 'string') {
+        try {
+          const parsed = JSON.parse(plan.features);
+          if (Array.isArray(parsed)) {
+            parsedFeatures = parsed;
+          }
+        } catch (e) {
+          console.error(`getPlans: Failed to parse features for plan ${plan.id}:`, plan.features);
+        }
+      } else if (Array.isArray(plan.features)) {
+        parsedFeatures = plan.features;
+      }
+      
+      let inferredBillingCycle: 'monthly' | 'annual' | 'one-time' = 'monthly'; // Padrão para mensal
+      if (plan.is_credit_pack) {
+        inferredBillingCycle = 'one-time';
+      }
+      // TODO: Para que o filtro Anual vs Mensal funcione corretamente com base nos seus dados do banco,
+      // você DEVE adicionar uma coluna 'billing_cycle' (ex: 'monthly', 'annual') na sua tabela 'plans' no Supabase.
+      // Atualmente, sem essa coluna, todos os planos de assinatura são inferidos como 'monthly'.
+      // Exemplo de como você poderia usar a coluna:
+      // if (plan.billing_cycle_from_db === 'annual') { inferredBillingCycle = 'annual'; }
+
+      return { ...plan, features: parsedFeatures, billing_cycle: inferredBillingCycle };
+    }) as Plan[];
   }
+
+  // #region Fix: Added public method to invoke Supabase Edge Functions.
+  // This safely exposes the functionality without making the entire Supabase client public.
+  async invokeFunction(functionName: string, options: { body: any }): Promise<{ data: any | null, error: any }> {
+    if (!this.supabase) {
+        console.error(`invokeFunction: Supabase client not initialized for function ${functionName}.`);
+        return { data: null, error: { message: 'Supabase client not initialized.' } };
+    }
+    console.log(`invokeFunction: Invoking Supabase Edge Function: ${functionName}`);
+    const { data, error } = await this.supabase.functions.invoke(functionName, options);
+    if (error) {
+      console.error(`invokeFunction: Error invoking function ${functionName}:`, error.message);
+    } else {
+      console.log(`invokeFunction: Function ${functionName} invoked successfully.`);
+    }
+    return { data, error };
+  }
+  // #endregion
 }

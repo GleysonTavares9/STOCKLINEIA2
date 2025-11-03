@@ -92,8 +92,9 @@ export class MurekaService {
       
       const updatedRecord = await this.supabase.updateMusic(finalMusicRecord.id, { 
         mureka_id: fileId,
+        // FIX: Pass metadata object, which is now allowed by the updated updateMusic method.
         metadata: { 
-          ...finalMusicRecord.metadata, 
+          ...(finalMusicRecord.metadata || {}),
           file_id: fileId,
           original_filename: file.name,
           file_size: file.size,
@@ -137,6 +138,7 @@ export class MurekaService {
     let musicRecord: Music | null = null;
 
     try {
+      // FIX: Pass metadata object, which is now allowed by the updated addMusic method.
       musicRecord = await this.supabase.addMusic({
         title,
         style: 'youtube',
@@ -173,8 +175,9 @@ export class MurekaService {
       
       const updatedRecord = await this.supabase.updateMusic(finalMusicRecord.id, { 
         mureka_id: taskId,
+        // FIX: Pass metadata object, which is now allowed by the updated updateMusic method.
         metadata: {
-          ...finalMusicRecord.metadata,
+          ...(finalMusicRecord.metadata || {}),
           processing_method: 'generation_based'
         }
       });
@@ -202,9 +205,10 @@ export class MurekaService {
   // ========== MÉTODOS DE ANÁLISE PARA ÁUDIO UPLOADADO ==========
 
   private async processUploadedAudio(musicId: string, fileId: string, title: string, description?: string): Promise<void> {
+    // FIX: Get the original record to access its metadata for updates.
+    const originalRecord = this.userMusic().find(m => m.id === musicId);
     try {
       // Find the record to access its metadata during updates
-      const originalRecord = this.userMusic().find(m => m.id === musicId);
       const existingMetadata = originalRecord?.metadata || {};
 
       let analysisDescription = '';
@@ -221,7 +225,7 @@ export class MurekaService {
 
         if (!describeError && describeData?.description) {
           analysisDescription = describeData.description;
-          // Update music with description from analysis
+          // FIX: Update music with description and metadata, now allowed by the updated updateMusic method.
           await this.supabase.updateMusic(musicId, {
             description: description || `Áudio analisado: ${analysisDescription}`,
             metadata: { 
@@ -255,6 +259,7 @@ export class MurekaService {
       
       const updatedRecord = await this.supabase.updateMusic(musicId, { 
         mureka_id: taskId,
+        // FIX: Pass metadata object, which is now allowed by the updated updateMusic method.
         metadata: {
           ...existingMetadata,
           queryPath: 'instrumental/query',
@@ -272,9 +277,10 @@ export class MurekaService {
       console.error('MurekaService: Erro ao processar áudio uploadado para geração:', error);
       const errorMessage = await this.getApiErrorMessage(error, 'Erro ao processar o arquivo de áudio para geração.');
       
+      // FIX: Correctly update the music record with an error by passing a metadata object.
       const updatedMusic = await this.supabase.updateMusic(musicId, { 
         status: 'failed', 
-        error: errorMessage 
+        metadata: { ...(originalRecord?.metadata || {}), error: errorMessage } 
       });
 
       if (updatedMusic) {
@@ -297,7 +303,11 @@ export class MurekaService {
 
   private async handleGenerationError(error: any, musicRecord: Music | null, details: { title: string, style: string, lyrics: string, errorMessage: string, is_public: boolean }) {
     if (musicRecord) {
-      const updatedMusic = await this.supabase.updateMusic(musicRecord.id, { status: 'failed', error: details.errorMessage });
+      // FIX: Correctly update the music record with an error by passing a metadata object.
+      const updatedMusic = await this.supabase.updateMusic(musicRecord.id, { 
+        status: 'failed', 
+        metadata: { ...(musicRecord.metadata || {}), error: details.errorMessage } 
+      });
       if (updatedMusic) {
           this.userMusic.update(music => music.map(s => s.id === updatedMusic.id ? updatedMusic : s));
       }
@@ -329,6 +339,7 @@ export class MurekaService {
 
     let musicRecord: Music | null = null;
     try {
+      // FIX: Pass metadata object, which is now allowed by the updated addMusic method.
       musicRecord = await this.supabase.addMusic({
         title,
         style,
@@ -410,6 +421,7 @@ export class MurekaService {
 
     let musicRecord: Music | null = null;
     try {
+      // FIX: Pass metadata object, which is now allowed by the updated addMusic method.
       musicRecord = await this.supabase.addMusic({
         title,
         style,
@@ -483,6 +495,7 @@ export class MurekaService {
     let musicRecord: Music | null = null;
     try {
       // 1. Create a record in the database
+      // FIX: Pass metadata object, which is now allowed by the updated addMusic method.
       musicRecord = await this.supabase.addMusic({
         title,
         style: `Voz clonada, ${style}`,
@@ -579,6 +592,7 @@ export class MurekaService {
         throw new Error("Música original ou ID da tarefa não encontrado para extensão.");
     }
 
+    // FIX: Accessing queryPath is now safe due to the updated Music interface.
     const queryPath = originalMusic.metadata?.queryPath as 'song/query' | 'instrumental/query' | undefined;
     if (!queryPath) {
       throw new Error("Não foi possível determinar o tipo (música ou instrumental) da faixa original para estendê-la.");
@@ -586,6 +600,7 @@ export class MurekaService {
 
     let newMusicRecord: Music | null = null;
     try {
+        // FIX: Pass metadata object, which is now allowed by the updated addMusic method.
         newMusicRecord = await this.supabase.addMusic({
             title: `${originalMusic.title} (Estendida)`,
             style: originalMusic.style,
@@ -666,7 +681,8 @@ export class MurekaService {
     const executePoll = async () => {
       if (attempts >= maxAttempts) {
         console.log(`MurekaService: Polling for task ${taskId} timed out after ${maxAttempts} attempts.`);
-        await this.supabase.updateMusic(musicId, { status: 'failed', error: 'A geração demorou muito para responder (timeout).' });
+        const originalMusic = this.userMusic().find(m => m.id === musicId);
+        await this.supabase.updateMusic(musicId, { status: 'failed', metadata: { ...(originalMusic?.metadata || {}), error: 'A geração demorou muito para responder (timeout).' } });
         return;
       }
       
@@ -685,7 +701,8 @@ export class MurekaService {
       } catch (error) {
           console.error(`MurekaService: Error polling for task ${taskId}:`, error);
           const errorMessage = await this.getApiErrorMessage(error, 'Erro ao verificar o status da geração.');
-          await this.supabase.updateMusic(musicId, { status: 'failed', error: errorMessage });
+          const originalMusic = this.userMusic().find(m => m.id === musicId);
+          await this.supabase.updateMusic(musicId, { status: 'failed', metadata: { ...(originalMusic?.metadata || {}), error: errorMessage } });
       }
     };
     
@@ -706,22 +723,25 @@ export class MurekaService {
                 // Construct permanent URL for generated audio
                 finalUrl = `https://api.mureka.ai/v1/files/${fileId}/download`;
             }
+            // FIX: Pass metadata object, which is now allowed by the updated updateMusic method.
             updatedMusic = await this.supabase.updateMusic(musicId, { 
                 status: 'succeeded', 
                 audio_url: finalUrl,
                 metadata: { ...existingMetadata, file_id: fileId }
             });
         } else {
+            // FIX: Correctly update the music record with an error by passing a metadata object.
             updatedMusic = await this.supabase.updateMusic(musicId, { 
                 status: 'failed', 
-                error: 'A geração foi bem-sucedida, mas a Mureka não forneceu um URL de áudio.' 
+                metadata: { ...existingMetadata, error: 'A geração foi bem-sucedida, mas a Mureka não forneceu um URL de áudio.' } 
             });
         }
     } else {
         const reason = result.failed_reason || `A geração falhou com o status: ${result.status}`;
+        // FIX: Correctly update the music record with an error by passing a metadata object.
         updatedMusic = await this.supabase.updateMusic(musicId, { 
             status: 'failed', 
-            error: reason 
+            metadata: { ...existingMetadata, error: reason } 
         });
     }
 

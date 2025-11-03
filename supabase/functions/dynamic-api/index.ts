@@ -115,6 +115,192 @@ const handleGetCheckoutSession = async (stripe: Stripe, body: any) => {
   });
 };
 
+// Mapeamento dos planos baseado na sua lista
+const getCreditsFromPriceId = async (priceId: string, quantity: number): Promise<number> => {
+  // Definição dos planos baseado no JSON que você forneceu
+  const plans = [
+    { id: "1", price_id: "price_1SFr8GEaMssn2zemQADq2BjG", credits: 60, name: "Básico" },
+    { id: "2", price_id: "price_1SFr8mEaMssn2zemIlFlxF7z", credits: 100, name: "Intermediário" },
+    { id: "3", price_id: "price_1SFr8VEaMssn2zemOfkVwP5W", credits: 220, name: "Avançado" },
+    { id: "4", price_id: "price_1SLB0TEaMssn2zem6SYUuG0v", credits: 530, name: "Premium" },
+    { id: "5", price_id: "price_1SLB0qEaMssn2zemmnjCeIyD", credits: 1500, name: "Empresarial" }
+  ];
+
+  const plan = plans.find(p => p.price_id === priceId);
+  
+  if (!plan) {
+    console.error(`PriceId não encontrado: ${priceId}`);
+    return 0;
+  }
+
+  console.log(`Plano identificado: ${plan.name} - ${plan.credits} créditos`);
+  return plan.credits * quantity;
+};
+
+// Função para adicionar créditos ao usuário (usando Supabase)
+const addCreditsToUser = async (userId: string, credits: number): Promise<void> => {
+  try {
+    // Importar o cliente Supabase
+    const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2');
+    
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || Deno.env.get('SUPABASE_ANON_KEY');
+    
+    if (!supabaseUrl || !supabaseKey) {
+      throw new Error('Variáveis de ambiente do Supabase não configuradas.');
+    }
+
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    // Buscar créditos atuais do usuário
+    const { data: userData, error: fetchError } = await supabase
+      .from('users')
+      .select('credits')
+      .eq('id', userId)
+      .single();
+
+    if (fetchError) {
+      throw new Error(`Erro ao buscar usuário: ${fetchError.message}`);
+    }
+
+    const currentCredits = userData?.credits || 0;
+    const newCredits = currentCredits + credits;
+
+    // Atualizar créditos do usuário
+    const { error: updateError } = await supabase
+      .from('users')
+      .update({ 
+        credits: newCredits,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', userId);
+
+    if (updateError) {
+      throw new Error(`Erro ao atualizar créditos: ${updateError.message}`);
+    }
+
+    // Registrar a transação (opcional, mas recomendado)
+    const { error: transactionError } = await supabase
+      .from('credit_transactions')
+      .insert({
+        user_id: userId,
+        type: 'purchase',
+        amount: credits,
+        description: `Compra de ${credits} créditos`,
+        created_at: new Date().toISOString()
+      });
+
+    if (transactionError) {
+      console.warn('Erro ao registrar transação (não crítico):', transactionError.message);
+    }
+
+    console.log(`✅ Créditos atualizados: Usuário ${userId} - De ${currentCredits} para ${newCredits} créditos`);
+
+  } catch (error) {
+    console.error('Erro em addCreditsToUser:', error);
+    throw error;
+  }
+};
+
+const handleProcessCredits = async (stripe: Stripe, body: any) => {
+  const { sessionId, userId } = body;
+
+  if (!sessionId || !userId) {
+    throw new Error('Parâmetros obrigatórios ausentes: sessionId, userId.');
+  }
+
+  // Recupera a sessão do Stripe
+  const session = await stripe.checkout.sessions.retrieve(sessionId, {
+    expand: ['line_items', 'payment_intent']
+  });
+
+  // Verifica se o pagamento foi bem-sucedido
+  if (session.payment_status !== 'paid') {
+    throw new Error('Pagamento não foi concluído com sucesso.');
+  }
+
+  // Recupera informações do preço/produto
+  const priceId = session.line_items?.data[0]?.price?.id;
+  const quantity = session.line_items?.data[0]?.quantity || 1;
+
+  if (!priceId) {
+    throw new Error('Não foi possível identificar o produto comprado.');
+  }
+
+  // Busca os créditos baseado no priceId usando sua lista de planos
+  const creditsToAdd = await getCreditsFromPriceId(priceId, quantity);
+  
+  if (creditsToAdd === 0) {
+    throw new Error(`PriceId não encontrado ou plano não configurado: ${priceId}`);
+  }
+
+  // Adiciona créditos ao usuário
+  await addCreditsToUser(userId, creditsToAdd);
+
+  return new Response(JSON.stringify({ 
+    success: true, 
+    creditsAdded: creditsToAdd,
+    message: `✅ ${creditsToAdd} créditos adicionados com sucesso!` 
+  }), {
+    status: 200,
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  });
+};
+
+const handleStripeWebhook = async (stripe: Stripe, req: Request) => {
+  const signature = req.headers.get('stripe-signature');
+  if (!signature) {
+    throw new Error('Assinatura do webhook não encontrada.');
+  }
+
+  const webhookSecret = Deno.env.get('STRIPE_WEBHOOK_SECRET');
+  if (!webhookSecret) {
+    throw new Error('STRIPE_WEBHOOK_SECRET não configurado.');
+  }
+
+  const payload = await req.text();
+  
+  try {
+    const event = stripe.webhooks.constructEvent(payload, signature, webhookSecret);
+    console.log(`Evento do webhook recebido: ${event.type}`);
+
+    if (event.type === 'checkout.session.completed') {
+      const session = event.data.object as Stripe.Checkout.Session;
+      
+      // Processa créditos para pagamentos únicos (packs de créditos)
+      if (session.mode === 'payment' && session.payment_status === 'paid') {
+        const userId = session.client_reference_id;
+        const sessionId = session.id;
+
+        if (userId) {
+          console.log(`Processando créditos para usuário: ${userId}, sessão: ${sessionId}`);
+          
+          // Chama a função de processamento de créditos
+          await handleProcessCredits(stripe, { sessionId, userId });
+          console.log(`✅ Créditos processados com sucesso para usuário: ${userId}`);
+        } else {
+          console.warn('UserId não encontrado na sessão:', sessionId);
+        }
+      }
+      
+      // Para subscriptions, você pode adicionar lógica similar aqui
+      if (session.mode === 'subscription' && session.payment_status === 'paid') {
+        console.log('Subscription criada - adicione lógica para subscriptions se necessário');
+      }
+    }
+
+    return new Response(JSON.stringify({ received: true }), {
+      status: 200,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  } catch (err) {
+    console.error(`❌ Erro no webhook: ${err.message}`);
+    return new Response(JSON.stringify({ error: `Webhook Error: ${err.message}` }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+};
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -138,6 +324,19 @@ serve(async (req) => {
 
     console.log('Stripe Proxy: Chave secreta carregada (terminando em ...' + stripeSecretKey.slice(-4) + ').');
 
+    // Verifica se é um webhook do Stripe
+    const isWebhook = req.headers.get('stripe-signature') !== null;
+    
+    if (isWebhook) {
+      const stripe = new Stripe(stripeSecretKey, {
+        // @ts-ignore
+        httpClient: Stripe.createFetchHttpClient(),
+        apiVersion: '2024-06-20',
+      });
+      return await handleStripeWebhook(stripe, req);
+    }
+
+    // Processa requisições normais da API
     const { action, ...body } = await req.json();
 
     const stripe = new Stripe(stripeSecretKey, {
@@ -155,6 +354,8 @@ serve(async (req) => {
         return await handleCreateBillingPortalSession(stripe, siteUrl, body);
       case 'get_checkout_session':
         return await handleGetCheckoutSession(stripe, body);
+      case 'process_credits':
+        return await handleProcessCredits(stripe, body);
       default:
         return new Response(JSON.stringify({ error: 'Ação inválida ou não especificada.' }), {
           status: 400,

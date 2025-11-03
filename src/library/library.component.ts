@@ -160,6 +160,7 @@ export class LibraryComponent implements OnDestroy {
     if (!music.task_id) return;
 
     // FIX: Retrieve the correct query path from music metadata. Default to 'song/query' for backward compatibility.
+    // This is now safe because the Music interface's metadata property is flexible.
     const queryPath = (music.metadata?.queryPath as 'song/query' | 'instrumental/query' | 'voice_clone/query') || 'song/query';
     
     try {
@@ -181,21 +182,22 @@ export class LibraryComponent implements OnDestroy {
             const updatedMusic = await this.supabase.updateMusic(music.id, { 
               status: 'succeeded', 
               audio_url: finalUrl,
-              metadata: { ...music.metadata, file_id: fileId }
+              // FIX: Pass metadata object, which is now allowed by the updated updateMusic method.
+              metadata: { ...(music.metadata || {}), file_id: fileId }
             });
             if (updatedMusic) {
               this.userMusic.update(musics => musics.map(m => m.id === music.id ? updatedMusic : m));
             }
           } else {
             const error = 'Geração bem-sucedida, mas a Mureka não forneceu um URL de áudio.';
-            const updatedMusic = await this.supabase.updateMusic(music.id, { status: 'failed', error: error });
+            const updatedMusic = await this.supabase.updateMusic(music.id, { status: 'failed', metadata: { ...(music.metadata || {}), error: error } });
               if (updatedMusic) {
               this.userMusic.update(musics => musics.map(m => m.id === music.id ? updatedMusic : m));
             }
           }
         } else { // failed, timeouted, cancelled
           const reason = result.failed_reason || `Geração falhou com status: ${result.status}`;
-          const updatedMusic = await this.supabase.updateMusic(music.id, { status: 'failed', error: reason });
+          const updatedMusic = await this.supabase.updateMusic(music.id, { status: 'failed', metadata: { ...(music.metadata || {}), error: reason } });
           if (updatedMusic) {
             this.userMusic.update(musics => musics.map(m => m.id === music.id ? updatedMusic : m));
           }
@@ -204,7 +206,11 @@ export class LibraryComponent implements OnDestroy {
     } catch (error: any) {
         console.error(`Library: Failed to check status for task ${music.task_id}`, error);
         // Se a consulta falhar, atualiza a música para o status 'failed' para interromper futuras tentativas.
-        const updatedMusic = await this.supabase.updateMusic(music.id, { status: 'failed', error: error.message || 'Falha ao buscar atualização.' });
+        // FIX: Correctly update the music record with an error by passing a metadata object.
+        const updatedMusic = await this.supabase.updateMusic(music.id, { 
+          status: 'failed', 
+          metadata: { ...(music.metadata || {}), error: error.message || 'Falha ao buscar atualização.' } 
+        });
         if (updatedMusic) {
             this.userMusic.update(musics => musics.map(m => m.id === music.id ? updatedMusic : m));
         }

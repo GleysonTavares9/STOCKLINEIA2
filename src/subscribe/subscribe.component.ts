@@ -1,4 +1,4 @@
-import { Component, ChangeDetectionStrategy, signal, inject, computed, OnInit } from '@angular/core';
+import { Component, ChangeDetectionStrategy, signal, inject, computed, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { SupabaseService, Plan } from '../services/supabase.service';
 import { Router } from '@angular/router';
@@ -14,7 +14,7 @@ declare var Stripe: any;
   templateUrl: './subscribe.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class SubscribeComponent implements OnInit {
+export class SubscribeComponent implements OnInit, OnDestroy {
   private readonly supabase = inject(SupabaseService);
   private readonly router = inject(Router);
 
@@ -22,6 +22,7 @@ export class SubscribeComponent implements OnInit {
   isLoading = signal<string | null>(null); // Plan ID for purchase button
   purchaseError = signal<string | null>(null);
   isLoadingPlans = signal<boolean>(true); // For initial
+  isProcessingPayment = signal<boolean>(false); // Para processamento de retorno
   
   plans = signal<Plan[]>([]);
   currentUser = this.supabase.currentUser;
@@ -79,6 +80,12 @@ export class SubscribeComponent implements OnInit {
     }
 
     this.loadPlans();
+    this.checkForPaymentReturn(); // Verifica se há retorno de pagamento
+  }
+
+  ngOnDestroy(): void {
+    // Limpa qualquer estado de processamento quando o componente é destruído
+    this.isProcessingPayment.set(false);
   }
 
   isSecurityError(): boolean {
@@ -212,11 +219,7 @@ export class SubscribeComponent implements OnInit {
     this.isLoading.set(plan.id);
     this.purchaseError.set(null);
 
-    // A criação da sessão de checkout do Stripe é feita através da Edge Function 'dynamic-api'.
-    // Isso é crucial para a segurança, pois permite que a chave secreta do Stripe (STRIPE_SECRET_KEY)
-    // seja usada apenas no lado do servidor, sem nunca ser exposta no navegador do cliente.
     try {
-      const stripe = Stripe(environment.stripePublishableKey);
       const profile = this.currentUserProfile();
       
       const { data, error: callError } = await this.supabase.invokeFunction('dynamic-api', {
@@ -226,18 +229,17 @@ export class SubscribeComponent implements OnInit {
             userId: this.currentUser()!.id,
             userEmail: this.currentUser()!.email,
             isCreditPack: plan.is_credit_pack,
-            customerId: profile?.stripe_customer_id || null, // Passa o ID do cliente se existir
+            customerId: profile?.stripe_customer_id || null,
           }
         });
 
       if (callError) {
-        throw callError; // Lança o objeto de erro completo para ser analisado
+        throw callError;
       }
 
       if (data?.session?.url) {
-        window.location.href = data.session.url; // Redireciona para o Checkout do Stripe
+        window.location.href = data.session.url;
       } else {
-        // Isso pode acontecer se a função retornar 200, mas com uma mensagem de erro interna (que agora é tratada pelo getPurchaseErrorMessage)
         throw new Error(data?.error || 'Não foi possível iniciar a sessão de checkout do Stripe.');
       }
 
@@ -246,6 +248,117 @@ export class SubscribeComponent implements OnInit {
       this.purchaseError.set(await this.getPurchaseErrorMessage(error));
     } finally {
       this.isLoading.set(null);
+    }
+  }
+
+  // NOVAS FUNÇÕES PARA PROCESSAMENTO DE CRÉDITOS
+
+  /**
+   * Verifica se há um retorno de pagamento na URL
+   */
+  private checkForPaymentReturn(): void {
+    const urlParams = new URLSearchParams(window.location.hash.split('?')[1]);
+    const status = urlParams.get('status');
+    const sessionId = urlParams.get('session_id');
+
+    if (status === 'success' && sessionId) {
+      this.handleSuccessfulPayment(sessionId);
+    } else if (status === 'cancelled') {
+      this.purchaseError.set('Pagamento cancelado. Você pode tentar novamente quando quiser.');
+    }
+  }
+
+  /**
+   * Processa um pagamento bem-sucedido
+   */
+  private async handleSuccessfulPayment(sessionId: string): Promise<void> {
+    if (!this.currentUser()) {
+      this.purchaseError.set('Usuário não autenticado. Faça login para processar seu pagamento.');
+      return;
+    }
+
+    this.isProcessingPayment.set(true);
+    this.purchaseError.set(null);
+
+    try {
+      console.log('Processando pagamento bem-sucedido...', sessionId);
+      
+      // Chama a Edge Function para processar os créditos
+      const { data, error } = await this.supabase.invokeFunction('dynamic-api', {
+        body: {
+          action: 'process_credits',
+          sessionId: sessionId,
+          userId: this.currentUser()!.id
+        }
+      });
+
+      if (error) {
+        throw new Error(`Erro ao processar créditos: ${error.message}`);
+      }
+
+      if (data?.success) {
+        console.log(`✅ ${data.creditsAdded} créditos adicionados com sucesso!`);
+        
+        // Atualiza o perfil local para refletir os novos créditos
+        // Fix: Replaced non-existent `refreshUserProfile` with `fetchUserProfile` and provided the required user ID.
+        await this.supabase.fetchUserProfile(this.currentUser()!.id);
+        
+        // Redireciona para a biblioteca com mensagem de sucesso
+        this.router.navigate(['/library'], { 
+          state: { 
+            paymentSuccess: true,
+            creditsAdded: data.creditsAdded,
+            message: data.message 
+          }
+        });
+      } else {
+        throw new Error(data?.error || 'Falha ao processar créditos.');
+      }
+
+    } catch (error: any) {
+      console.error('Erro ao processar pagamento:', error);
+      this.purchaseError.set(error.message || 'Erro ao processar seu pagamento. Seus créditos serão adicionados em breve.');
+      
+      // Mesmo com erro, redireciona para a biblioteca após um tempo
+      setTimeout(() => {
+        this.router.navigate(['/library']);
+      }, 5000);
+    } finally {
+      this.isProcessingPayment.set(false);
+    }
+  }
+
+  /**
+   * Processa créditos manualmente (para casos onde o processamento automático falhou)
+   */
+  async retryCreditProcessing(sessionId: string): Promise<void> {
+    if (!this.currentUser()) return;
+
+    this.isProcessingPayment.set(true);
+    try {
+      const { data, error } = await this.supabase.invokeFunction('dynamic-api', {
+        body: {
+          action: 'process_credits',
+          sessionId: sessionId,
+          userId: this.currentUser()!.id
+        }
+      });
+
+      if (error) throw error;
+
+      if (data?.success) {
+        // Fix: Replaced non-existent `refreshUserProfile` with `fetchUserProfile` and provided the required user ID.
+        await this.supabase.fetchUserProfile(this.currentUser()!.id);
+        this.purchaseError.set(null);
+        console.log('✅ Créditos processados com sucesso!');
+      } else {
+        throw new Error(data?.error || 'Falha ao processar créditos.');
+      }
+    } catch (error: any) {
+      console.error('Erro ao reprocessar créditos:', error);
+      this.purchaseError.set(error.message);
+    } finally {
+      this.isProcessingPayment.set(false);
     }
   }
 }

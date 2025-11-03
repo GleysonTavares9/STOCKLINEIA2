@@ -78,7 +78,7 @@
                 </div>
 
                 <div class="text-xs text-zinc-500 mt-3 pt-3 border-t border-zinc-800 flex justify-between items-center">
-                   <span>{{ maskEmail(song.user_email) }}</span>
+                   <span>{{ maskEmail(song.user_email, song.user_display_name) }}</span>
                 </div>
               </div>
             </div>
@@ -170,7 +170,7 @@
                   </div>
 
                   <div class="text-xs text-zinc-500 mt-3 pt-3 border-t border-zinc-800 flex justify-between items-center">
-                     <span>{{ maskEmail(song.user_email) }}</span>
+                     <span>{{ maskEmail(song.user_email, song.user_display_name) }}</span>
                   </div>
                 </div>
               </div>
