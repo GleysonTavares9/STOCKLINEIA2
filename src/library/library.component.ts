@@ -30,6 +30,7 @@ export class LibraryComponent implements OnDestroy {
   isDeleting = signal<string | null>(null); // store id of music being deleted
   isClearing = signal(false);
   isTogglingVisibility = signal<string | null>(null); // For visibility toggle loading state
+  musicPendingDeletion = signal<string | null>(null); // Para confirmação de exclusão
 
   purchaseStatus = signal<'success' | 'cancelled' | 'error' | null>(null);
   purchaseStatusMessage = signal<string | null>(null);
@@ -262,11 +263,20 @@ export class LibraryComponent implements OnDestroy {
     }
   }
 
-  async deleteMusic(musicId: string): Promise<void> {
+  requestDelete(musicId: string): void {
+    this.musicPendingDeletion.set(musicId);
+  }
+
+  cancelDelete(): void {
+    this.musicPendingDeletion.set(null);
+  }
+
+  async confirmDelete(musicId: string): Promise<void> {
     this.isDeleting.set(musicId);
     this.deleteError.set(null);
     try {
       await this.murekaService.deleteMusic(musicId);
+      this.musicPendingDeletion.set(null);
     } catch (error: any) {
       this.deleteError.set(error.message || 'Falha ao apagar a música.');
     } finally {
