@@ -67,7 +67,7 @@ export class MurekaService {
       
       const { data, error: proxyError } = await this.supabase.invokeFunction('mureka-proxy', {
         body: {
-          murekaApiPath: 'files/upload',
+          murekaApiPath: 'v1/files/upload',
           method: 'POST',
           isFileUpload: true,
           requestBody: {
@@ -133,7 +133,7 @@ export class MurekaService {
     }
 
     let musicRecord: Music | null = null;
-    const queryPath = isInstrumental ? 'instrumental/query' : 'song/query';
+    const queryPath = isInstrumental ? 'v1/instrumental/query' : 'v1/song/query';
 
     try {
       musicRecord = await this.supabase.addMusic({
@@ -152,19 +152,20 @@ export class MurekaService {
       const finalMusicRecord = musicRecord;
       this.userMusic.update(current => [finalMusicRecord, ...current]);
 
-      // FIX: The 'song/remix' endpoint does not exist and was causing a 404 error.
-      // The correct endpoint for generating a song with vocals, even when using a reference audio,
-      // is 'song/generate'. The Mureka API will use the 'audio_url' as a style reference.
-      const apiPath = isInstrumental ? 'instrumental/remix' : 'song/generate';
+      // Usar endpoints corretos da API Mureka v1
+      const apiPath = isInstrumental ? 'v1/instrumental/generate' : 'v1/song/generate';
       const requestBody: any = {
         audio_url: youtubeUrl,
         prompt: prompt,
         model: 'auto',
         n: 1,
       };
+      
       if (!isInstrumental) {
         requestBody.lyrics = lyrics;
       }
+
+      console.log('MurekaService: Enviando requisição para:', apiPath, requestBody);
 
       const { data, error: proxyError } = await this.supabase.invokeFunction('mureka-proxy', {
         body: {
@@ -177,12 +178,13 @@ export class MurekaService {
       if (proxyError) throw proxyError;
       if (data?.error) throw data;
 
+      console.log('MurekaService: Resposta da geração:', data);
+
       await this.supabase.consumeCredits(user.id, 1, `Criação por YouTube: "${title}"`, musicRecord.id);
 
       const taskId = data.id;
       
-      // FIX: Update metadata to reflect the correct processing method based on the endpoint used.
-      const processingMethod = isInstrumental ? 'remix_from_youtube' : 'generate_from_youtube';
+      const processingMethod = isInstrumental ? 'generation_from_youtube' : 'generation_from_youtube';
 
       const updatedRecord = await this.supabase.updateMusic(finalMusicRecord.id, { 
         mureka_id: taskId,
@@ -226,7 +228,7 @@ export class MurekaService {
       try {
         const { data: describeData, error: describeError } = await this.supabase.invokeFunction('mureka-proxy', {
           body: {
-            murekaApiPath: 'song/describe',
+            murekaApiPath: 'v1/song/describe',
             method: 'POST',
             requestBody: {
               file_id: fileId
@@ -248,10 +250,10 @@ export class MurekaService {
         console.warn('MurekaService: Não foi possível analisar o áudio:', describeError);
       }
 
-      // Now, generate music from the uploaded file
+      // Gerar música a partir do arquivo uploadado usando generate
       const { data, error: proxyError } = await this.supabase.invokeFunction('mureka-proxy', {
         body: {
-          murekaApiPath: 'instrumental/remix',
+          murekaApiPath: 'v1/instrumental/generate',
           method: 'POST',
           requestBody: {
             file_id: fileId,
@@ -273,7 +275,7 @@ export class MurekaService {
         mureka_id: taskId,
         metadata: {
           ...existingMetadata,
-          queryPath: 'instrumental/query',
+          queryPath: 'v1/instrumental/query',
           processing_method: 'generation_from_upload'
         }
       });
@@ -282,7 +284,7 @@ export class MurekaService {
         this.userMusic.update(music => music.map(s => s.id === musicId ? updatedRecord : s));
       }
 
-      this.pollForResult(musicId, taskId, 'instrumental/query');
+      this.pollForResult(musicId, taskId, 'v1/instrumental/query');
 
     } catch (error) {
       console.error('MurekaService: Erro ao processar áudio uploadado para geração:', error);
@@ -345,7 +347,7 @@ export class MurekaService {
         lyrics,
         status: 'processing',
         is_public: isPublic,
-        metadata: { queryPath: 'song/query' }
+        metadata: { queryPath: 'v1/song/query' }
       });
 
       if (!musicRecord) {
@@ -365,9 +367,11 @@ export class MurekaService {
         murekaRequestBody.lyrics = lyrics;
       }
 
+      console.log('MurekaService: Gerando música com:', murekaRequestBody);
+
       const { data, error: proxyError } = await this.supabase.invokeFunction('mureka-proxy', {
           body: {
-              murekaApiPath: 'song/generate',
+              murekaApiPath: 'v1/song/generate',
               method: 'POST',
               requestBody: murekaRequestBody,
           }
@@ -384,7 +388,7 @@ export class MurekaService {
       if (updatedRecord) {
         this.userMusic.update(music => music.map(s => s.id === finalMusicRecord.id ? updatedRecord : s));
       }
-      this.pollForResult(finalMusicRecord.id, taskId, 'song/query');
+      this.pollForResult(finalMusicRecord.id, taskId, 'v1/song/query');
 
     } catch (error) {
       console.error('MurekaService: Erro ao iniciar a geração da música:', error);
@@ -410,7 +414,7 @@ export class MurekaService {
         lyrics: '',
         status: 'processing',
         is_public: isPublic,
-        metadata: { queryPath: 'instrumental/query' }
+        metadata: { queryPath: 'v1/instrumental/query' }
       });
 
       if (!musicRecord) {
@@ -426,9 +430,11 @@ export class MurekaService {
         n: 1,
       };
 
+      console.log('MurekaService: Gerando instrumental com:', murekaRequestBody);
+
       const { data, error: proxyError } = await this.supabase.invokeFunction('mureka-proxy', {
           body: {
-              murekaApiPath: 'instrumental/generate',
+              murekaApiPath: 'v1/instrumental/generate',
               method: 'POST',
               requestBody: murekaRequestBody,
           }
@@ -445,7 +451,7 @@ export class MurekaService {
       if (updatedRecord) {
         this.userMusic.update(music => music.map(s => s.id === finalMusicRecord.id ? updatedRecord : s));
       }
-      this.pollForResult(finalMusicRecord.id, taskId, 'instrumental/query');
+      this.pollForResult(finalMusicRecord.id, taskId, 'v1/instrumental/query');
 
     } catch (error) {
       console.error('MurekaService: Erro ao iniciar a geração do instrumental:', error);
@@ -471,7 +477,7 @@ export class MurekaService {
         lyrics,
         status: 'processing',
         is_public: isPublic,
-        metadata: { queryPath: 'voice_clone/query', type: 'voice_clone' }
+        metadata: { queryPath: 'v1/voice_clone/query', type: 'voice_clone' }
       });
 
       if (!musicRecord) throw new Error('Falha ao criar o registro da música.');
@@ -482,7 +488,7 @@ export class MurekaService {
       const fileContent = await this.fileToBase64(voiceSampleFile);
       const { data: uploadData, error: uploadError } = await this.supabase.invokeFunction('mureka-proxy', {
         body: {
-          murekaApiPath: 'files/upload',
+          murekaApiPath: 'v1/files/upload',
           method: 'POST',
           isFileUpload: true,
           requestBody: {
@@ -500,7 +506,7 @@ export class MurekaService {
 
       const { data, error: proxyError } = await this.supabase.invokeFunction('mureka-proxy', {
         body: {
-          murekaApiPath: 'voice_clone/generate',
+          murekaApiPath: 'v1/voice_clone/generate',
           method: 'POST',
           requestBody: { file_id: fileId, lyrics: lyrics, prompt: style, model: 'auto', n: 1 },
         }
@@ -516,7 +522,7 @@ export class MurekaService {
       const updatedRecord = await this.supabase.updateMusic(finalMusicRecord.id, { mureka_id: taskId });
       if (updatedRecord) this.userMusic.update(music => music.map(s => s.id === finalMusicRecord.id ? updatedRecord : s));
 
-      this.pollForResult(finalMusicRecord.id, taskId, 'voice_clone/query');
+      this.pollForResult(finalMusicRecord.id, taskId, 'v1/voice_clone/query');
 
     } catch (error) {
       const errorMessage = await this.getApiErrorMessage(error, 'Ocorreu um erro ao clonar a voz.');
@@ -533,11 +539,12 @@ export class MurekaService {
     }
     
     const originalMusic = this.userMusic().find(m => m.id === originalMusicId);
+    // FIX: Use 'task_id' instead of 'mureka_id' to match the Music interface.
     if (!originalMusic || !originalMusic.task_id) {
-        throw new Error("Música original ou ID da tarefa não encontrado para extensão.");
+        throw new Error("Música original ou ID da tarefa Mureka não encontrado para extensão.");
     }
 
-    const queryPath = originalMusic.metadata?.queryPath as 'song/query' | 'instrumental/query' | undefined;
+    const queryPath = originalMusic.metadata?.queryPath as 'v1/song/query' | 'v1/instrumental/query' | 'v1/voice_clone/query' | undefined;
     if (!queryPath) {
       throw new Error("Não foi possível determinar o tipo da faixa original para estendê-la.");
     }
@@ -547,10 +554,15 @@ export class MurekaService {
         newMusicRecord = await this.supabase.addMusic({
             title: `${originalMusic.title} (Estendida)`,
             style: originalMusic.style,
+            // FIX: Use 'description' instead of 'lyrics' to match the Music interface.
             lyrics: originalMusic.description,
             status: 'processing',
             is_public: originalMusic.is_public ?? false,
-            metadata: { original_music_id: originalMusic.id, queryPath: queryPath }
+            metadata: { 
+              original_music_id: originalMusic.id, 
+              queryPath: queryPath,
+              processing_method: 'extended'
+            }
         });
 
         if (!newMusicRecord) throw new Error('Falha ao criar o registro para a música estendida.');
@@ -563,6 +575,7 @@ export class MurekaService {
             body: {
                 murekaApiPath: extendPath,
                 method: 'POST',
+                // FIX: Use 'task_id' instead of 'mureka_id' to match the Music interface.
                 requestBody: { id: originalMusic.task_id, duration: durationInSeconds },
             }
         });
@@ -583,6 +596,7 @@ export class MurekaService {
         await this.handleGenerationError(error, newMusicRecord, { 
             title: `${originalMusic.title} (Estendida)`, 
             style: originalMusic.style, 
+            // FIX: Use 'description' instead of 'lyrics' to match the Music interface.
             lyrics: originalMusic.description, 
             errorMessage, 
             is_public: originalMusic.is_public ?? false 
@@ -593,7 +607,7 @@ export class MurekaService {
 
   // ========== POLLING & STATUS ==========
 
-  async queryMusicStatus(taskId: string, queryPath: 'song/query' | 'instrumental/query' | 'voice_clone/query' = 'song/query'): Promise<MurekaQueryResponse> {
+  async queryMusicStatus(taskId: string, queryPath: 'v1/song/query' | 'v1/instrumental/query' | 'v1/voice_clone/query' = 'v1/song/query'): Promise<MurekaQueryResponse> {
     const { data, error: proxyError } = await this.supabase.invokeFunction('mureka-proxy', {
         body: {
             murekaApiPath: `${queryPath}/${taskId}`,
@@ -607,7 +621,7 @@ export class MurekaService {
     return data as MurekaQueryResponse;
   }
   
-  private pollForResult(musicId: string, taskId: string, queryPath: 'song/query' | 'instrumental/query' | 'voice_clone/query'): void {
+  private pollForResult(musicId: string, taskId: string, queryPath: 'v1/song/query' | 'v1/instrumental/query' | 'v1/voice_clone/query'): void {
     const interval = 10000; // 10 seconds
     const maxAttempts = 60; // 10 minutes max
     let attempts = 0;
@@ -650,16 +664,23 @@ export class MurekaService {
 
     if (result.status === 'succeeded') {
         const audioUrl = result.choices?.[0]?.url;
+        const flacUrl = result.choices?.[0]?.flac_url;
         const fileId = result.file_id;
-        if (audioUrl) {
-            let finalUrl = audioUrl;
+        
+        if (audioUrl || flacUrl) {
+            let finalUrl = flacUrl || audioUrl;
             if (fileId) {
                 finalUrl = `https://api.mureka.ai/v1/files/${fileId}/download`;
             }
             updatedMusic = await this.supabase.updateMusic(musicId, { 
                 status: 'succeeded', 
                 audio_url: finalUrl,
-                metadata: { ...existingMetadata, file_id: fileId }
+                metadata: { 
+                  ...existingMetadata, 
+                  file_id: fileId,
+                  duration: result.choices?.[0]?.duration,
+                  mureka_choice_id: result.choices?.[0]?.id
+                }
             });
         } else {
             updatedMusic = await this.supabase.updateMusic(musicId, { 
@@ -735,6 +756,11 @@ export class MurekaService {
 
     if (error?.message?.includes('Supabase client not initialized')) {
         finalMessage = 'O Supabase não está configurado. Verifique as credenciais.';
+    }
+
+    // Verificar se é um erro 404 específico de endpoint
+    if (finalMessage.includes('404') && finalMessage.includes('page not found')) {
+        finalMessage = 'Endpoint da API Mureka não encontrado. Verifique se o caminho da API está correto.';
     }
 
     let bodyToParse: any = null;

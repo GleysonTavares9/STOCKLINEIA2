@@ -26,6 +26,7 @@ export interface Profile {
   display_name?: string;
   credits: number;
   stripe_customer_id?: string | null;
+  has_advanced_features?: boolean;
 }
 
 export interface Plan {

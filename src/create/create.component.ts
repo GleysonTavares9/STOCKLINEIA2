@@ -77,6 +77,14 @@ export class CreateComponent {
   lyricsCharCount = computed(() => this.lyrics().length);
   isLyricsTooLong = computed(() => this.lyricsCharCount() > this.lyricsCharLimit);
 
+  // Computed property to check for advanced features based on user profile
+  hasAdvancedFeatures = computed(() => {
+    // A user has advanced features if they have a Stripe customer ID,
+    // which implies they have an active subscription plan (e.g., Intermediário or higher).
+    // This avoids querying a DB column that might not exist.
+    return !!this.currentUserProfile()?.stripe_customer_id;
+  });
+
   // Computed signal to enable/disable the "Gerar Letra com IA" button
   canGenerateLyrics = computed(() => {
     // If Gemini is not configured, disable

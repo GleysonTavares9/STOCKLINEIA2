@@ -182,7 +182,8 @@ export class LibraryComponent implements OnDestroy {
 
     // FIX: Retrieve the correct query path from music metadata. Default to 'song/query' for backward compatibility.
     // This is now safe because the Music interface's metadata property is flexible.
-    const queryPath = (music.metadata?.queryPath as 'song/query' | 'instrumental/query' | 'voice_clone/query') || 'song/query';
+    // FIX: Corrected the type assertion to include the 'v1/' prefix, matching the service method's expected parameter type.
+    const queryPath = (music.metadata?.queryPath as 'v1/song/query' | 'v1/instrumental/query' | 'v1/voice_clone/query') || 'v1/song/query';
     
     try {
       // FIX: Pass the correct queryPath to the status check.
