@@ -52,6 +52,13 @@ export class AppComponent {
     return 'bg-teal-500';
   });
 
+  isCreateActive = computed(() => this.router.isActive('/create', {
+    paths: 'exact',
+    queryParams: 'subset',
+    fragment: 'ignored',
+    matrixParams: 'ignored'
+  }));
+
   constructor() {
     // Centralized effect to handle routing based on authentication state.
     // This is the single source of truth for auth-based navigation.
