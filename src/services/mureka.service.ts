@@ -152,7 +152,10 @@ export class MurekaService {
       const finalMusicRecord = musicRecord;
       this.userMusic.update(current => [finalMusicRecord, ...current]);
 
-      const apiPath = isInstrumental ? 'instrumental/remix' : 'song/remix';
+      // FIX: The 'song/remix' endpoint does not exist and was causing a 404 error.
+      // The correct endpoint for generating a song with vocals, even when using a reference audio,
+      // is 'song/generate'. The Mureka API will use the 'audio_url' as a style reference.
+      const apiPath = isInstrumental ? 'instrumental/remix' : 'song/generate';
       const requestBody: any = {
         audio_url: youtubeUrl,
         prompt: prompt,
@@ -178,11 +181,14 @@ export class MurekaService {
 
       const taskId = data.id;
       
+      // FIX: Update metadata to reflect the correct processing method based on the endpoint used.
+      const processingMethod = isInstrumental ? 'remix_from_youtube' : 'generate_from_youtube';
+
       const updatedRecord = await this.supabase.updateMusic(finalMusicRecord.id, { 
         mureka_id: taskId,
         metadata: {
           ...(finalMusicRecord.metadata || {}),
-          processing_method: 'remix_based'
+          processing_method: processingMethod
         }
       });
       
