@@ -60,8 +60,6 @@ export class MurekaService {
         throw new Error('Falha ao criar registro da música.');
       }
 
-      await this.supabase.consumeCredits(user.id, 1, `Criação por upload: "${title}"`, musicRecord.id);
-
       const finalMusicRecord = musicRecord;
       this.userMusic.update(current => [finalMusicRecord, ...current]);
 
@@ -142,9 +140,7 @@ export class MurekaService {
       if (!musicRecord) {
         throw new Error('Falha ao criar registro da música.');
       }
-
-      await this.supabase.consumeCredits(user.id, 1, `Criação por YouTube: "${title}"`, musicRecord.id);
-
+      
       const finalMusicRecord = musicRecord;
       this.userMusic.update(current => [finalMusicRecord, ...current]);
 
@@ -163,6 +159,8 @@ export class MurekaService {
 
       if (proxyError) throw proxyError;
       if (data?.error) throw data;
+
+      await this.supabase.consumeCredits(user.id, 1, `Criação por YouTube: "${title}"`, musicRecord.id);
 
       const taskId = data.id;
       
@@ -198,6 +196,9 @@ export class MurekaService {
 
   private async processUploadedAudio(musicId: string, fileId: string, title: string, description?: string): Promise<void> {
     const originalRecord = this.userMusic().find(m => m.id === musicId);
+    const user = this.supabase.currentUser();
+    if (!user) throw new Error("Usuário se desconectou durante o processamento.");
+    
     try {
       const existingMetadata = originalRecord?.metadata || {};
 
@@ -243,6 +244,8 @@ export class MurekaService {
 
       if (proxyError) throw proxyError;
       if (data?.error) throw data;
+
+      await this.supabase.consumeCredits(user.id, 1, `Criação por upload: "${title}"`, musicId);
 
       const taskId = data.id;
       
@@ -329,8 +332,6 @@ export class MurekaService {
         throw new Error('Falha ao criar o registro da música no banco de dados.');
       }
 
-      await this.supabase.consumeCredits(user.id, 1, `Criação de música: "${title}"`, musicRecord.id);
-      
       const finalMusicRecord = musicRecord;
       this.userMusic.update(current => [finalMusicRecord, ...current]);
       
@@ -355,6 +356,8 @@ export class MurekaService {
       if (proxyError) throw proxyError;
       if (data?.error) throw data;
       if (typeof data.id !== 'string') throw new Error('A API Mureka não retornou um ID de tarefa válido.');
+
+      await this.supabase.consumeCredits(user.id, 1, `Criação de música: "${title}"`, musicRecord.id);
 
       const taskId = data.id;
       const updatedRecord = await this.supabase.updateMusic(finalMusicRecord.id, { mureka_id: taskId });
@@ -393,9 +396,7 @@ export class MurekaService {
       if (!musicRecord) {
         throw new Error('Falha ao criar o registro da música no banco de dados.');
       }
-
-      await this.supabase.consumeCredits(user.id, 1, `Criação de instrumental: "${title}"`, musicRecord.id);
-
+      
       const finalMusicRecord = musicRecord;
       this.userMusic.update(current => [finalMusicRecord, ...current]);
       
@@ -416,6 +417,8 @@ export class MurekaService {
       if (proxyError) throw proxyError;
       if (data?.error) throw data;
       if (typeof data.id !== 'string') throw new Error('A API Mureka não retornou um ID de tarefa válido.');
+
+      await this.supabase.consumeCredits(user.id, 1, `Criação de instrumental: "${title}"`, musicRecord.id);
 
       const taskId = data.id;
       const updatedRecord = await this.supabase.updateMusic(finalMusicRecord.id, { mureka_id: taskId });
@@ -453,8 +456,6 @@ export class MurekaService {
 
       if (!musicRecord) throw new Error('Falha ao criar o registro da música.');
       
-      await this.supabase.consumeCredits(user.id, 1, `Clonagem de voz: "${title}"`, musicRecord.id);
-
       const finalMusicRecord = musicRecord;
       this.userMusic.update(current => [finalMusicRecord, ...current]);
 
@@ -487,6 +488,9 @@ export class MurekaService {
 
       if (proxyError) throw proxyError;
       if (data?.error) throw data;
+      
+      await this.supabase.consumeCredits(user.id, 1, `Clonagem de voz: "${title}"`, musicRecord.id);
+
       const taskId = data.id;
 
       const updatedRecord = await this.supabase.updateMusic(finalMusicRecord.id, { mureka_id: taskId });
@@ -531,8 +535,6 @@ export class MurekaService {
 
         if (!newMusicRecord) throw new Error('Falha ao criar o registro para a música estendida.');
         
-        await this.supabase.consumeCredits(user.id, 1, `Extensão de música: "${originalMusic.title}"`, newMusicRecord.id);
-
         this.userMusic.update(current => [newMusicRecord!, ...current]);
 
         const extendPath = queryPath.replace('query', 'extend');
@@ -547,6 +549,8 @@ export class MurekaService {
 
         if (proxyError) throw proxyError;
         if (data?.error) throw data;
+        
+        await this.supabase.consumeCredits(user.id, 1, `Extensão de música: "${originalMusic.title}"`, newMusicRecord.id);
 
         const taskId = data.id;
         const updatedRecord = await this.supabase.updateMusic(newMusicRecord.id, { mureka_id: taskId });
