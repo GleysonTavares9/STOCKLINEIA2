@@ -2,6 +2,7 @@
   <div 
     class="music-player-wrapper fixed z-40"
     (mousedown)="onDragStart($event)"
+    (touchstart)="onDragStart($event)"
     [class.bottom-[88px]]="!wasDragged()"
     [class.sm:bottom-4]="!wasDragged()"
     [class.inset-x-0]="!wasDragged()"

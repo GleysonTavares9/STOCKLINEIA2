@@ -14,6 +14,8 @@ import { MusicPlayerService } from '../../services/music-player.service';
     '(window:mousemove)': 'onDrag($event)',
     '(window:mouseup)': 'onDragEnd()',
     '(window:mouseleave)': 'onDragEnd()',
+    '(window:touchmove)': 'onDrag($event)',
+    '(window:touchend)': 'onDragEnd()',
   }
 })
 export class MusicPlayerComponent {
@@ -41,7 +43,7 @@ export class MusicPlayerComponent {
   dragOffset = signal({ x: 0, y: 0 });
   playerSize = signal<{ width: number; height: number; } | null>(null);
 
-  onDragStart(event: MouseEvent) {
+  onDragStart(event: MouseEvent | TouchEvent) {
     // Não arrastar ao interagir com os controles
     if ((event.target as HTMLElement).closest('input, button, a')) {
       return;
@@ -61,16 +63,22 @@ export class MusicPlayerComponent {
       this.wasDragged.set(true);
     }
     
+    const clientX = event instanceof MouseEvent ? event.clientX : event.touches[0].clientX;
+    const clientY = event instanceof MouseEvent ? event.clientY : event.touches[0].clientY;
+    
     this.dragOffset.set({
-      x: event.clientX - currentPos.x,
-      y: event.clientY - currentPos.y
+      x: clientX - currentPos.x,
+      y: clientY - currentPos.y
     });
   }
 
-  onDrag(event: MouseEvent) {
+  onDrag(event: MouseEvent | TouchEvent) {
     if (this.isDragging() && this.playerSize()) {
-      let newX = event.clientX - this.dragOffset().x;
-      let newY = event.clientY - this.dragOffset().y;
+      const clientX = event instanceof MouseEvent ? event.clientX : event.touches[0].clientX;
+      const clientY = event instanceof MouseEvent ? event.clientY : event.touches[0].clientY;
+
+      let newX = clientX - this.dragOffset().x;
+      let newY = clientY - this.dragOffset().y;
 
       const { width, height } = this.playerSize()!;
       // Mantém o player dentro dos limites da tela
