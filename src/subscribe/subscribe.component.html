@@ -67,7 +67,7 @@
   }
 
   <div class="text-center mb-8">
-    <div class="inline-flex bg-[#1A181A] border border-zinc-800 rounded-full p-1">
+    <div class="inline-flex bg-zinc-900 border border-zinc-700 rounded-full p-1">
       <button 
         disabled
         class="px-6 py-2 rounded-full font-semibold transition-colors text-sm text-zinc-600 cursor-not-allowed">
@@ -75,7 +75,10 @@
       </button>
       <button 
         (click)="billingCycle.set('monthly')"
-        class="px-6 py-2 rounded-full font-semibold transition-colors text-sm bg-white text-black">
+        class="px-6 py-2 rounded-full font-semibold transition-colors text-sm"
+        [class.bg-teal-500]="billingCycle() === 'monthly'"
+        [class.text-white]="billingCycle() === 'monthly'"
+        [class.text-zinc-400]="billingCycle() !== 'monthly'">
         Mensal
       </button>
     </div>
@@ -103,64 +106,69 @@
         @for (plan of displayedPlans(); track plan.id) {
           @let isHighlighted = plan.is_popular || plan.name === 'Intermediário';
           <div 
-            class="bg-[#1A181A] rounded-2xl p-8 flex flex-col h-full border border-zinc-700 hover:border-teal-400 transition-all duration-300 hover:scale-[1.03] hover:shadow-xl hover:shadow-black/40"
+            class="p-1 rounded-2xl transition-all duration-300 group"
             [class.bg-gradient-to-br]="isHighlighted"
-            [class.from-teal-600/20]="isHighlighted"
-            [class.to-cyan-600/20]="isHighlighted"
-            [class.relative]="isHighlighted">
+            [class.from-teal-500]="isHighlighted"
+            [class.to-cyan-500]="isHighlighted"
+            [class.shadow-2xl]="isHighlighted"
+            [class.shadow-cyan-500/20]="isHighlighted"
+            [class.bg-zinc-800]="!isHighlighted">
+            <div 
+              class="bg-zinc-900 rounded-[15px] p-8 flex flex-col h-full relative group-hover:bg-zinc-800/80 transition-colors">
             
-            @if(isHighlighted) {
-               <span class="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-teal-500 text-white px-4 py-1 rounded-full text-sm font-semibold">
-                 @if (plan.is_popular) {
-                    Mais populares
-                 } @else {
-                    Recomendado
-                 }
-               </span>
-            }
-
-            <h3 class="text-2xl font-bold mb-4">{{ plan.name }}</h3>
-            <div class="mb-6">
-                <span class="text-5xl font-bold">{{ plan.price | currency:'BRL':'R$':'1.2-2' }}</span>
-                @if (plan.is_credit_pack) {
-                  <span class="text-xl text-zinc-400">/ compra única</span>
-                } @else {
-                  <span class="text-xl text-zinc-400">/mês</span>
-                }
-            </div>
-            <p class="text-zinc-400 mb-4">{{ plan.description }}</p>
-
-            <ul class="space-y-3 text-zinc-300 flex-grow">
-              <li class="flex items-center gap-3"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-green-400 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" /></svg>{{ plan.credits }} créditos de criação</li>
-              @for(feature of plan.features ?? []; track $index) {
-                <li class="flex items-center gap-3"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-green-400 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" /></svg>{{ feature }}</li>
+              @if(isHighlighted) {
+                 <span class="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-gradient-to-r from-teal-500 to-cyan-500 text-white px-4 py-1 rounded-full text-sm font-semibold">
+                   @if (plan.is_popular) {
+                      Mais Populares
+                   } @else {
+                      Recomendado
+                   }
+                 </span>
               }
-            </ul>
-            @if (isHighlighted) {
-              <button 
-                (click)="purchase(plan)" 
-                [disabled]="isLoading() !== null || !isStripeConfigured() || isProcessingPayment()"
-                class="mt-8 w-full py-3 rounded-full font-bold text-white bg-gradient-to-r from-teal-500 to-cyan-600 hover:opacity-90 shadow-lg shadow-teal-500/30 transition-all transform hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500 focus:ring-offset-[#1A181A] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center">
-                @if (isLoading() === plan.id) {
-                  <svg class="animate-spin h-5 w-5 mr-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                  Processando...
-                } @else {
-                  Começar Agora
+
+              <h3 class="text-2xl font-bold mb-4">{{ plan.name }}</h3>
+              <div class="mb-6">
+                  <span class="text-5xl font-bold">{{ plan.price | currency:'BRL':'R$':'1.2-2' }}</span>
+                  @if (plan.is_credit_pack) {
+                    <span class="text-xl text-zinc-400">/ compra única</span>
+                  } @else {
+                    <span class="text-xl text-zinc-400">/mês</span>
+                  }
+              </div>
+              <p class="text-zinc-400 mb-4 h-12">{{ plan.description }}</p>
+
+              <ul class="space-y-3 text-zinc-300 flex-grow">
+                <li class="flex items-center gap-3"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-green-400 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" /></svg>{{ plan.credits }} créditos de criação</li>
+                @for(feature of plan.features ?? []; track $index) {
+                  <li class="flex items-center gap-3"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-green-400 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" /></svg>{{ feature }}</li>
                 }
-              </button>
-            } @else {
-              <button 
-                (click)="purchase(plan)" 
-                [disabled]="isLoading() !== null || !isStripeConfigured() || isProcessingPayment()"
-                class="mt-8 w-full py-3 rounded-full font-bold bg-transparent border-2 border-zinc-600 text-zinc-300 hover:bg-zinc-800 hover:border-zinc-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center">
-                @if (isLoading() === plan.id) {
-                  <svg class="animate-spin h-5 w-5 mr-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                  Processando...
-                } @else {
-                  Selecionar {{ plan.name }}
-                }
-              </button>
-            }
+              </ul>
+              @if (isHighlighted) {
+                <button 
+                  (click)="purchase(plan)" 
+                  [disabled]="isLoading() !== null || !isStripeConfigured() || isProcessingPayment()"
+                  class="mt-8 w-full py-3 rounded-full font-bold text-white bg-gradient-to-r from-teal-500 to-cyan-600 hover:opacity-90 shadow-lg shadow-teal-500/30 transition-all transform hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500 focus:ring-offset-zinc-900 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center">
+                  @if (isLoading() === plan.id) {
+                    <svg class="animate-spin h-5 w-5 mr-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                    Processando...
+                  } @else {
+                    Começar Agora
+                  }
+                </button>
+              } @else {
+                <button 
+                  (click)="purchase(plan)" 
+                  [disabled]="isLoading() !== null || !isStripeConfigured() || isProcessingPayment()"
+                  class="mt-8 w-full py-3 rounded-full font-bold bg-zinc-800 border-2 border-zinc-700 text-zinc-300 hover:bg-zinc-700 hover:border-zinc-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center">
+                  @if (isLoading() === plan.id) {
+                    <svg class="animate-spin h-5 w-5 mr-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                    Processando...
+                  } @else {
+                    Selecionar {{ plan.name }}
+                  }
+                </button>
+              }
+            </div>
           </div>
         }
       </div>

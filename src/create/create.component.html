@@ -27,8 +27,8 @@
   }
   <div class="space-y-8">
     <!-- LETRA DA MÚSICA -->
-    <div class="p-0.5 rounded-2xl bg-gradient-to-br from-teal-500/30 via-cyan-500/30 to-teal-500/30">
-      <div class="bg-[#1A181A] p-6 rounded-[15px]">
+    <div class="p-1 rounded-2xl bg-gradient-to-br from-teal-500/50 via-cyan-500/50 to-teal-500/50">
+      <div class="bg-zinc-900 p-6 rounded-[15px]">
         <div class="flex justify-between items-center mb-4">
           <h2 class="text-xl font-semibold">Letra da música</h2>
           <div class="flex items-center space-x-3">
@@ -59,7 +59,7 @@
               rows="8"
               [attr.maxlength]="lyricsCharLimit"
               placeholder="Insira a letra aqui..."
-              class="w-full p-3 pr-20 bg-zinc-900 border rounded-md text-gray-200 placeholder-zinc-400 focus:ring-2 focus:border-teal-500 transition"
+              class="w-full p-3 pr-20 bg-zinc-800 border rounded-md text-gray-200 placeholder-zinc-400 focus:ring-2 focus:border-teal-500 transition"
               [class.border-zinc-700]="!isLyricsTooLong()"
               [class.focus:ring-teal-500]="!isLyricsTooLong()"
               [class.border-red-600]="isLyricsTooLong()"
@@ -75,7 +75,7 @@
 
           <div class="text-center my-4 text-zinc-500 text-sm">ou</div>
           
-          <div class="p-0.5 rounded-xl bg-gradient-to-br from-teal-400 via-cyan-500 to-teal-400">
+          <div class="p-1 rounded-xl bg-gradient-to-br from-teal-400 via-cyan-500 to-teal-400 shadow-lg shadow-cyan-500/20">
               <div class="bg-zinc-900 rounded-lg p-4 relative">
                 <div class="flex items-center gap-3 mb-2">
                   <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -157,8 +157,8 @@
     </div>
 
     <!-- DETALHES DA MÚSICA -->
-    <div class="p-0.5 rounded-2xl bg-gradient-to-br from-teal-500/30 via-cyan-500/30 to-teal-500/30">
-      <div class="bg-[#1A181A] p-6 rounded-[15px]">
+    <div class="p-1 rounded-2xl bg-gradient-to-br from-teal-500/50 via-cyan-500/50 to-teal-500/50">
+      <div class="bg-zinc-900 p-6 rounded-[15px]">
         <h2 class="text-xl font-semibold mb-4">Detalhes da música</h2>
         
         <div class="mb-5">
@@ -169,7 +169,7 @@
             [value]="songTitle()"
             (input)="songTitle.set($event.target.value)"
             placeholder="Minha Nova Canção"
-            class="w-full p-3 bg-zinc-900 border border-zinc-700 rounded-md text-gray-200 placeholder-zinc-400 focus:ring-1 focus:ring-teal-500 focus:border-teal-500">
+            class="w-full p-3 bg-zinc-800 border border-zinc-700 rounded-md text-gray-200 placeholder-zinc-400 focus:ring-1 focus:ring-teal-500 focus:border-teal-500">
         </div>
 
         <div class="mb-5">
@@ -202,10 +202,10 @@
             [value]="customStyle()"
             (input)="customStyle.set($event.target.value)"
             placeholder="Ex: Future Bass com elementos de Jazz"
-            class="w-full p-3 bg-zinc-900 border border-zinc-700 rounded-md text-gray-200 placeholder-zinc-400 focus:ring-1 focus:ring-teal-500 focus:border-teal-500">
+            class="w-full p-3 bg-zinc-800 border border-zinc-700 rounded-md text-gray-200 placeholder-zinc-400 focus:ring-1 focus:ring-teal-500 focus:border-teal-500">
         </div>
 
-        <div class="flex justify-between items-center p-3 rounded-md bg-zinc-900 border border-zinc-700">
+        <div class="flex justify-between items-center p-3 rounded-md bg-zinc-800 border border-zinc-700">
           <div>
             <label for="public-toggle" class="font-medium text-zinc-300">Publicar no feed da comunidade</label>
             <p class="text-xs text-zinc-500">Outros usuários poderão ver e ouvir sua música.</p>
@@ -273,8 +273,8 @@
     </div>
 
     <!-- SEÇÃO DE CRIAÇÃO AVANÇADA POR ÁUDIO -->
-    <div class="p-0.5 rounded-2xl bg-gradient-to-br from-teal-500/30 via-cyan-500/30 to-teal-500/30">
-      <div class="bg-[#1A181A] p-6 rounded-[15px]">
+    <div class="p-1 rounded-2xl bg-gradient-to-br from-teal-500/50 via-cyan-500/50 to-teal-500/50">
+      <div class="bg-zinc-900 p-6 rounded-[15px]">
         <h2 class="text-xl font-semibold mb-4">Criação Avançada com Áudio</h2>
         <p class="text-zinc-400 text-sm mb-4">Use áudio como referência para criar novas músicas, seja clonando um estilo ou uma voz.</p>
 
@@ -317,7 +317,7 @@
             @if (audioCreationMode() === 'upload') {
               <div>
                   <label for="audio-title-upload" class="block text-sm font-medium text-zinc-300 mb-2">Título da música</label>
-                  <input type="text" id="audio-title-upload" [value]="audioTitle()" (input)="audioTitle.set($event.target.value)" placeholder="Título para sua nova faixa" class="w-full p-3 bg-zinc-900 border border-zinc-700 rounded-md text-gray-200 placeholder-zinc-400 focus:ring-1 focus:ring-teal-500 focus:border-teal-500">
+                  <input type="text" id="audio-title-upload" [value]="audioTitle()" (input)="audioTitle.set($event.target.value)" placeholder="Título para sua nova faixa" class="w-full p-3 bg-zinc-800 border border-zinc-700 rounded-md text-gray-200 placeholder-zinc-400 focus:ring-1 focus:ring-teal-500 focus:border-teal-500">
               </div>
                 <div>
                   <label for="audio-file" class="block text-sm font-medium text-zinc-300 mb-2">Arquivo de áudio de referência (MP3, WAV)</label>
@@ -337,11 +337,11 @@
             } @else if (audioCreationMode() === 'youtube') {
               <div>
                   <label for="audio-title-youtube" class="block text-sm font-medium text-zinc-300 mb-2">Título da música</label>
-                  <input type="text" id="audio-title-youtube" [value]="audioTitle()" (input)="audioTitle.set($event.target.value)" placeholder="Título para sua nova faixa" class="w-full p-3 bg-zinc-900 border border-zinc-700 rounded-md text-gray-200 placeholder-zinc-400 focus:ring-1 focus:ring-teal-500 focus:border-teal-500">
+                  <input type="text" id="audio-title-youtube" [value]="audioTitle()" (input)="audioTitle.set($event.target.value)" placeholder="Título para sua nova faixa" class="w-full p-3 bg-zinc-800 border border-zinc-700 rounded-md text-gray-200 placeholder-zinc-400 focus:ring-1 focus:ring-teal-500 focus:border-teal-500">
               </div>
               <div>
                   <label for="youtube-url" class="block text-sm font-medium text-zinc-300 mb-2">URL do vídeo do YouTube</label>
-                  <input type="url" id="youtube-url" [value]="youtubeUrl()" (input)="youtubeUrl.set($event.target.value)" placeholder="https://www.youtube.com/watch?v=..." class="w-full p-3 bg-zinc-900 border border-zinc-700 rounded-md text-gray-200 placeholder-zinc-400 focus:ring-1 focus:ring-teal-500 focus:border-teal-500">
+                  <input type="url" id="youtube-url" [value]="youtubeUrl()" (input)="youtubeUrl.set($event.target.value)" placeholder="https://www.youtube.com/watch?v=..." class="w-full p-3 bg-zinc-800 border border-zinc-700 rounded-md text-gray-200 placeholder-zinc-400 focus:ring-1 focus:ring-teal-500 focus:border-teal-500">
               </div>
               <button (click)="handleYouTubeProcess()" [disabled]="!canProcessYouTube()" class="w-full py-2.5 px-4 bg-teal-600 rounded-lg text-white font-semibold flex items-center justify-center hover:bg-teal-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
                   @if (isUploading()) {
@@ -354,7 +354,7 @@
             } @else if (audioCreationMode() === 'clone') {
                 <div>
                     <label for="audio-title-clone" class="block text-sm font-medium text-zinc-300 mb-2">Título da música</label>
-                    <input type="text" id="audio-title-clone" [value]="audioTitle()" (input)="audioTitle.set($event.target.value)" placeholder="Título para sua música clonada" class="w-full p-3 bg-zinc-900 border border-zinc-700 rounded-md text-gray-200 placeholder-zinc-400 focus:ring-1 focus:ring-teal-500 focus:border-teal-500">
+                    <input type="text" id="audio-title-clone" [value]="audioTitle()" (input)="audioTitle.set($event.target.value)" placeholder="Título para sua música clonada" class="w-full p-3 bg-zinc-800 border border-zinc-700 rounded-md text-gray-200 placeholder-zinc-400 focus:ring-1 focus:ring-teal-500 focus:border-teal-500">
                 </div>
                 <div>
                     <label for="audio-file-clone" class="block text-sm font-medium text-zinc-300 mb-2">Amostra de voz (MP3, WAV)</label>
@@ -366,11 +366,11 @@
                 </div>
                 <div>
                     <label for="clone-lyrics" class="block text-sm font-medium text-zinc-300 mb-2">Letra para a voz cantar</label>
-                    <textarea id="clone-lyrics" [value]="cloneLyrics()" (input)="cloneLyrics.set($event.target.value)" rows="4" placeholder="Insira o texto que a voz clonada deve cantar..." class="w-full p-3 bg-zinc-900 border border-zinc-700 rounded-md text-gray-200 placeholder-zinc-400 focus:ring-1 focus:ring-teal-500 focus:border-teal-500"></textarea>
+                    <textarea id="clone-lyrics" [value]="cloneLyrics()" (input)="cloneLyrics.set($event.target.value)" rows="4" placeholder="Insira o texto que a voz clonada deve cantar..." class="w-full p-3 bg-zinc-800 border border-zinc-700 rounded-md text-gray-200 placeholder-zinc-400 focus:ring-1 focus:ring-teal-500 focus:border-teal-500"></textarea>
                 </div>
                 <div>
                     <label for="clone-style" class="block text-sm font-medium text-zinc-300 mb-2">Estilo do acompanhamento musical</label>
-                    <input type="text" id="clone-style" [value]="cloneStyle()" (input)="cloneStyle.set($event.target.value)" placeholder="Ex: Piano triste, batida Lo-Fi, violão acústico" class="w-full p-3 bg-zinc-900 border border-zinc-700 rounded-md text-gray-200 placeholder-zinc-400 focus:ring-1 focus:ring-teal-500 focus:border-teal-500">
+                    <input type="text" id="clone-style" [value]="cloneStyle()" (input)="cloneStyle.set($event.target.value)" placeholder="Ex: Piano triste, batida Lo-Fi, violão acústico" class="w-full p-3 bg-zinc-800 border border-zinc-700 rounded-md text-gray-200 placeholder-zinc-400 focus:ring-1 focus:ring-teal-500 focus:border-teal-500">
                 </div>
                 <button (click)="handleVoiceClone()" [disabled]="!canCloneVoice()" class="w-full py-2.5 px-4 bg-teal-600 rounded-lg text-white font-semibold flex items-center justify-center hover:bg-teal-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
                     @if (isUploading()) {

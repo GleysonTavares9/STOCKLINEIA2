@@ -1,145 +1,143 @@
-
-
 @if (isSupabaseConfigured()) {
   @if (authReady()) {
-    @if (currentMusic(); as music) {
-      <div 
-        class="fixed inset-0 -z-10 bg-cover bg-center transition-all duration-1000"
-        [style.background-image]="'url(' + getCoverArt(music.title) + ')'">
-        <div class="absolute inset-0 bg-black/80 backdrop-blur-2xl"></div>
-      </div>
-    }
-    <div class="min-h-screen bg-black/60 text-gray-300 flex flex-col">
-      <!-- Global Header -->
-      <header class="sticky top-0 bg-black/80 backdrop-blur-sm z-30 border-b border-zinc-800">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div class="flex items-center justify-between h-16">
-            <div class="flex items-center">
-              <a routerLink="/feed" class="flex-shrink-0 flex items-center gap-2 text-white font-bold text-xl">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-teal-500" fill="currentColor" viewBox="0 0 256 256"><path d="M224,160V96a16,16,0,0,0-16-16H48A16,16,0,0,0,32,96v64a16,16,0,0,0,16,16H208A16,16,0,0,0,224,160ZM48,96H208l-32,32L144,96H112l32,32L112,160h32l32-32,32,32H48Z"></path></svg>
-                <span>STOCKLINE</span>
-              </a>
-            </div>
-            <div class="flex items-center gap-4">
-              <!-- Credit Balance -->
-              @if (currentUserProfile(); as profile) {
-                <a routerLink="/subscribe" class="flex items-center gap-2 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 rounded-full px-3 py-1.5 text-sm font-medium text-white transition-colors cursor-pointer" title="Comprar mais créditos">
-                  <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-teal-500" fill="currentColor" viewBox="0 0 256 256"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm0,192a88,88,0,1,1,88-88A88.1,88.1,0,0,1,128,216Zm48-88a48,48,0,0,1-48,48,8,8,0,0,1,0-16,32,32,0,0,0,0-64,8,8,0,0,1,0-16,48,48,0,0,1,48,48Z"></path></svg>
-                  <span>{{ profile.credits }}</span>
-                  <span class="hidden sm:inline">Créditos</span>
+    @if (currentUser(); as user) {
+      <!-- FULL APP SHELL FOR LOGGED-IN USERS -->
+      @if (currentMusic(); as music) {
+        <div 
+          class="fixed inset-0 -z-10 bg-cover bg-center transition-all duration-1000"
+          [style.background-image]="'url(' + getCoverArt(music.title) + ')'">
+          <div class="absolute inset-0 bg-black/80 backdrop-blur-2xl"></div>
+        </div>
+      }
+      <div class="min-h-screen bg-black/60 text-gray-300 flex flex-col">
+        <!-- Global Header -->
+        <header class="sticky top-0 bg-black/80 backdrop-blur-sm z-30 border-b border-zinc-800">
+          <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+              <div class="flex items-center">
+                <a routerLink="/feed" class="flex-shrink-0 flex items-center gap-2 text-white font-bold text-xl">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-teal-500" fill="currentColor" viewBox="0 0 256 256"><path d="M224,160V96a16,16,0,0,0-16-16H48A16,16,0,0,0,32,96v64a16,16,0,0,0,16,16H208A16,16,0,0,0,224,160ZM48,96H208l-32,32L144,96H112l32,32L112,160h32l32-32,32,32H48Z"></path></svg>
+                  <span>STOCKLINE</span>
                 </a>
-              }
+              </div>
+              <div class="flex items-center gap-4">
+                <!-- Credit Balance -->
+                @if (currentUserProfile(); as profile) {
+                  <a routerLink="/subscribe" class="flex items-center gap-2 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 rounded-full px-3 py-1.5 text-sm font-medium text-white transition-colors cursor-pointer" title="Comprar mais créditos">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-teal-500" fill="currentColor" viewBox="0 0 256 256"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm0,192a88,88,0,1,1,88-88A88.1,88.1,0,0,1,128,216Zm48-88a48,48,0,0,1-48,48,8,8,0,0,1,0-16,32,32,0,0,0,0-64,8,8,0,0,1,0-16,48,48,0,0,1,48,48Z"></path></svg>
+                    <span>{{ profile.credits }}</span>
+                    <span class="hidden sm:inline">Créditos</span>
+                  </a>
+                }
 
-              <!-- Notification Bell -->
-              <a routerLink="/account" [queryParams]="{ tab: 'notifications' }" class="relative p-2 rounded-full text-zinc-400 hover:text-white hover:bg-zinc-700 transition-colors" title="Notificações">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" [class.text-teal-500]="unreadNotificationsCount() > 0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                </svg>
-                @if (unreadNotificationsCount() > 0) {
-                  <span class="absolute top-2 right-2 block h-2 w-2 rounded-full bg-teal-500 ring-2 ring-black/80"></span>
-                }
-              </a>
-              
-              <!-- Profile Menu -->
-              <div class="relative">
-                <button (click)="toggleProfileMenu()" type="button" class="flex items-center justify-center h-10 w-10 rounded-full focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-zinc-900 focus:ring-teal-500" id="user-menu-button" aria-expanded="false" aria-haspopup="true">
-                  <span class="sr-only">Abrir menu do usuário</span>
-                  <div [class]="'h-10 w-10 rounded-full flex items-center justify-center text-white font-bold text-lg ' + avatarColor()">
-                    {{ userInitial() }}
-                  </div>
-                </button>
+                <!-- Notification Bell -->
+                <a routerLink="/account" [queryParams]="{ tab: 'notifications' }" class="relative p-2 rounded-full text-zinc-400 hover:text-white hover:bg-zinc-700 transition-colors" title="Notificações">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" [class.text-teal-500]="unreadNotificationsCount() > 0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                  </svg>
+                  @if (unreadNotificationsCount() > 0) {
+                    <span class="absolute top-2 right-2 block h-2 w-2 rounded-full bg-teal-500 ring-2 ring-black/80"></span>
+                  }
+                </a>
                 
-                @if(isProfileMenuOpen()) {
-                  <div class="origin-top-right absolute right-0 mt-2 w-56 rounded-md shadow-lg bg-[#1A1A1A] ring-1 ring-black ring-opacity-5 focus:outline-none border border-zinc-700" role="menu" aria-orientation="vertical" aria-labelledby="user-menu-button" tabindex="-1">
-                    <div class="py-1" role="none">
-                      <div class="px-4 py-2 border-b border-zinc-700">
-                        <p class="text-sm font-medium text-white">{{ currentUserProfile()?.display_name || currentUser()?.email }}</p>
-                        <p class="text-xs text-zinc-400">Créditos: {{ currentUserProfile()?.credits }}</p>
-                      </div>
-                      <a routerLink="/account" (click)="toggleProfileMenu()" class="block px-4 py-2 text-sm text-zinc-300 hover:bg-zinc-800" role="menuitem" tabindex="-1">
-                        Minha Conta
-                      </a>
-                      <a routerLink="/usage" (click)="toggleProfileMenu()" class="block px-4 py-2 text-sm text-zinc-300 hover:bg-zinc-800" role="menuitem" tabindex="-1">
-                        Uso e Faturamento
-                      </a>
-                      <a routerLink="/shortcuts" (click)="toggleProfileMenu()" class="block px-4 py-2 text-sm text-zinc-300 hover:bg-zinc-800" role="menuitem" tabindex="-1">
-                        Atalhos
-                      </a>
-                      <button (click)="signOut()" class="block w-full text-left px-4 py-2 text-sm text-red-400 hover:bg-zinc-800" role="menuitem" tabindex="-1">
-                        Sair
-                      </button>
+                <!-- Profile Menu -->
+                <div class="relative">
+                  <button (click)="toggleProfileMenu()" type="button" class="flex items-center justify-center h-10 w-10 rounded-full focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-zinc-900 focus:ring-teal-500" id="user-menu-button" aria-expanded="false" aria-haspopup="true">
+                    <span class="sr-only">Abrir menu do usuário</span>
+                    <div [class]="'h-10 w-10 rounded-full flex items-center justify-center text-white font-bold text-lg ' + avatarColor()">
+                      {{ userInitial() }}
                     </div>
-                  </div>
-                }
+                  </button>
+                  
+                  @if(isProfileMenuOpen()) {
+                    <div class="origin-top-right absolute right-0 mt-2 w-56 rounded-md shadow-lg bg-[#1A1A1A] ring-1 ring-black ring-opacity-5 focus:outline-none border border-zinc-700" role="menu" aria-orientation="vertical" aria-labelledby="user-menu-button" tabindex="-1">
+                      <div class="py-1" role="none">
+                        <div class="px-4 py-2 border-b border-zinc-700">
+                          <p class="text-sm font-medium text-white truncate">{{ currentUserProfile()?.display_name || user.email }}</p>
+                          <p class="text-xs text-zinc-400">Créditos: {{ currentUserProfile()?.credits }}</p>
+                        </div>
+                        <a routerLink="/account" (click)="toggleProfileMenu()" class="block px-4 py-2 text-sm text-zinc-300 hover:bg-zinc-800" role="menuitem" tabindex="-1">
+                          Minha Conta
+                        </a>
+                        <a routerLink="/usage" (click)="toggleProfileMenu()" class="block px-4 py-2 text-sm text-zinc-300 hover:bg-zinc-800" role="menuitem" tabindex="-1">
+                          Uso e Faturamento
+                        </a>
+                        <a routerLink="/shortcuts" (click)="toggleProfileMenu()" class="block px-4 py-2 text-sm text-zinc-300 hover:bg-zinc-800" role="menuitem" tabindex="-1">
+                          Atalhos
+                        </a>
+                        <button (click)="signOut()" class="block w-full text-left px-4 py-2 text-sm text-red-400 hover:bg-zinc-800" role="menuitem" tabindex="-1">
+                          Sair
+                        </button>
+                      </div>
+                    </div>
+                  }
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      </header>
+        </header>
 
-      <!-- Main Content Outlet -->
-      <main class="flex-grow pb-20">
-        <router-outlet></router-outlet>
-      </main>
+        <!-- Main Content Outlet -->
+        <main class="flex-grow pb-20">
+          <router-outlet></router-outlet>
+        </main>
 
-      <!-- Bottom Navigation -->
-      <nav class="fixed bottom-0 left-0 right-0 bg-black/80 backdrop-blur-sm z-30 border-t border-zinc-800">
-        <div class="max-w-7xl mx-auto px-2 sm:px-6 lg:px-8">
-            <div class="relative flex items-center justify-between h-16">
-                <!-- Left Links -->
-                <div class="flex justify-evenly w-2/5">
-                    <!-- Feed Link -->
-                    <a routerLink="/feed" routerLinkActive="text-teal-400" [routerLinkActiveOptions]="{exact: true}" class="flex flex-col items-center justify-center text-zinc-400 hover:text-white transition-colors p-1">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" viewBox="0 0 20 20" fill="currentColor">
-                          <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z" />
-                        </svg>
-                        <span class="text-xs mt-1">Lar</span>
-                    </a>
-                    <!-- Library Link -->
-                    <a routerLink="/library" routerLinkActive="text-teal-400" class="flex flex-col items-center justify-center text-zinc-400 hover:text-white transition-colors p-1">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" viewBox="0 0 20 20" fill="currentColor">
-                          <path d="M7 3a1 1 0 000 2h6a1 1 0 100-2H7zM4 7a1 1 0 011-1h10a1 1 0 110 2H5a1 1 0 01-1-1zM2 11a2 2 0 012-2h12a2 2 0 012 2v4a2 2 0 01-2-2H4a2 2 0 01-2-2v-4z" />
-                        </svg>
-                        <span class="text-xs mt-1">Biblioteca</span>
-                    </a>
-                </div>
+        <!-- Bottom Navigation -->
+        <nav class="fixed bottom-0 left-0 right-0 bg-black/80 backdrop-blur-sm z-30 border-t border-zinc-800">
+          <div class="max-w-7xl mx-auto px-2 sm:px-6 lg:px-8">
+              <div class="relative flex items-center justify-between h-16">
+                  <!-- Left Links -->
+                  <div class="flex justify-evenly w-2/5">
+                      <a routerLink="/feed" routerLinkActive="text-teal-400" [routerLinkActiveOptions]="{exact: true}" class="flex flex-col items-center justify-center text-zinc-400 hover:text-white transition-colors p-1">
+                          <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" viewBox="0 0 20 20" fill="currentColor"><path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z" /></svg>
+                          <span class="text-xs mt-1">Lar</span>
+                      </a>
+                      <a routerLink="/library" routerLinkActive="text-teal-400" class="flex flex-col items-center justify-center text-zinc-400 hover:text-white transition-colors p-1">
+                          <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" viewBox="0 0 20 20" fill="currentColor"><path d="M7 3a1 1 0 000 2h6a1 1 0 100-2H7zM4 7a1 1 0 011-1h10a1 1 0 110 2H5a1 1 0 01-1-1zM2 11a2 2 0 012-2h12a2 2 0 012 2v4a2 2 0 01-2-2H4a2 2 0 01-2-2v-4z" /></svg>
+                          <span class="text-xs mt-1">Biblioteca</span>
+                      </a>
+                  </div>
 
-                <!-- Center Create Button -->
-                <div class="absolute left-1/2 top-0 -translate-x-1/2 -translate-y-1/3">
-                    <a routerLink="/create" class="w-16 h-16 bg-gradient-to-r from-teal-400 to-cyan-500 rounded-full flex items-center justify-center text-white shadow-lg transform transition-transform hover:scale-110 animate-pulse-glow">
-                         <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v12m6-6H6" />
-                        </svg>
-                    </a>
-                </div>
+                  <!-- Center Create Button -->
+                  <div class="absolute left-1/2 top-0 -translate-x-1/2 -translate-y-1/3">
+                      <a routerLink="/create" class="w-16 h-16 bg-gradient-to-r from-teal-400 to-cyan-500 rounded-full flex items-center justify-center text-white shadow-lg transform transition-transform hover:scale-110 animate-pulse-glow">
+                           <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v12m6-6H6" /></svg>
+                      </a>
+                  </div>
 
-                <!-- Right Links -->
-                <div class="flex justify-evenly w-2/5">
-                    <!-- Subscribe Link -->
-                    <a routerLink="/subscribe" routerLinkActive="text-teal-400" class="flex flex-col items-center justify-center text-zinc-400 hover:text-white transition-colors p-1">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" viewBox="0 0 20 20" fill="currentColor">
-                          <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                        </svg>
-                        <span class="text-xs mt-1">Planos</span>
-                    </a>
-                    <!-- Account Link -->
-                    <a routerLink="/account" routerLinkActive="text-teal-400" class="flex flex-col items-center justify-center text-zinc-400 hover:text-white transition-colors p-1">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" viewBox="0 0 20 20" fill="currentColor">
-                          <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd" />
-                        </svg>
-                        <span class="text-xs mt-1">Conta</span>
-                    </a>
-                </div>
-            </div>
-        </div>
-      </nav>
+                  <!-- Right Links -->
+                  <div class="flex justify-evenly w-2/5">
+                      <a routerLink="/subscribe" routerLinkActive="text-teal-400" class="flex flex-col items-center justify-center text-zinc-400 hover:text-white transition-colors p-1">
+                          <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" viewBox="0 0 20 20" fill="currentColor"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" /></svg>
+                          <span class="text-xs mt-1">Planos</span>
+                      </a>
+                      <a routerLink="/account" routerLinkActive="text-teal-400" class="flex flex-col items-center justify-center text-zinc-400 hover:text-white transition-colors p-1">
+                          <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd" /></svg>
+                          <span class="text-xs mt-1">Conta</span>
+                      </a>
+                  </div>
+              </div>
+          </div>
+        </nav>
 
-      <!-- Music Player at the bottom -->
-      <app-music-player />
+        <!-- Music Player at the bottom -->
+        <app-music-player />
+      </div>
+    } @else {
+      <!-- LOGGED OUT VIEW -->
+      <router-outlet></router-outlet>
+    }
+  } @else {
+    <!-- AUTH NOT READY (INITIAL LOAD) -->
+    <div class="fixed inset-0 flex items-center justify-center bg-black">
+      <svg class="animate-spin h-12 w-12 text-teal-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+      </svg>
     </div>
   }
 } @else {
-  <!-- Fallback for when Supabase is not configured -->
+  <!-- SUPABASE CONFIGURATION ERROR -->
   <div class="min-h-screen bg-black text-gray-300 flex items-center justify-center p-4">
     <div class="bg-red-900/50 text-white flex flex-col items-center justify-center p-6 text-center rounded-2xl border-2 border-red-700 max-w-xl mx-auto">
       <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 mx-auto text-red-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
@@ -153,7 +151,6 @@
         <p class="text-zinc-400 mb-2">// Para desenvolvimento local:</p>
         <p class="mb-2">1. Abra o arquivo <code class="bg-zinc-700 text-pink-400 px-1 py-0.5 rounded">src/auth/config.ts</code>.</p>
         <p class="mb-4">2. Preencha as variáveis <code class="bg-zinc-700 text-pink-400 px-1 py-0.5 rounded">supabaseUrl</code> e <code class="bg-zinc-700 text-pink-400 px-1 py-0.5 rounded">supabaseKey</code>.</p>
-
         <p class="text-zinc-400 mb-2">// Para produção (AI Studio, Vercel, etc.):</p>
         <p class="mb-2 text-zinc-300">Configure as seguintes variáveis de ambiente no painel da sua plataforma de hospedagem:</p>
         <ul class="list-disc list-inside ml-2 space-y-1">

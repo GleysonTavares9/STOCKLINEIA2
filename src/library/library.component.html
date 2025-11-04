@@ -61,9 +61,9 @@
       <p class="mt-2 text-zinc-500">Vá para a página "Criar" para gerar sua primeira música com IA.</p>
     </div>
   } @else {
-    <div class="relative mb-8 p-0.5 rounded-full bg-gradient-to-r from-teal-500/30 to-cyan-500/30 focus-within:from-teal-500 focus-within:to-cyan-500 transition-colors duration-300">
+    <div class="relative mb-8 p-1 rounded-full bg-gradient-to-r from-teal-500/80 to-cyan-500/80 focus-within:from-teal-500 focus-within:to-cyan-500 transition-colors duration-300 shadow-lg shadow-black/30">
       <div class="absolute inset-y-0 left-0 flex items-center pl-4 pointer-events-none">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-zinc-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
           <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
         </svg>
       </div>
@@ -102,8 +102,8 @@
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
               @for (music of songsToShow; track music.id) {
                 <div class="flex flex-col h-full group">
-                  <div class="p-0.5 rounded-lg bg-gradient-to-br from-teal-500/30 via-transparent to-cyan-500/30 transition-all duration-300 group-hover:from-teal-400/80 group-hover:to-cyan-500/80 group-hover:scale-[1.03] group-hover:shadow-xl group-hover:shadow-black/40 flex-grow">
-                    <div class="bg-[#1A181A] rounded-md flex flex-col overflow-hidden h-full">
+                  <div class="p-1 rounded-lg bg-gradient-to-br from-teal-500/30 via-transparent to-cyan-500/30 transition-all duration-300 group-hover:from-teal-400/80 group-hover:to-cyan-500/80 group-hover:scale-[1.03] group-hover:shadow-xl group-hover:shadow-black/40 flex-grow">
+                    <div class="bg-zinc-900 rounded-md flex flex-col overflow-hidden h-full">
                       <div 
                         class="relative"
                         [class.cursor-pointer]="music.status === 'succeeded'"
@@ -150,7 +150,7 @@
                                   </span>
                               }
                           </div>
-                          <p class="text-sm text-zinc-300 truncate">{{ music.style }}</p>
+                          <p class="text-sm text-cyan-400 truncate">{{ music.style }}</p>
                         </div>
 
                         <div class="mt-4">
@@ -180,34 +180,34 @@
                               </div>
                             } @else {
                               <div class="flex justify-between items-center">
-                                <span class="text-xs text-zinc-500">{{ music.created_at | date:'dd/MM/yy' }}</span>
+                                <span class="text-xs text-zinc-400">{{ music.created_at | date:'dd/MM/yy' }}</span>
                                 <div class="flex items-center gap-1">
                                   @if (music.status === 'succeeded') {
-                                    <button (click)="toggleVisibility(music)" [disabled]="isTogglingVisibility() === music.id" class="p-2 rounded-full text-teal-400 hover:text-teal-200 transition-colors disabled:opacity-50 disabled:cursor-wait" [class.text-teal-400]="music.is_public" title="{{ music.is_public ? 'Tornar privado' : 'Tornar público' }}">
+                                    <button (click)="toggleVisibility(music)" [disabled]="isTogglingVisibility() === music.id" class="p-2 rounded-full text-teal-400 hover:bg-zinc-700 transition-colors disabled:opacity-50 disabled:cursor-wait" title="{{ music.is_public ? 'Tornar privado' : 'Tornar público' }}">
                                       @if (music.is_public) {
                                         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M10 12a2 2 0 100-4 2 2 0 000 4z" /><path fill-rule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.022 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clip-rule="evenodd" /></svg>
                                       } @else {
                                         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M3.707 2.293a1 1 0 00-1.414 1.414l14 14a1 1 0 001.414-1.414l-1.473-1.473A10.014 10.014 0 0019.542 10C18.27 6.957 14.547 4 10 4a9.954 9.954 0 00-4.433 1.034L3.707 2.293zM10 12a2 2 0 110-4 2 2 0 010 4z" clip-rule="evenodd" /><path d="M2 10s3.923-6 8-6 8 6 8 6-3.923 6-8 6-8-6-8-6zm7.25-1.336a2.75 2.75 0 00-3.586 3.586l3.586-3.586z" /></svg>
                                       }
                                     </button>
-                                    <a [href]="music.audio_url" [download]="music.title + '.mp3'" target="_blank" rel="noopener noreferrer" class="p-2 rounded-full text-teal-400 hover:text-teal-200 hover:bg-zinc-700 transition-colors" title="Baixar música">
+                                    <a [href]="music.audio_url" [download]="music.title + '.mp3'" target="_blank" rel="noopener noreferrer" class="p-2 rounded-full text-teal-400 hover:bg-zinc-700 transition-colors" title="Baixar música">
                                       <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                                          <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                                       </svg>
                                     </a>
                                     @if (music.description && music.description.trim().length > 0) {
-                                      <button (click)="$event.stopPropagation(); toggleLyrics(music.id)" class="p-2 rounded-full text-teal-400 hover:text-teal-200 hover:bg-zinc-700 transition-colors" [class.text-teal-400]="expandedLyricsId() === music.id" title="Ver Letra">
+                                      <button (click)="$event.stopPropagation(); toggleLyrics(music.id)" class="p-2 rounded-full text-teal-400 hover:bg-zinc-700 transition-colors" title="Ver Letra">
                                         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                                           <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                                         </svg>
                                       </button>
                                     }
-                                     <button (click)="openExtendModal(music)" class="p-2 rounded-full text-teal-400 hover:text-teal-200 hover:bg-zinc-700 transition-colors" title="Estender música">
+                                     <button (click)="openExtendModal(music)" class="p-2 rounded-full text-teal-400 hover:bg-zinc-700 transition-colors" title="Estender música">
                                       <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                                         <path stroke-linecap="round" stroke-linejoin="round" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5v4m0 0h4" />
                                       </svg>
                                     </button>
-                                    <button (click)="openEditModal(music)" class="p-2 rounded-full text-teal-400 hover:text-teal-200 hover:bg-zinc-700 transition-colors" title="Editar música">
+                                    <button (click)="openEditModal(music)" class="p-2 rounded-full text-teal-400 hover:bg-zinc-700 transition-colors" title="Editar música">
                                       <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M17.414 2.586a2 2 0 00-2.828 0L7 10.172V13h2.828l7.586-7.586a2 2 0 000-2.828z" /><path fill-rule="evenodd" d="M2 6a2 2 0 012-2h4a1 1 0 010 2H4v10h10v-4a1 1 0 112 0v4a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" clip-rule="evenodd" /></svg>
                                     </button>
                                   }
@@ -250,7 +250,8 @@
 <!-- Modal para Estender Música -->
 @if (musicToExtend(); as music) {
   <div class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4" (click)="closeExtendModal()">
-    <div class="bg-[#1A181A] rounded-2xl border border-zinc-700 p-8 w-full max-w-md" (click)="$event.stopPropagation()">
+    <div class="p-1 rounded-2xl bg-gradient-to-br from-teal-500 to-cyan-500 w-full max-w-md" (click)="$event.stopPropagation()">
+      <div class="bg-zinc-900 rounded-[15px] p-8">
         <h2 class="text-2xl font-bold text-white mb-4">Estender "{{ music.title }}"</h2>
         <p class="text-zinc-400 mb-6">Insira por quantos segundos adicionais você deseja estender esta música.</p>
         
@@ -268,7 +269,7 @@
               min="1"
               max="60"
               placeholder="Ex: 30"
-              class="w-full p-3 bg-zinc-900 border border-zinc-700 rounded-md text-gray-200 placeholder-zinc-500 focus:ring-1 focus:ring-teal-500 focus:border-teal-500">
+              class="w-full p-3 bg-zinc-800 border border-zinc-700 rounded-md text-gray-200 placeholder-zinc-500 focus:ring-1 focus:ring-teal-500 focus:border-teal-500">
         </div>
         
         <div class="flex justify-end gap-4 mt-8">
@@ -283,53 +284,56 @@
             </button>
         </div>
     </div>
+    </div>
   </div>
 }
 
 <!-- Modal para Editar Música -->
 @if (musicToEdit(); as music) {
   <div class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4" (click)="closeEditModal()">
-    <form (submit)="handleUpdateMusic($event)" class="bg-[#1A181A] rounded-2xl border border-zinc-700 p-8 w-full max-w-lg" (click)="$event.stopPropagation()">
-        <h2 class="text-2xl font-bold text-white mb-4">Editar Música</h2>
-        
-        @if (editError()) {
-          <p class="text-red-400 bg-red-900/30 p-3 rounded-md mb-4">{{ editError() }}</p>
-        }
+    <div class="p-1 rounded-2xl bg-gradient-to-br from-teal-500 to-cyan-500 w-full max-w-lg" (click)="$event.stopPropagation()">
+      <form (submit)="handleUpdateMusic($event)" class="bg-zinc-900 rounded-[15px] p-8 w-full">
+          <h2 class="text-2xl font-bold text-white mb-4">Editar Música</h2>
+          
+          @if (editError()) {
+            <p class="text-red-400 bg-red-900/30 p-3 rounded-md mb-4">{{ editError() }}</p>
+          }
 
-        <div class="space-y-6">
-            <div>
-                <label for="edit-title" class="block text-sm font-medium text-zinc-300 mb-2">Título</label>
-                <input 
-                  type="text" 
-                  id="edit-title"
-                  [value]="music.title"
-                  (input)="onEditInput('title', $event)"
-                  required
-                  class="w-full p-3 bg-zinc-900 border border-zinc-700 rounded-md text-gray-200 placeholder-zinc-500 focus:ring-1 focus:ring-teal-500 focus:border-teal-500">
-            </div>
-            <div>
-                <label for="edit-description" class="block text-sm font-medium text-zinc-300 mb-2">Letra / Descrição</label>
-                <textarea 
-                  id="edit-description"
-                  [value]="music.description"
-                  (input)="onEditInput('description', $event)"
-                  rows="6"
-                  class="w-full p-3 bg-zinc-900 border border-zinc-700 rounded-md text-gray-200 placeholder-zinc-500 focus:ring-1 focus:ring-teal-500 focus:border-teal-500">
-                </textarea>
-            </div>
-        </div>
-        
-        <div class="flex justify-end gap-4 mt-8">
-            <button type="button" (click)="closeEditModal()" class="px-6 py-2 rounded-lg text-zinc-300 bg-zinc-700 hover:bg-zinc-600 transition-colors">Cancelar</button>
-            <button type="submit" [disabled]="isEditing()" class="px-6 py-2 rounded-lg text-white bg-teal-600 hover:bg-teal-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center">
-              @if (isEditing()) {
-                <svg class="animate-spin h-5 w-5 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                Salvando...
-              } @else {
-                Salvar Alterações
-              }
-            </button>
-        </div>
-    </form>
+          <div class="space-y-6">
+              <div>
+                  <label for="edit-title" class="block text-sm font-medium text-zinc-300 mb-2">Título</label>
+                  <input 
+                    type="text" 
+                    id="edit-title"
+                    [value]="music.title"
+                    (input)="onEditInput('title', $event)"
+                    required
+                    class="w-full p-3 bg-zinc-800 border border-zinc-700 rounded-md text-gray-200 placeholder-zinc-500 focus:ring-1 focus:ring-teal-500 focus:border-teal-500">
+              </div>
+              <div>
+                  <label for="edit-description" class="block text-sm font-medium text-zinc-300 mb-2">Letra / Descrição</label>
+                  <textarea 
+                    id="edit-description"
+                    [value]="music.description"
+                    (input)="onEditInput('description', $event)"
+                    rows="6"
+                    class="w-full p-3 bg-zinc-800 border border-zinc-700 rounded-md text-gray-200 placeholder-zinc-500 focus:ring-1 focus:ring-teal-500 focus:border-teal-500">
+                  </textarea>
+              </div>
+          </div>
+          
+          <div class="flex justify-end gap-4 mt-8">
+              <button type="button" (click)="closeEditModal()" class="px-6 py-2 rounded-lg text-zinc-300 bg-zinc-700 hover:bg-zinc-600 transition-colors">Cancelar</button>
+              <button type="submit" [disabled]="isEditing()" class="px-6 py-2 rounded-lg text-white bg-teal-600 hover:bg-teal-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center">
+                @if (isEditing()) {
+                  <svg class="animate-spin h-5 w-5 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                  Salvando...
+                } @else {
+                  Salvar Alterações
+                }
+              </button>
+          </div>
+      </form>
+    </div>
   </div>
 }
