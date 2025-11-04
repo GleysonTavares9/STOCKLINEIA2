@@ -27,195 +27,206 @@
   }
   <div class="space-y-8">
     <!-- LETRA DA MÚSICA -->
-    <div class="bg-[#1A181A] p-6 rounded-2xl border-2 border-teal-500">
-      <div class="flex justify-between items-center mb-4">
-        <h2 class="text-xl font-semibold">Letra da música</h2>
-        <div class="flex items-center space-x-3">
-          <label for="instrumental-toggle" class="text-sm text-zinc-400">Instrumental</label>
-          <button 
-            type="button"
-            role="switch"
-            [attr.aria-checked]="isInstrumental()"
-            (click)="isInstrumental.set(!isInstrumental())"
-            class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 focus:ring-offset-zinc-900"
-            [class.bg-teal-600]="isInstrumental()"
-            [class.bg-zinc-700]="!isInstrumental()">
-            <span
-              aria-hidden="true"
-              class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"
-              [class.translate-x-5]="isInstrumental()"
-              [class.translate-x-0]="!isInstrumental()"></span>
-          </button>
-        </div>
-      </div>
-      
-      @if (!isInstrumental()) {
-        <div class="relative">
-          <textarea 
-            id="lyrics-content"
-            [value]="lyrics()"
-            (input)="lyrics.set($event.target.value)"
-            rows="8"
-            [attr.maxlength]="lyricsCharLimit"
-            placeholder="Insira a letra aqui..."
-            class="w-full p-3 pr-20 bg-zinc-900 border rounded-md text-gray-200 placeholder-zinc-500 focus:ring-2 focus:border-teal-500 transition"
-            [class.border-zinc-700]="!isLyricsTooLong()"
-            [class.focus:ring-teal-500]="!isLyricsTooLong()"
-            [class.border-red-600]="isLyricsTooLong()"
-            [class.focus:ring-red-500]="isLyricsTooLong()">
-          </textarea>
-           <div 
-            class="absolute bottom-3 right-3 text-xs pointer-events-none"
-            [class.text-zinc-500]="!isLyricsTooLong()"
-            [class.text-red-400]="isLyricsTooLong()">
-            {{ lyricsCharCount() }} / {{ lyricsCharLimit }}
+    <div class="p-0.5 rounded-2xl bg-gradient-to-br from-teal-500/30 via-cyan-500/30 to-teal-500/30">
+      <div class="bg-[#1A181A] p-6 rounded-[15px]">
+        <div class="flex justify-between items-center mb-4">
+          <h2 class="text-xl font-semibold">Letra da música</h2>
+          <div class="flex items-center space-x-3">
+            <label for="instrumental-toggle" class="text-sm text-zinc-400">Instrumental</label>
+            <button 
+              type="button"
+              role="switch"
+              [attr.aria-checked]="isInstrumental()"
+              (click)="isInstrumental.set(!isInstrumental())"
+              class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 focus:ring-offset-zinc-900"
+              [class.bg-teal-600]="isInstrumental()"
+              [class.bg-zinc-700]="!isInstrumental()">
+              <span
+                aria-hidden="true"
+                class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"
+                [class.translate-x-5]="isInstrumental()"
+                [class.translate-x-0]="!isInstrumental()"></span>
+            </button>
           </div>
-        </div>
-
-        <div class="text-center my-4 text-zinc-500 text-sm">ou</div>
-
-        <div class="bg-gradient-to-br from-teal-900/40 to-black p-4 rounded-lg border-2 border-teal-500 relative">
-          <label for="lyrics-description" class="block text-sm font-medium text-zinc-300 mb-2">Gerar letra com IA (descreva a ideia)</label>
-          <textarea 
-            id="lyrics-description"
-            [value]="lyricsDescription()"
-            (input)="lyricsDescription.set($event.target.value)"
-            rows="3"
-            placeholder="Ex: uma música sobre um astronauta solitário que sente falta de casa, no estilo indie-pop..."
-            class="w-full p-2 bg-zinc-800 border border-zinc-700 rounded-md text-gray-200 placeholder-zinc-500 focus:ring-1 focus:ring-teal-500 focus:border-teal-500"></textarea>
-          
-          @if (lyricsError()) {
-            <p class="text-red-400 text-sm mt-2 text-center">{{ lyricsError() }}</p>
-          }
-          
-          @if (currentUserProfile()) {
-            <p class="text-sm text-zinc-400 text-center mt-4">
-              Você tem {{ currentUserProfile()!.credits }} crédito(s) restante(s).
-            </p>
-          }
-
-          <button 
-            (click)="generateLyrics()"
-            [disabled]="!canGenerateLyrics()"
-            class="mt-4 w-full py-2.5 px-4 bg-teal-600 rounded-lg text-white font-semibold flex items-center justify-center hover:bg-teal-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
-            @if (generatingLyrics()) {
-              <svg class="animate-spin h-5 w-5 mr-3 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-              Gerando Letra...
-            } @else {
-              Gerar Letra com IA (Custa {{ lyricsCost() }} crédito)
-            }
-          </button>
         </div>
         
-        <!-- Vocal Gender Selection -->
-        <div class="mt-6">
-          <label class="block text-sm font-medium text-zinc-300 mb-2">Gênero Vocal</label>
-          <div class="flex gap-4">
-            <button 
-              type="button"
-              (click)="vocalGender.set('male')"
-              class="flex-1 py-3 px-4 rounded-lg font-semibold border transition-colors"
-              [class.bg-teal-600]="vocalGender() === 'male'"
-              [class.border-teal-600]="vocalGender() === 'male'"
-              [class.text-white]="vocalGender() === 'male'"
-              [class.bg-zinc-800]="vocalGender() !== 'male'"
-              [class.border-zinc-700]="vocalGender() !== 'male'"
-              [class.text-zinc-400]="vocalGender() !== 'male'"
-              [class.hover:bg-zinc-700]="vocalGender() !== 'male'"
-              [disabled]="isInstrumental()"
-              >
-              Masculino
-            </button>
-            <button 
-              type="button"
-              (click)="vocalGender.set('female')"
-              class="flex-1 py-3 px-4 rounded-lg font-semibold border transition-colors"
-              [class.bg-teal-600]="vocalGender() === 'female'"
-              [class.border-teal-600]="vocalGender() === 'female'"
-              [class.text-white]="vocalGender() === 'female'"
-              [class.bg-zinc-800]="vocalGender() !== 'female'"
-              [class.border-zinc-700]="vocalGender() !== 'female'"
-              [class.text-zinc-400]="vocalGender() !== 'female'"
-              [class.hover:bg-zinc-700]="vocalGender() !== 'female'"
-              [disabled]="isInstrumental()"
-              >
-              Feminino
-            </button>
+        @if (!isInstrumental()) {
+          <div class="relative">
+            <textarea 
+              id="lyrics-content"
+              [value]="lyrics()"
+              (input)="lyrics.set($event.target.value)"
+              rows="8"
+              [attr.maxlength]="lyricsCharLimit"
+              placeholder="Insira a letra aqui..."
+              class="w-full p-3 pr-20 bg-zinc-900 border rounded-md text-gray-200 placeholder-zinc-400 focus:ring-2 focus:border-teal-500 transition"
+              [class.border-zinc-700]="!isLyricsTooLong()"
+              [class.focus:ring-teal-500]="!isLyricsTooLong()"
+              [class.border-red-600]="isLyricsTooLong()"
+              [class.focus:ring-red-500]="isLyricsTooLong()">
+            </textarea>
+            <div 
+              class="absolute bottom-3 right-3 text-xs pointer-events-none"
+              [class.text-zinc-500]="!isLyricsTooLong()"
+              [class.text-red-400]="isLyricsTooLong()">
+              {{ lyricsCharCount() }} / {{ lyricsCharLimit }}
+            </div>
           </div>
-        </div>
-      }
+
+          <div class="text-center my-4 text-zinc-500 text-sm">ou</div>
+          
+          <div class="p-0.5 rounded-xl bg-gradient-to-br from-teal-400 via-cyan-500 to-teal-400">
+              <div class="bg-zinc-900 rounded-lg p-4 relative">
+                <div class="flex items-center gap-3 mb-2">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+                  </svg>
+                  <label for="lyrics-description" class="block text-base font-semibold text-zinc-200">Gerar letra com IA</label>
+                </div>
+                <textarea 
+                  id="lyrics-description"
+                  [value]="lyricsDescription()"
+                  (input)="lyricsDescription.set($event.target.value)"
+                  rows="3"
+                  placeholder="Ex: uma música sobre um astronauta solitário que sente falta de casa, no estilo indie-pop..."
+                  class="w-full p-2 bg-zinc-800 border border-zinc-700 rounded-md text-gray-200 placeholder-zinc-400 focus:ring-1 focus:ring-teal-500 focus:border-teal-500"></textarea>
+                
+                @if (lyricsError()) {
+                  <p class="text-red-400 text-sm mt-2 text-center">{{ lyricsError() }}</p>
+                }
+                
+                @if (currentUserProfile()) {
+                  <p class="text-sm text-zinc-400 text-center mt-4">
+                    Custo: {{ lyricsCost() }} crédito. Você tem {{ currentUserProfile()!.credits }} crédito(s).
+                  </p>
+                }
+
+                <button 
+                  (click)="generateLyrics()"
+                  [disabled]="!canGenerateLyrics()"
+                  class="mt-4 w-full py-2.5 px-4 bg-gradient-to-r from-teal-500 to-cyan-600 rounded-lg text-white font-semibold flex items-center justify-center hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-[1.02]">
+                  @if (generatingLyrics()) {
+                    <svg class="animate-spin h-5 w-5 mr-3 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                    Gerando...
+                  } @else {
+                    <span class="mr-2">✨</span>
+                    Gerar Letra Mágica
+                  }
+                </button>
+              </div>
+          </div>
+          
+          <!-- Vocal Gender Selection -->
+          <div class="mt-6">
+            <label class="block text-sm font-medium text-zinc-300 mb-2">Gênero Vocal</label>
+            <div class="flex gap-4">
+              <button 
+                type="button"
+                (click)="vocalGender.set('male')"
+                class="flex-1 py-3 px-4 rounded-lg font-semibold border transition-colors"
+                [class.bg-teal-600]="vocalGender() === 'male'"
+                [class.border-teal-600]="vocalGender() === 'male'"
+                [class.text-white]="vocalGender() === 'male'"
+                [class.bg-zinc-800]="vocalGender() !== 'male'"
+                [class.border-zinc-700]="vocalGender() !== 'male'"
+                [class.text-zinc-400]="vocalGender() !== 'male'"
+                [class.hover:bg-zinc-700]="vocalGender() !== 'male'"
+                [disabled]="isInstrumental()"
+                >
+                Masculino
+              </button>
+              <button 
+                type="button"
+                (click)="vocalGender.set('female')"
+                class="flex-1 py-3 px-4 rounded-lg font-semibold border transition-colors"
+                [class.bg-teal-600]="vocalGender() === 'female'"
+                [class.border-teal-600]="vocalGender() === 'female'"
+                [class.text-white]="vocalGender() === 'female'"
+                [class.bg-zinc-800]="vocalGender() !== 'female'"
+                [class.border-zinc-700]="vocalGender() !== 'female'"
+                [class.text-zinc-400]="vocalGender() !== 'female'"
+                [class.hover:bg-zinc-700]="vocalGender() !== 'female'"
+                [disabled]="isInstrumental()"
+                >
+                Feminino
+              </button>
+            </div>
+          </div>
+        }
+      </div>
     </div>
 
     <!-- DETALHES DA MÚSICA -->
-    <div class="bg-[#1A181A] p-6 rounded-2xl border-2 border-teal-500">
-      <h2 class="text-xl font-semibold mb-4">Detalhes da música</h2>
-      
-      <div class="mb-5">
-        <label for="song-title" class="block text-sm font-medium text-zinc-300 mb-2">Título da música</label>
-        <input 
-          type="text" 
-          id="song-title"
-          [value]="songTitle()"
-          (input)="songTitle.set($event.target.value)"
-          placeholder="Minha Nova Canção"
-          class="w-full p-3 bg-zinc-900 border border-zinc-700 rounded-md text-gray-200 placeholder-zinc-500 focus:ring-1 focus:ring-teal-500 focus:border-teal-500">
-      </div>
+    <div class="p-0.5 rounded-2xl bg-gradient-to-br from-teal-500/30 via-cyan-500/30 to-teal-500/30">
+      <div class="bg-[#1A181A] p-6 rounded-[15px]">
+        <h2 class="text-xl font-semibold mb-4">Detalhes da música</h2>
+        
+        <div class="mb-5">
+          <label for="song-title" class="block text-sm font-medium text-zinc-300 mb-2">Título da música</label>
+          <input 
+            type="text" 
+            id="song-title"
+            [value]="songTitle()"
+            (input)="songTitle.set($event.target.value)"
+            placeholder="Minha Nova Canção"
+            class="w-full p-3 bg-zinc-900 border border-zinc-700 rounded-md text-gray-200 placeholder-zinc-400 focus:ring-1 focus:ring-teal-500 focus:border-teal-500">
+        </div>
 
-      <div class="mb-5">
-        <label class="block text-sm font-medium text-zinc-300 mb-2">Estilo musical</label>
-        <div class="flex flex-wrap gap-2">
-          @for (style of musicStyles; track style) {
-            <button 
-              type="button"
-              (click)="toggleStyle(style)"
-              class="px-4 py-2 rounded-full text-sm font-medium border transition-colors"
-              [class.bg-teal-600]="selectedStyles().has(style)"
-              [class.border-teal-600]="selectedStyles().has(style)"
-              [class.text-white]="selectedStyles().has(style)"
-              [class.bg-zinc-800]="!selectedStyles().has(style)"
-              [class.border-zinc-700]="!selectedStyles().has(style)"
-              [class.text-zinc-400]="!selectedStyles().has(style)"
-              [class.hover:bg-zinc-700]="!selectedStyles().has(style)"
-              >
-              {{ style }}
-            </button>
-          }
+        <div class="mb-5">
+          <label class="block text-sm font-medium text-zinc-300 mb-2">Estilo musical</label>
+          <div class="flex flex-wrap gap-2">
+            @for (style of musicStyles; track style) {
+              <button 
+                type="button"
+                (click)="toggleStyle(style)"
+                class="px-4 py-2 rounded-full text-sm font-medium border transition-colors"
+                [class.bg-teal-600]="selectedStyles().has(style)"
+                [class.border-teal-600]="selectedStyles().has(style)"
+                [class.text-white]="selectedStyles().has(style)"
+                [class.bg-zinc-800]="!selectedStyles().has(style)"
+                [class.border-zinc-700]="!selectedStyles().has(style)"
+                [class.text-zinc-400]="!selectedStyles().has(style)"
+                [class.hover:bg-zinc-700]="!selectedStyles().has(style)"
+                >
+                {{ style }}
+              </button>
+            }
+          </div>
+        </div>
+
+        <div class="mb-6">
+          <label for="custom-style" class="block text-sm font-medium text-zinc-300 mb-2">Ou descreva um estilo personalizado</label>
+          <input 
+            type="text" 
+            id="custom-style"
+            [value]="customStyle()"
+            (input)="customStyle.set($event.target.value)"
+            placeholder="Ex: Future Bass com elementos de Jazz"
+            class="w-full p-3 bg-zinc-900 border border-zinc-700 rounded-md text-gray-200 placeholder-zinc-400 focus:ring-1 focus:ring-teal-500 focus:border-teal-500">
+        </div>
+
+        <div class="flex justify-between items-center p-3 rounded-md bg-zinc-900 border border-zinc-700">
+          <div>
+            <label for="public-toggle" class="font-medium text-zinc-300">Publicar no feed da comunidade</label>
+            <p class="text-xs text-zinc-500">Outros usuários poderão ver e ouvir sua música.</p>
+          </div>
+          <button 
+            type="button"
+            role="switch"
+            id="public-toggle"
+            [attr.aria-checked]="isPublic()"
+            (click)="isPublic.set(!isPublic())"
+            class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 focus:ring-offset-zinc-900"
+            [class.bg-teal-600]="isPublic()"
+            [class.bg-zinc-700]="!isPublic()">
+            <span
+              aria-hidden="true"
+              class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"
+              [class.translate-x-5]="isPublic()"
+              [class.translate-x-0]="!isPublic()"></span>
+          </button>
         </div>
       </div>
-
-      <div class="mb-6">
-        <label for="custom-style" class="block text-sm font-medium text-zinc-300 mb-2">Ou descreva um estilo personalizado</label>
-        <input 
-          type="text" 
-          id="custom-style"
-          [value]="customStyle()"
-          (input)="customStyle.set($event.target.value)"
-          placeholder="Ex: Future Bass com elementos de Jazz"
-          class="w-full p-3 bg-zinc-900 border border-zinc-700 rounded-md text-gray-200 placeholder-zinc-500 focus:ring-1 focus:ring-teal-500 focus:border-teal-500">
-      </div>
-
-      <div class="flex justify-between items-center p-3 rounded-md bg-zinc-900 border border-zinc-700">
-        <div>
-          <label for="public-toggle" class="font-medium text-zinc-300">Publicar no feed da comunidade</label>
-          <p class="text-xs text-zinc-500">Outros usuários poderão ver e ouvir sua música.</p>
-        </div>
-        <button 
-          type="button"
-          role="switch"
-          id="public-toggle"
-          [attr.aria-checked]="isPublic()"
-          (click)="isPublic.set(!isPublic())"
-          class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 focus:ring-offset-zinc-900"
-          [class.bg-teal-600]="isPublic()"
-          [class.bg-zinc-700]="!isPublic()">
-          <span
-            aria-hidden="true"
-            class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"
-            [class.translate-x-5]="isPublic()"
-            [class.translate-x-0]="!isPublic()"></span>
-        </button>
-      </div>
-
     </div>
 
     <!-- BOTÃO DE CRIAÇÃO -->
@@ -229,7 +240,7 @@
         class="w-full sm:w-auto py-4 px-10 rounded-full font-extrabold text-lg transition-all duration-300 flex items-center justify-center mx-auto shadow-lg transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-teal-500/50"
         [class.bg-gradient-to-r]="canGenerateMusic() && !isGeneratingMusic()"
         [class.from-teal-500]="canGenerateMusic() && !isGeneratingMusic()"
-        [class.to-purple-600]="canGenerateMusic() && !isGeneratingMusic()"
+        [class.to-cyan-600]="canGenerateMusic() && !isGeneratingMusic()"
         [class.hover:shadow-xl]="canGenerateMusic() && !isGeneratingMusic()"
         [class.hover:shadow-teal-500/40]="canGenerateMusic() && !isGeneratingMusic()"
         [class.text-white]="canGenerateMusic() && !isGeneratingMusic()"
@@ -262,7 +273,8 @@
     </div>
 
     <!-- SEÇÃO DE CRIAÇÃO AVANÇADA POR ÁUDIO -->
-    <div class="bg-[#1A181A] p-6 rounded-2xl border-2 border-teal-500">
+    <div class="p-0.5 rounded-2xl bg-gradient-to-br from-teal-500/30 via-cyan-500/30 to-teal-500/30">
+      <div class="bg-[#1A181A] p-6 rounded-[15px]">
         <h2 class="text-xl font-semibold mb-4">Criação Avançada com Áudio</h2>
         <p class="text-zinc-400 text-sm mb-4">Use áudio como referência para criar novas músicas, seja clonando um estilo ou uma voz.</p>
 
@@ -305,7 +317,7 @@
             @if (audioCreationMode() === 'upload') {
               <div>
                   <label for="audio-title-upload" class="block text-sm font-medium text-zinc-300 mb-2">Título da música</label>
-                  <input type="text" id="audio-title-upload" [value]="audioTitle()" (input)="audioTitle.set($event.target.value)" placeholder="Título para sua nova faixa" class="w-full p-3 bg-zinc-900 border border-zinc-700 rounded-md text-gray-200 placeholder-zinc-500 focus:ring-1 focus:ring-teal-500 focus:border-teal-500">
+                  <input type="text" id="audio-title-upload" [value]="audioTitle()" (input)="audioTitle.set($event.target.value)" placeholder="Título para sua nova faixa" class="w-full p-3 bg-zinc-900 border border-zinc-700 rounded-md text-gray-200 placeholder-zinc-400 focus:ring-1 focus:ring-teal-500 focus:border-teal-500">
               </div>
                 <div>
                   <label for="audio-file" class="block text-sm font-medium text-zinc-300 mb-2">Arquivo de áudio de referência (MP3, WAV)</label>
@@ -325,11 +337,11 @@
             } @else if (audioCreationMode() === 'youtube') {
               <div>
                   <label for="audio-title-youtube" class="block text-sm font-medium text-zinc-300 mb-2">Título da música</label>
-                  <input type="text" id="audio-title-youtube" [value]="audioTitle()" (input)="audioTitle.set($event.target.value)" placeholder="Título para sua nova faixa" class="w-full p-3 bg-zinc-900 border border-zinc-700 rounded-md text-gray-200 placeholder-zinc-500 focus:ring-1 focus:ring-teal-500 focus:border-teal-500">
+                  <input type="text" id="audio-title-youtube" [value]="audioTitle()" (input)="audioTitle.set($event.target.value)" placeholder="Título para sua nova faixa" class="w-full p-3 bg-zinc-900 border border-zinc-700 rounded-md text-gray-200 placeholder-zinc-400 focus:ring-1 focus:ring-teal-500 focus:border-teal-500">
               </div>
               <div>
                   <label for="youtube-url" class="block text-sm font-medium text-zinc-300 mb-2">URL do vídeo do YouTube</label>
-                  <input type="url" id="youtube-url" [value]="youtubeUrl()" (input)="youtubeUrl.set($event.target.value)" placeholder="https://www.youtube.com/watch?v=..." class="w-full p-3 bg-zinc-900 border border-zinc-700 rounded-md text-gray-200 placeholder-zinc-500 focus:ring-1 focus:ring-teal-500 focus:border-teal-500">
+                  <input type="url" id="youtube-url" [value]="youtubeUrl()" (input)="youtubeUrl.set($event.target.value)" placeholder="https://www.youtube.com/watch?v=..." class="w-full p-3 bg-zinc-900 border border-zinc-700 rounded-md text-gray-200 placeholder-zinc-400 focus:ring-1 focus:ring-teal-500 focus:border-teal-500">
               </div>
               <button (click)="handleYouTubeProcess()" [disabled]="!canProcessYouTube()" class="w-full py-2.5 px-4 bg-teal-600 rounded-lg text-white font-semibold flex items-center justify-center hover:bg-teal-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
                   @if (isUploading()) {
@@ -342,7 +354,7 @@
             } @else if (audioCreationMode() === 'clone') {
                 <div>
                     <label for="audio-title-clone" class="block text-sm font-medium text-zinc-300 mb-2">Título da música</label>
-                    <input type="text" id="audio-title-clone" [value]="audioTitle()" (input)="audioTitle.set($event.target.value)" placeholder="Título para sua música clonada" class="w-full p-3 bg-zinc-900 border border-zinc-700 rounded-md text-gray-200 placeholder-zinc-500 focus:ring-1 focus:ring-teal-500 focus:border-teal-500">
+                    <input type="text" id="audio-title-clone" [value]="audioTitle()" (input)="audioTitle.set($event.target.value)" placeholder="Título para sua música clonada" class="w-full p-3 bg-zinc-900 border border-zinc-700 rounded-md text-gray-200 placeholder-zinc-400 focus:ring-1 focus:ring-teal-500 focus:border-teal-500">
                 </div>
                 <div>
                     <label for="audio-file-clone" class="block text-sm font-medium text-zinc-300 mb-2">Amostra de voz (MP3, WAV)</label>
@@ -354,11 +366,11 @@
                 </div>
                 <div>
                     <label for="clone-lyrics" class="block text-sm font-medium text-zinc-300 mb-2">Letra para a voz cantar</label>
-                    <textarea id="clone-lyrics" [value]="cloneLyrics()" (input)="cloneLyrics.set($event.target.value)" rows="4" placeholder="Insira o texto que a voz clonada deve cantar..." class="w-full p-3 bg-zinc-900 border border-zinc-700 rounded-md text-gray-200 placeholder-zinc-500 focus:ring-1 focus:ring-teal-500 focus:border-teal-500"></textarea>
+                    <textarea id="clone-lyrics" [value]="cloneLyrics()" (input)="cloneLyrics.set($event.target.value)" rows="4" placeholder="Insira o texto que a voz clonada deve cantar..." class="w-full p-3 bg-zinc-900 border border-zinc-700 rounded-md text-gray-200 placeholder-zinc-400 focus:ring-1 focus:ring-teal-500 focus:border-teal-500"></textarea>
                 </div>
                 <div>
                     <label for="clone-style" class="block text-sm font-medium text-zinc-300 mb-2">Estilo do acompanhamento musical</label>
-                    <input type="text" id="clone-style" [value]="cloneStyle()" (input)="cloneStyle.set($event.target.value)" placeholder="Ex: Piano triste, batida Lo-Fi, violão acústico" class="w-full p-3 bg-zinc-900 border border-zinc-700 rounded-md text-gray-200 placeholder-zinc-500 focus:ring-1 focus:ring-teal-500 focus:border-teal-500">
+                    <input type="text" id="clone-style" [value]="cloneStyle()" (input)="cloneStyle.set($event.target.value)" placeholder="Ex: Piano triste, batida Lo-Fi, violão acústico" class="w-full p-3 bg-zinc-900 border border-zinc-700 rounded-md text-gray-200 placeholder-zinc-400 focus:ring-1 focus:ring-teal-500 focus:border-teal-500">
                 </div>
                 <button (click)="handleVoiceClone()" [disabled]="!canCloneVoice()" class="w-full py-2.5 px-4 bg-teal-600 rounded-lg text-white font-semibold flex items-center justify-center hover:bg-teal-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
                     @if (isUploading()) {
@@ -373,6 +385,7 @@
          @if (uploadError()) {
             <p class="text-red-400 text-sm mt-4 text-center">{{ uploadError() }}</p>
          }
+      </div>
     </div>
 
   </div>

@@ -9,7 +9,7 @@
   
   <!-- Indicador de processamento de pagamento -->
   @if (isProcessingPayment()) {
-    <div class="max-w-4xl mx-auto mb-8 p-6 bg-blue-900/30 border-2 border-blue-600 rounded-2xl text-center flex flex-col items-center gap-4">
+    <div class="max-w-4xl mx-auto mb-8 p-6 bg-blue-900/30 border border-blue-600 rounded-2xl text-center flex flex-col items-center gap-4">
       <svg class="animate-spin h-12 w-12 text-blue-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
         <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
         <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
@@ -24,7 +24,7 @@
       class="max-w-4xl mx-auto mb-8 p-6 rounded-2xl text-center flex flex-col items-center gap-4"
       [class.bg-red-900/40]="isSecurityError()"
       [class.border-red-600]="isSecurityError()"
-      [class.border-2]="isSecurityError()"
+      [class.border]="isSecurityError()"
       [class.bg-yellow-900/30]="!isSecurityError()"
       [class.border-yellow-700]="!isSecurityError()"
       [class.border]="!isSecurityError()">
@@ -103,7 +103,7 @@
         @for (plan of displayedPlans(); track plan.id) {
           @let isHighlighted = plan.is_popular || plan.name === 'Intermediário';
           <div 
-            class="bg-[#1A181A] rounded-2xl p-8 flex flex-col h-full border-2 border-teal-500 hover:border-teal-400 transition-all duration-300 hover:scale-[1.03] hover:shadow-xl hover:shadow-black/40"
+            class="bg-[#1A181A] rounded-2xl p-8 flex flex-col h-full border border-zinc-700 hover:border-teal-400 transition-all duration-300 hover:scale-[1.03] hover:shadow-xl hover:shadow-black/40"
             [class.bg-gradient-to-br]="isHighlighted"
             [class.from-teal-600/20]="isHighlighted"
             [class.to-cyan-600/20]="isHighlighted"
@@ -140,7 +140,7 @@
               <button 
                 (click)="purchase(plan)" 
                 [disabled]="isLoading() !== null || !isStripeConfigured() || isProcessingPayment()"
-                class="mt-8 w-full py-3 rounded-full font-bold text-white bg-gradient-to-r from-teal-500 to-purple-600 hover:opacity-90 shadow-lg shadow-teal-500/30 transition-all transform hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500 focus:ring-offset-[#1A181A] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center">
+                class="mt-8 w-full py-3 rounded-full font-bold text-white bg-gradient-to-r from-teal-500 to-cyan-600 hover:opacity-90 shadow-lg shadow-teal-500/30 transition-all transform hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500 focus:ring-offset-[#1A181A] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center">
                 @if (isLoading() === plan.id) {
                   <svg class="animate-spin h-5 w-5 mr-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
                   Processando...

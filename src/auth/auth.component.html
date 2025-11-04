@@ -11,21 +11,21 @@
         Sua plataforma definitiva para criação musical com Inteligência Artificial. Dê vida às suas ideias e transforme texto em música de alta qualidade em segundos.
       </p>
       <ul class="space-y-4 self-stretch lg:self-auto">
-        <li class="flex items-start gap-4 p-4 rounded-lg bg-zinc-900/50 border-2 border-teal-500 hover:border-teal-400 hover:bg-zinc-900 transition-all">
+        <li class="flex items-start gap-4 p-4 rounded-lg bg-zinc-900/50 border border-zinc-700 hover:border-teal-400 hover:bg-zinc-900 transition-all">
           <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-teal-400 mt-1 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M12 6V3m0 18v-3" /></svg>
           <div>
             <h3 class="font-semibold">Geração de Música por IA</h3>
             <p class="text-zinc-400 text-sm">Descreva o estilo, o ritmo e os instrumentos, e nossa IA comporá uma faixa exclusiva para você.</p>
           </div>
         </li>
-        <li class="flex items-start gap-4 p-4 rounded-lg bg-zinc-900/50 border-2 border-teal-500 hover:border-teal-400 hover:bg-zinc-900 transition-all">
+        <li class="flex items-start gap-4 p-4 rounded-lg bg-zinc-900/50 border border-zinc-700 hover:border-teal-400 hover:bg-zinc-900 transition-all">
           <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-teal-400 mt-1 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
           <div>
             <h3 class="font-semibold">Letras Inteligentes</h3>
             <p class="text-zinc-400 text-sm">Não encontra as palavras certas? Gere letras completas e poéticas a partir de uma simples ideia.</p>
           </div>
         </li>
-        <li class="flex items-start gap-4 p-4 rounded-lg bg-zinc-900/50 border-2 border-teal-500 hover:border-teal-400 hover:bg-zinc-900 transition-all">
+        <li class="flex items-start gap-4 p-4 rounded-lg bg-zinc-900/50 border border-zinc-700 hover:border-teal-400 hover:bg-zinc-900 transition-all">
           <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-teal-400 mt-1 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2" /></svg>
           <div>
             <h3 class="font-semibold">Biblioteca Pessoal</h3>
@@ -36,7 +36,7 @@
     </div>
     
     <!-- Right side: Auth Form -->
-    <div class="relative p-0.5 rounded-2xl bg-gradient-to-br from-teal-400 via-purple-500 to-teal-400 w-full max-w-md mx-auto lg:mx-0 shadow-2xl shadow-purple-500/20">
+    <div class="relative p-0.5 rounded-2xl bg-gradient-to-br from-teal-400 via-cyan-500 to-teal-400 w-full max-w-md mx-auto lg:mx-0 shadow-2xl shadow-cyan-500/20">
         <div id="auth-form-container" class="bg-zinc-950 p-6 sm:p-8 rounded-[15px] w-full h-full">
             <div class="space-y-6">
                 @if (!isSupabaseConfigured()) {
@@ -208,7 +208,7 @@
                     <button 
                       type="submit" 
                       [disabled]="!canSubmit() || !isSupabaseConfigured()"
-                      class="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-semibold rounded-md text-white bg-gradient-to-r from-teal-500 to-purple-600 hover:opacity-90 shadow-md shadow-teal-500/20 transition-all transform hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500 focus:ring-offset-zinc-950 disabled:opacity-50 disabled:cursor-not-allowed">
+                      class="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-semibold rounded-md text-white bg-gradient-to-r from-teal-500 to-cyan-600 hover:opacity-90 shadow-md shadow-teal-500/20 transition-all transform hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500 focus:ring-offset-zinc-950 disabled:opacity-50 disabled:cursor-not-allowed">
                       
                       @if(loading()) {
                         <svg class="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -238,7 +238,7 @@
       <div class="mt-10">
         <button 
           (click)="scrollToSignUp()" 
-          class="inline-flex items-center justify-center px-10 py-4 bg-gradient-to-r from-teal-500 to-purple-600 text-white font-extrabold text-lg rounded-full shadow-lg transform transition-all duration-300 hover:scale-110 hover:shadow-xl hover:shadow-teal-500/40 focus:outline-none focus:ring-4 focus:ring-teal-500/50">
+          class="inline-flex items-center justify-center px-10 py-4 bg-gradient-to-r from-teal-500 to-cyan-600 text-white font-extrabold text-lg rounded-full shadow-lg transform transition-all duration-300 hover:scale-110 hover:shadow-xl hover:shadow-teal-500/40 focus:outline-none focus:ring-4 focus:ring-teal-500/50">
           Comece a Criar de Graça
           <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 ml-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
             <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
@@ -251,7 +251,7 @@
             (click)="selectMusic(song)"
             role="button"
             tabindex="0"
-            class="bg-zinc-900/50 rounded-lg overflow-hidden border-2 border-teal-500 text-left group transition-all duration-300 hover:border-teal-400 hover:scale-[1.03] hover:shadow-xl hover:shadow-black/40 cursor-pointer backdrop-blur-sm">
+            class="bg-zinc-900/50 rounded-lg overflow-hidden border border-zinc-700 text-left group transition-all duration-300 hover:border-teal-400 hover:scale-[1.03] hover:shadow-xl hover:shadow-black/40 cursor-pointer backdrop-blur-sm">
             <div class="relative overflow-hidden">
               <img src="https://picsum.photos/seed/music-{{song.title}}/400/225" alt="Capa do Álbum" class="w-full h-32 object-cover transition-transform duration-300 group-hover:scale-110">
               @if (song.status === 'succeeded' && song.audio_url) {

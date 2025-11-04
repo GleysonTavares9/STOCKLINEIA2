@@ -190,7 +190,7 @@ export class CreateComponent {
     this.lyricsError.set(null);
 
     try {
-      // Pass the cost to the service, which now handles credit consumption.
+      // The Gemini service now handles credit consumption.
       const generatedText = await this.geminiService.generateLyrics(description, this.lyricsCost());
       this.lyrics.set(generatedText);
 
@@ -238,7 +238,7 @@ export class CreateComponent {
         // The service now handles credit consumption.
         await this.murekaService.generateMusic(title, `${finalStyle}, ${currentVocalGender} vocals`, currentLyrics, isPublicFlag);
       }
-
+      
       // Clear form after successful generation request
       this.songTitle.set('');
       this.selectedStyles.set(new Set<string>());

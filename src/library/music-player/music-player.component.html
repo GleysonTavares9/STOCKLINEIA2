@@ -1,5 +1,18 @@
 @if (music(); as currentMusic) {
-  <div class="fixed bottom-[88px] sm:bottom-4 inset-x-0 sm:inset-x-4 max-w-lg mx-auto z-40">
+  <div 
+    class="music-player-wrapper fixed z-40"
+    (mousedown)="onDragStart($event)"
+    [class.bottom-[88px]]="!wasDragged()"
+    [class.sm:bottom-4]="!wasDragged()"
+    [class.inset-x-0]="!wasDragged()"
+    [class.sm:inset-x-4]="!wasDragged()"
+    [class.max-w-lg]="!wasDragged()"
+    [class.mx-auto]="!wasDragged()"
+    [style.left.px]="wasDragged() ? position().x : undefined"
+    [style.top.px]="wasDragged() ? position().y : undefined"
+    [style.width.px]="wasDragged() ? playerSize()?.width : undefined"
+    [style.cursor]="isDragging() ? 'grabbing' : 'grab'"
+    [style.user-select]="isDragging() ? 'none' : 'auto'">
     <div class="flex items-center gap-4 bg-gradient-to-br from-zinc-800 to-zinc-900/95 backdrop-blur-lg text-white p-3 rounded-xl border-2 border-teal-500 shadow-2xl shadow-black/50">
       <img [src]="getCoverArt(currentMusic.title)" alt="Album Art" class="w-16 h-16 rounded-md object-cover flex-shrink-0">
 

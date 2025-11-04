@@ -19,71 +19,73 @@
       <h2 class="text-2xl font-bold text-white mb-6">Músicas em alta</h2>
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         @for (song of trendingMusic(); track song.id) {
-          <div class="flex flex-col h-full">
-            <div 
-              (click)="selectMusic(song)"
-              role="button"
-              tabindex="0"
-              class="bg-zinc-900 rounded-lg overflow-hidden border-2 border-teal-500 flex flex-col group transition-all duration-300 hover:border-teal-400 hover:scale-[1.03] hover:shadow-xl hover:shadow-black/40 cursor-pointer h-full backdrop-blur-sm">
-              <div class="relative overflow-hidden">
-                <img src="https://picsum.photos/seed/music-{{song.title}}/400/225" alt="Album Art" class="w-full h-40 object-cover transition-transform duration-300 group-hover:scale-110">
-                @if (song.status === 'succeeded' && song.audio_url) {
-                    <div class="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                        <div class="w-14 h-14 bg-teal-600/80 rounded-full flex items-center justify-center text-white backdrop-blur-sm transform group-hover:scale-110 transition-transform duration-300">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" viewBox="0 0 20 20" fill="currentColor">
-                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd" />
-                            </svg>
-                        </div>
-                    </div>
-                }
-              </div>
-              <div class="p-4 flex-grow flex flex-col justify-between">
-                <div>
-                  <h3 class="font-bold text-lg text-white truncate">{{ song.title }}</h3>
-                  <p class="text-sm text-zinc-400 truncate">{{ song.style }}</p>
+          <div class="flex flex-col h-full group">
+            <div class="p-0.5 rounded-lg bg-gradient-to-br from-teal-500/30 via-transparent to-cyan-500/30 transition-all duration-300 group-hover:from-teal-400/80 group-hover:to-cyan-500/80 group-hover:scale-[1.03] group-hover:shadow-xl group-hover:shadow-black/40 flex-grow">
+              <div 
+                (click)="selectMusic(song)"
+                role="button"
+                tabindex="0"
+                class="bg-zinc-900 rounded-md overflow-hidden flex flex-col cursor-pointer h-full backdrop-blur-sm">
+                <div class="relative overflow-hidden">
+                  <img src="https://picsum.photos/seed/music-{{song.title}}/400/225" alt="Album Art" class="w-full h-40 object-cover transition-transform duration-300 group-hover:scale-110">
+                  @if (song.status === 'succeeded' && song.audio_url) {
+                      <div class="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                          <div class="w-14 h-14 bg-teal-600/80 rounded-full flex items-center justify-center text-white backdrop-blur-sm transform group-hover:scale-110 transition-transform duration-300">
+                              <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" viewBox="0 0 20 20" fill="currentColor">
+                                  <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd" />
+                              </svg>
+                          </div>
+                      </div>
+                  }
                 </div>
-                <div>
-                  <div class="flex items-center gap-3 mt-4 flex-wrap">
-                      <button (click)="$event.stopPropagation(); toggleLike(song.id)" class="flex items-center gap-1.5 text-zinc-400 hover:text-teal-500 transition-colors text-sm">
-                          <svg xmlns="http://www.w3.org/2000/svg" 
-                              class="h-5 w-5 transition-colors" 
-                              [class.text-red-500]="likedSongs().has(song.id)" 
-                              [class.fill-red-500]="likedSongs().has(song.id)"
-                              fill="none" 
-                              viewBox="0 0 24 24" 
-                              stroke="currentColor" 
-                              stroke-width="1.5">
-                          <path stroke-linecap="round" stroke-linejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-                          </svg>
-                          <span>Gostar</span>
-                      </button>
-                      <button (click)="$event.stopPropagation(); shareMusic(song)" class="flex items-center gap-1.5 text-zinc-400 hover:text-teal-500 transition-colors text-sm">
-                          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-                              <path stroke-linecap="round" stroke-linejoin="round" d="M8.684 13.342C8.886 12.938 9 12.482 9 12s-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.368a3 3 0 105.367 2.684 3 3 0 00-5.367 2.684z" />
-                          </svg>
-                          <span>Compartilhar</span>
-                      </button>
-                      @if(song.status === 'succeeded' && song.description && song.description.trim().length > 0) {
-                        <button (click)="$event.stopPropagation(); toggleLyrics(song.id)" class="flex items-center gap-1.5 text-zinc-400 hover:text-teal-500 transition-colors text-sm" [class.text-teal-400]="expandedLyricsId() === song.id">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-                            <span>
-                                @if (expandedLyricsId() === song.id) {
-                                    Esconder Letra
-                                } @else {
-                                    Ver Letra
-                                }
-                            </span>
-                        </button>
-                      }
+                <div class="p-4 flex-grow flex flex-col justify-between">
+                  <div>
+                    <h3 class="font-bold text-lg text-white truncate">{{ song.title }}</h3>
+                    <p class="text-sm text-zinc-300 truncate">{{ song.style }}</p>
                   </div>
-                  <div class="text-xs text-zinc-500 mt-4 pt-3 border-t border-zinc-800 flex justify-between items-center">
-                     <span>{{ maskEmail(song.user_email, song.user_display_name) }}</span>
+                  <div>
+                    <div class="flex items-center gap-3 mt-4 flex-wrap">
+                        <button (click)="$event.stopPropagation(); toggleLike(song.id)" class="flex items-center gap-1.5 text-teal-400 hover:text-teal-200 transition-colors text-sm">
+                            <svg xmlns="http://www.w3.org/2000/svg" 
+                                class="h-5 w-5 transition-colors" 
+                                [class.text-red-500]="likedSongs().has(song.id)" 
+                                [class.fill-red-500]="likedSongs().has(song.id)"
+                                fill="none" 
+                                viewBox="0 0 24 24" 
+                                stroke="currentColor" 
+                                stroke-width="1.5">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                            </svg>
+                            <span>Gostar</span>
+                        </button>
+                        <button (click)="$event.stopPropagation(); shareMusic(song)" class="flex items-center gap-1.5 text-teal-400 hover:text-teal-200 transition-colors text-sm">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M8.684 13.342C8.886 12.938 9 12.482 9 12s-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.368a3 3 0 105.367 2.684 3 3 0 00-5.367 2.684z" />
+                            </svg>
+                            <span>Compartilhar</span>
+                        </button>
+                        @if(song.status === 'succeeded' && song.description && song.description.trim().length > 0) {
+                          <button (click)="$event.stopPropagation(); toggleLyrics(song.id)" class="flex items-center gap-1.5 text-teal-400 hover:text-teal-200 transition-colors text-sm" [class.text-white]="expandedLyricsId() === song.id" [class.font-bold]="expandedLyricsId() === song.id">
+                              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                              <span>
+                                  @if (expandedLyricsId() === song.id) {
+                                      Esconder Letra
+                                  } @else {
+                                      Ver Letra
+                                  }
+                              </span>
+                          </button>
+                        }
+                    </div>
+                    <div class="text-xs text-zinc-500 mt-4 pt-3 border-t border-zinc-800 flex justify-between items-center">
+                       <span>{{ maskEmail(song.user_email, song.user_display_name) }}</span>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
             @if (expandedLyricsId() === song.id) {
-              <div class="bg-[#101010] border-x-2 border-b-2 border-teal-500 rounded-b-lg p-4 -mt-2 animate-fade-in-down">
+              <div class="bg-[#101010] border-x border-b border-zinc-700 rounded-b-lg p-4 -mt-2 animate-fade-in-down">
                 <h4 class="font-semibold text-teal-400 mb-2 flex items-center gap-2">
                   <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                     <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" />
@@ -105,7 +107,7 @@
         <div class="flex justify-between items-baseline mb-6">
           <h2 class="text-2xl font-bold text-white">{{ group.style }}</h2>
           @if (group.songs.length > 4) {
-            <button (click)="toggleStyleExpansion(group.style)" class="text-sm font-semibold text-zinc-400 hover:text-white transition-colors">
+            <button (click)="toggleStyleExpansion(group.style)" class="text-sm font-semibold text-teal-400 hover:text-white transition-colors">
               @if (expandedStyles().has(group.style)) {
                 Ver menos
               } @else {
@@ -117,71 +119,73 @@
         @let songsToShow = expandedStyles().has(group.style) ? group.songs : group.songs.slice(0, 4);
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           @for (song of songsToShow; track song.id) {
-            <div class="flex flex-col h-full">
-              <div 
-                (click)="selectMusic(song)"
-                role="button"
-                tabindex="0"
-                class="bg-zinc-900 rounded-lg overflow-hidden border-2 border-teal-500 flex flex-col group transition-all duration-300 hover:border-teal-400 hover:scale-[1.03] hover:shadow-xl hover:shadow-black/40 cursor-pointer h-full backdrop-blur-sm">
-                <div class="relative overflow-hidden">
-                  <img src="https://picsum.photos/seed/music-{{song.title}}/400/225" alt="Album Art" class="w-full h-40 object-cover transition-transform duration-300 group-hover:scale-110">
-                  @if (song.status === 'succeeded' && song.audio_url) {
-                      <div class="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                          <div class="w-14 h-14 bg-teal-600/80 rounded-full flex items-center justify-center text-white backdrop-blur-sm transform group-hover:scale-110 transition-transform duration-300">
-                              <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" viewBox="0 0 20 20" fill="currentColor">
-                                  <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd" />
-                              </svg>
-                          </div>
-                      </div>
-                  }
-                </div>
-                <div class="p-4 flex-grow flex flex-col justify-between">
-                  <div>
-                    <h3 class="font-bold text-lg text-white truncate">{{ song.title }}</h3>
-                    <p class="text-sm text-zinc-400 truncate">{{ song.style }}</p>
+            <div class="flex flex-col h-full group">
+              <div class="p-0.5 rounded-lg bg-gradient-to-br from-teal-500/30 via-transparent to-cyan-500/30 transition-all duration-300 group-hover:from-teal-400/80 group-hover:to-cyan-500/80 group-hover:scale-[1.03] group-hover:shadow-xl group-hover:shadow-black/40 flex-grow">
+                <div 
+                  (click)="selectMusic(song)"
+                  role="button"
+                  tabindex="0"
+                  class="bg-zinc-900 rounded-md overflow-hidden flex flex-col cursor-pointer h-full backdrop-blur-sm">
+                  <div class="relative overflow-hidden">
+                    <img src="https://picsum.photos/seed/music-{{song.title}}/400/225" alt="Album Art" class="w-full h-40 object-cover transition-transform duration-300 group-hover:scale-110">
+                    @if (song.status === 'succeeded' && song.audio_url) {
+                        <div class="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                            <div class="w-14 h-14 bg-teal-600/80 rounded-full flex items-center justify-center text-white backdrop-blur-sm transform group-hover:scale-110 transition-transform duration-300">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd" />
+                                </svg>
+                            </div>
+                        </div>
+                    }
                   </div>
-                  <div>
-                    <div class="flex items-center gap-3 mt-4 flex-wrap">
-                        <button (click)="$event.stopPropagation(); toggleLike(song.id)" class="flex items-center gap-1.5 text-zinc-400 hover:text-teal-500 transition-colors text-sm">
-                            <svg xmlns="http://www.w3.org/2000/svg" 
-                                class="h-5 w-5 transition-colors" 
-                                [class.text-red-500]="likedSongs().has(song.id)" 
-                                [class.fill-red-500]="likedSongs().has(song.id)"
-                                fill="none" 
-                                viewBox="0 0 24 24" 
-                                stroke="currentColor" 
-                                stroke-width="1.5">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-                            </svg>
-                            <span>Gostar</span>
-                        </button>
-                        <button (click)="$event.stopPropagation(); shareMusic(song)" class="flex items-center gap-1.5 text-zinc-400 hover:text-teal-500 transition-colors text-sm">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M8.684 13.342C8.886 12.938 9 12.482 9 12s-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.368a3 3 0 105.367 2.684 3 3 0 00-5.367 2.684z" />
-                            </svg>
-                            <span>Compartilhar</span>
-                        </button>
-                         @if(song.status === 'succeeded' && song.description && song.description.trim().length > 0) {
-                          <button (click)="$event.stopPropagation(); toggleLyrics(song.id)" class="flex items-center gap-1.5 text-zinc-400 hover:text-teal-500 transition-colors text-sm" [class.text-teal-400]="expandedLyricsId() === song.id">
-                              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-                              <span>
-                                  @if (expandedLyricsId() === song.id) {
-                                      Esconder Letra
-                                  } @else {
-                                      Ver Letra
-                                  }
-                              </span>
-                          </button>
-                        }
+                  <div class="p-4 flex-grow flex flex-col justify-between">
+                    <div>
+                      <h3 class="font-bold text-lg text-white truncate">{{ song.title }}</h3>
+                      <p class="text-sm text-zinc-300 truncate">{{ song.style }}</p>
                     </div>
-                    <div class="text-xs text-zinc-500 mt-4 pt-3 border-t border-zinc-800 flex justify-between items-center">
-                       <span>{{ maskEmail(song.user_email, song.user_display_name) }}</span>
+                    <div>
+                      <div class="flex items-center gap-3 mt-4 flex-wrap">
+                          <button (click)="$event.stopPropagation(); toggleLike(song.id)" class="flex items-center gap-1.5 text-teal-400 hover:text-teal-200 transition-colors text-sm">
+                              <svg xmlns="http://www.w3.org/2000/svg" 
+                                  class="h-5 w-5 transition-colors" 
+                                  [class.text-red-500]="likedSongs().has(song.id)" 
+                                  [class.fill-red-500]="likedSongs().has(song.id)"
+                                  fill="none" 
+                                  viewBox="0 0 24 24" 
+                                  stroke="currentColor" 
+                                  stroke-width="1.5">
+                              <path stroke-linecap="round" stroke-linejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                              </svg>
+                              <span>Gostar</span>
+                          </button>
+                          <button (click)="$event.stopPropagation(); shareMusic(song)" class="flex items-center gap-1.5 text-teal-400 hover:text-teal-200 transition-colors text-sm">
+                              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                                  <path stroke-linecap="round" stroke-linejoin="round" d="M8.684 13.342C8.886 12.938 9 12.482 9 12s-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.368a3 3 0 105.367 2.684 3 3 0 00-5.367 2.684z" />
+                              </svg>
+                              <span>Compartilhar</span>
+                          </button>
+                           @if(song.status === 'succeeded' && song.description && song.description.trim().length > 0) {
+                            <button (click)="$event.stopPropagation(); toggleLyrics(song.id)" class="flex items-center gap-1.5 text-teal-400 hover:text-teal-200 transition-colors text-sm" [class.text-white]="expandedLyricsId() === song.id" [class.font-bold]="expandedLyricsId() === song.id">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                                <span>
+                                    @if (expandedLyricsId() === song.id) {
+                                        Esconder Letra
+                                    } @else {
+                                        Ver Letra
+                                    }
+                                </span>
+                            </button>
+                          }
+                      </div>
+                      <div class="text-xs text-zinc-500 mt-4 pt-3 border-t border-zinc-800 flex justify-between items-center">
+                         <span>{{ maskEmail(song.user_email, song.user_display_name) }}</span>
+                      </div>
                     </div>
                   </div>
                 </div>
               </div>
                @if (expandedLyricsId() === song.id) {
-                <div class="bg-[#101010] border-x-2 border-b-2 border-teal-500 rounded-b-lg p-4 -mt-2 animate-fade-in-down">
+                <div class="bg-[#101010] border-x border-b border-zinc-700 rounded-b-lg p-4 -mt-2 animate-fade-in-down">
                   <h4 class="font-semibold text-teal-400 mb-2 flex items-center gap-2">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                       <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" />
