@@ -106,19 +106,46 @@ export class FeedComponent {
   async shareMusic(song: Music): Promise<void> {
     const shareData = {
       title: `STOCKLINE AI Music: ${song.title}`,
-      text: `Ouça "${song.title}", uma música que criei com STOCKLINE AI!`,
-      url: `${window.location.origin}/#/feed`, // Shares the feed page URL
+      text: `Uau! ✨ Ouça "${song.title}", uma música que criei com STOCKLINE, a plataforma de IA para gerar músicas incríveis. Crie a sua também!`,
+      url: `${window.location.origin}`,
     };
+
+    // SVG do logo com cor embutida para compartilhamento
+    const logoSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256" fill="#14b8a6"><path d="M224,160V96a16,16,0,0,0-16-16H48A16,16,0,0,0,32,96v64a16,16,0,0,0,16,16H208A16,16,0,0,0,224,160ZM48,96H208l-32,32L144,96H112l32,32L112,160h32l32-32,32,32H48Z"></path></svg>`;
+    const blob = new Blob([logoSvg], { type: 'image/svg+xml' });
+    const logoFile = new File([blob], 'stockline-logo.svg', { type: 'image/svg+xml' });
+
     try {
+      // Usa a Web Share API se disponível
       if (navigator.share) {
-        await navigator.share(shareData);
+        // Tenta compartilhar com o arquivo do logo se o navegador suportar
+        if (navigator.canShare && navigator.canShare({ files: [logoFile] })) {
+          await navigator.share({
+            ...shareData,
+            files: [logoFile],
+          });
+        } else {
+          // Fallback para compartilhar apenas texto e URL
+          await navigator.share(shareData);
+        }
       } else {
-        await navigator.clipboard.writeText(`${shareData.text} Crie a sua: ${shareData.url}`);
-        alert('Link da música copiado para a área de transferência!');
+        // Fallback para área de transferência se a Web Share API não for suportada
+        await navigator.clipboard.writeText(`${shareData.text}\n\n${shareData.url}`);
+        alert('Link copiado para a área de transferência!');
       }
     } catch (error) {
-      console.error('Sharing failed:', error);
-      alert('Falha ao compartilhar.');
+      // Ignora o erro se o usuário cancelar o compartilhamento
+      if ((error as DOMException)?.name !== 'AbortError') {
+        console.error('Sharing failed:', error);
+        // Tenta a área de transferência como último recurso
+        try {
+          await navigator.clipboard.writeText(`${shareData.text}\n\n${shareData.url}`);
+          alert('O compartilhamento falhou. O link foi copiado para a área de transferência!');
+        } catch (copyError) {
+          console.error('Clipboard fallback failed:', copyError);
+          alert('Falha ao compartilhar e ao copiar o link.');
+        }
+      }
     }
   }
 

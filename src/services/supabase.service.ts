@@ -141,12 +141,12 @@ export class SupabaseService {
     this.supabase.auth.onAuthStateChange(async (event, session) => {
       console.log('SupabaseService: Auth state change detected:', event);
 
-      // On initial load, the 'INITIAL_SESSION' event is fired.
-      // This is the signal that Supabase has checked for a session and we can proceed.
-      // This event fires whether a session is found or not.
-      if (event === 'INITIAL_SESSION') {
+      // The first event from onAuthStateChange confirms that the initial check is complete.
+      // This is more robust as it covers both INITIAL_SESSION and subsequent SIGNED_IN events
+      // that might occur immediately on load after an OAuth redirect.
+      if (!this.authReady()) {
         this.authReady.set(true);
-        console.log('SupabaseService: Initial session processed. Auth is ready.');
+        console.log('SupabaseService: First auth event received. Auth is ready.');
       }
 
       const user = session?.user ?? null;
