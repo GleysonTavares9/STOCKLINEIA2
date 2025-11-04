@@ -3,8 +3,9 @@ import { Routes } from '@angular/router';
 export const routes: Routes = [
   {
     path: '',
-    redirectTo: 'auth',
-    pathMatch: 'full'
+    // Load the auth component at the root. This prevents the router's redirect
+    // from stripping the auth token hash from the URL during the OAuth callback.
+    loadComponent: () => import('./auth/auth.component').then(m => m.AuthComponent)
   },
   {
     path: 'auth',

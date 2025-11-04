@@ -65,32 +65,32 @@ export class AppComponent {
     effect(() => {
       const user = this.currentUser();
       const ready = this.authReady();
-
+    
       // Don't do anything until Supabase has checked the initial auth state.
       if (!ready) {
         return;
       }
-
-      const onAuthPage = this.router.isActive('/auth', {
-        paths: 'exact',
-        queryParams: 'subset',
-        fragment: 'ignored',
-        matrixParams: 'ignored'
-      });
-
+    
+      // An authentication route is any page that a logged-in user should not see,
+      // like the login/signup page. The root '/' now also serves the auth component
+      // to correctly handle the Google OAuth redirect hash fragment.
+      // FIX: The `isActive` method requires a complete `IsActiveMatchOptions` object.
+      // Added `queryParams`, `fragment`, and `matrixParams` properties to satisfy the method signature for an exact path match.
+      const onAuthRoute = this.router.isActive('/auth', { paths: 'exact', queryParams: 'ignored', fragment: 'ignored', matrixParams: 'ignored' }) || this.router.isActive('/', { paths: 'exact', queryParams: 'ignored', fragment: 'ignored', matrixParams: 'ignored' });
+    
       if (user) {
         // User is LOGGED IN
-        if (onAuthPage) {
-          // If they are on the auth page, they shouldn't be. Redirect them to the main feed.
-          console.log('AppComponent Effect: User is authenticated, but on /auth page. Redirecting to /feed.');
+        if (onAuthRoute) {
+          // If they are on an authentication page, they shouldn't be. Redirect them to the main feed.
+          console.log('AppComponent Effect: User is authenticated, but on an auth page. Redirecting to /feed.');
           this.router.navigate(['/feed']);
         }
       } else {
         // User is LOGGED OUT
-        if (!onAuthPage) {
-          // If they are on any other page, they shouldn't be. Redirect them to the auth page.
-          console.log('AppComponent Effect: User is not authenticated and not on /auth page. Redirecting to /auth.');
-          this.router.navigate(['/auth']);
+        if (!onAuthRoute) {
+          // If they are on any other page, they shouldn't be. Redirect them to the main auth page at the root.
+          console.log(`AppComponent Effect: User not authenticated and not on an auth page. URL: "${this.router.url}". Redirecting to /. `);
+          this.router.navigate(['/']);
         }
       }
     });
