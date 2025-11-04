@@ -1,6 +1,6 @@
-import { Component, ChangeDetectionStrategy, inject, signal, ElementRef } from '@angular/core';
+import { Component, ChangeDetectionStrategy, inject, signal, ElementRef, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { Music } from '../../services/supabase.service';
+import { Music, SupabaseService } from '../../services/supabase.service';
 import { MusicPlayerService } from '../../services/music-player.service';
 
 @Component({
@@ -20,6 +20,7 @@ import { MusicPlayerService } from '../../services/music-player.service';
 })
 export class MusicPlayerComponent {
   private readonly playerService = inject(MusicPlayerService);
+  private readonly supabase = inject(SupabaseService);
   private elementRef = inject(ElementRef);
 
   // Get all state from the service
@@ -35,6 +36,9 @@ export class MusicPlayerComponent {
   volume = this.playerService.volume;
   isMuted = this.playerService.isMuted;
   repeatMode = this.playerService.repeatMode;
+
+  // Computed state for UI logic
+  isLoggedIn = computed(() => !!this.supabase.currentUser());
 
   // Draggable state
   isDragging = signal(false);

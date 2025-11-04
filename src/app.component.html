@@ -121,14 +121,15 @@
               </div>
           </div>
         </nav>
-
-        <!-- Music Player at the bottom -->
-        <app-music-player />
       </div>
     } @else {
       <!-- LOGGED OUT VIEW -->
       <router-outlet></router-outlet>
     }
+
+    <!-- Music Player at the bottom, rendered for both logged-in and logged-out users -->
+    <app-music-player />
+    
   } @else {
     <!-- AUTH NOT READY (INITIAL LOAD) -->
     <div class="fixed inset-0 flex items-center justify-center bg-black">
