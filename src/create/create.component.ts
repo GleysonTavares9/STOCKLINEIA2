@@ -65,7 +65,6 @@ export class CreateComponent {
   audioCreationMode = signal<'upload' | 'youtube' | 'clone'>('upload');
   uploadedFile = signal<File | null>(null);
   youtubeUrl = signal<string>('');
-  audioTitle = signal<string>('');
   isUploading = signal(false);
   uploadError = signal<string | null>(null);
 
@@ -129,7 +128,7 @@ export class CreateComponent {
   
   canUploadAudio = computed(() => {
     return this.uploadedFile() !== null && 
-           this.audioTitle().trim().length > 0 && 
+           this.songTitle().trim().length > 0 && 
            !this.isUploading() &&
            this.currentUserProfile() && this.currentUserProfile()!.credits > 0;
   });
@@ -137,15 +136,25 @@ export class CreateComponent {
   canProcessYouTube = computed(() => {
     const url = this.youtubeUrl().trim();
     const isYouTubeLink = url.includes('youtube.com/') || url.includes('youtu.be/');
-    return isYouTubeLink && 
-           this.audioTitle().trim().length > 0 && 
-           !this.isUploading() &&
-           this.currentUserProfile() && this.currentUserProfile()!.credits > 0;
+    
+    if (!isYouTubeLink || !this.songTitle().trim() || this.isUploading() || !this.currentUserProfile() || this.currentUserProfile()!.credits <= 0) {
+      return false;
+    }
+
+    const hasStyle = this.selectedStyles().size > 0 || this.customStyle().trim().length > 0;
+    if (!hasStyle) return false;
+
+    if (this.isInstrumental()) {
+        return true;
+    } else { // Vocal track
+        const hasLyrics = this.lyrics().trim().length > 0 && !this.isLyricsTooLong();
+        return hasLyrics;
+    }
   });
 
   canCloneVoice = computed(() => {
     return this.uploadedFile() !== null &&
-           this.audioTitle().trim().length > 0 &&
+           this.songTitle().trim().length > 0 &&
            this.cloneLyrics().trim().length > 0 &&
            this.cloneStyle().trim().length > 0 &&
            !this.isUploading() &&
@@ -167,6 +176,11 @@ export class CreateComponent {
       }
       return newStyles;
     });
+  }
+
+  private getVocalPrompt(vocalGender: 'male' | 'female'): string {
+    const genderText = vocalGender === 'male' ? 'masculinos' : 'femininos';
+    return `com vocais ${genderText} expressivos que combinam com o estilo musical`;
   }
 
   async generateLyrics(): Promise<void> {
@@ -235,8 +249,9 @@ export class CreateComponent {
         // The service now handles credit consumption.
         await this.murekaService.generateInstrumental(title, finalStyle, isPublicFlag);
       } else {
-        // The service now handles credit consumption.
-        await this.murekaService.generateMusic(title, `${finalStyle}, ${currentVocalGender} vocals`, currentLyrics, isPublicFlag);
+        const vocalPrompt = this.getVocalPrompt(currentVocalGender);
+        const promptWithVocals = `${finalStyle}, ${vocalPrompt}`;
+        await this.murekaService.generateMusic(title, promptWithVocals, currentLyrics, isPublicFlag);
       }
       
       // Clear form after successful generation request
@@ -261,10 +276,9 @@ export class CreateComponent {
     if (this.audioCreationMode() === mode) return;
 
     this.audioCreationMode.set(mode);
-    // Reset shared state to avoid confusion between tabs
+    // Reset only mode-specific inputs
     this.uploadedFile.set(null);
     this.youtubeUrl.set('');
-    this.audioTitle.set('');
     this.uploadError.set(null);
     this.cloneLyrics.set('');
     this.cloneStyle.set('');
@@ -287,9 +301,9 @@ export class CreateComponent {
 
     try {
         // The service now handles credit consumption.
-        await this.murekaService.uploadAudio(this.uploadedFile()!, this.audioTitle());
+        await this.murekaService.uploadAudio(this.uploadedFile()!, this.songTitle());
         
-        this.audioTitle.set('');
+        this.songTitle.set('');
         this.uploadedFile.set(null);
         
         this.router.navigate(['/library']);
@@ -308,13 +322,38 @@ export class CreateComponent {
     this.uploadError.set(null);
     
     try {
-        // The service now handles credit consumption.
-        await this.murekaService.processYouTubeVideo(this.youtubeUrl(), this.audioTitle());
+      const stylesArray = Array.from(this.selectedStyles());
+      const finalStyle = stylesArray.length > 0 ? stylesArray.join(', ') : this.customStyle().trim();
+      const title = this.songTitle().trim();
+      const isInstrumentalMode = this.isInstrumental();
+      
+      let finalPrompt: string;
+      if (isInstrumentalMode) {
+          finalPrompt = `Uma nova faixa instrumental no estilo de ${finalStyle}, inspirada no áudio de referência do YouTube.`;
+      } else {
+          const vocalPrompt = this.getVocalPrompt(this.vocalGender());
+          finalPrompt = `Uma nova música no estilo de ${finalStyle}, ${vocalPrompt}, inspirada no áudio de referência do YouTube.`;
+      }
 
-        this.audioTitle.set('');
-        this.youtubeUrl.set('');
+      await this.murekaService.processYouTubeVideo(
+        this.youtubeUrl(), 
+        title, 
+        finalPrompt, 
+        this.lyrics(),
+        isInstrumentalMode,
+        this.isPublic()
+      );
 
-        this.router.navigate(['/library']);
+      // Clear form
+      this.songTitle.set('');
+      this.youtubeUrl.set('');
+      this.selectedStyles.set(new Set());
+      this.customStyle.set('');
+      this.lyrics.set('');
+      this.lyricsDescription.set('');
+
+      this.router.navigate(['/library']);
+
     } catch (error: any) {
         console.error('Erro ao processar vídeo do YouTube:', error);
         this.uploadError.set(error.message || 'Falha ao processar o vídeo. Verifique o link e tente novamente.');
@@ -333,14 +372,14 @@ export class CreateComponent {
         // The service now handles credit consumption.
         await this.murekaService.cloneVoice(
           this.uploadedFile()!,
-          this.audioTitle(),
+          this.songTitle(),
           this.cloneLyrics(),
           this.cloneStyle(),
           true // Default to public for now
         );
         
         // Clear form
-        this.audioTitle.set('');
+        this.songTitle.set('');
         this.uploadedFile.set(null);
         this.cloneLyrics.set('');
         this.cloneStyle.set('');

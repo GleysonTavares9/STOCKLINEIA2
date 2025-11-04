@@ -119,22 +119,30 @@ export class MurekaService {
 
   // ========== PROCESSAMENTO DO YOUTUBE ==========
 
-  async processYouTubeVideo(youtubeUrl: string, title: string, description?: string): Promise<void> {
+  async processYouTubeVideo(
+    youtubeUrl: string, 
+    title: string, 
+    prompt: string, 
+    lyrics: string, 
+    isInstrumental: boolean, 
+    isPublic: boolean
+  ): Promise<void> {
     const user = this.supabase.currentUser();
     if (!this.isConfigured() || !user) {
       throw new Error('O Supabase não está configurado ou o usuário não está autenticado.');
     }
 
     let musicRecord: Music | null = null;
+    const queryPath = isInstrumental ? 'instrumental/query' : 'song/query';
 
     try {
       musicRecord = await this.supabase.addMusic({
         title,
-        style: 'youtube',
-        lyrics: description || '',
+        style: `YouTube: ${prompt}`,
+        lyrics: lyrics,
         status: 'processing', 
-        is_public: false,
-        metadata: { youtube_url: youtubeUrl, queryPath: 'instrumental/query' }
+        is_public: isPublic,
+        metadata: { youtube_url: youtubeUrl, queryPath: queryPath }
       });
 
       if (!musicRecord) {
@@ -144,16 +152,22 @@ export class MurekaService {
       const finalMusicRecord = musicRecord;
       this.userMusic.update(current => [finalMusicRecord, ...current]);
 
+      const apiPath = isInstrumental ? 'instrumental/remix' : 'song/remix';
+      const requestBody: any = {
+        audio_url: youtubeUrl,
+        prompt: prompt,
+        model: 'auto',
+        n: 1,
+      };
+      if (!isInstrumental) {
+        requestBody.lyrics = lyrics;
+      }
+
       const { data, error: proxyError } = await this.supabase.invokeFunction('mureka-proxy', {
         body: {
-          murekaApiPath: 'instrumental/generate',
+          murekaApiPath: apiPath,
           method: 'POST',
-          requestBody: {
-            audio_url: youtubeUrl,
-            prompt: description || 'Gerar música inspirada no áudio do link.',
-            model: 'auto',
-            n: 1,
-          }
+          requestBody: requestBody
         }
       });
 
@@ -168,7 +182,7 @@ export class MurekaService {
         mureka_id: taskId,
         metadata: {
           ...(finalMusicRecord.metadata || {}),
-          processing_method: 'generation_based'
+          processing_method: 'remix_based'
         }
       });
       
@@ -176,7 +190,7 @@ export class MurekaService {
         this.userMusic.update(music => music.map(s => s.id === finalMusicRecord.id ? updatedRecord : s));
       }
 
-      this.pollForResult(finalMusicRecord.id, taskId, 'instrumental/query');
+      this.pollForResult(finalMusicRecord.id, taskId, queryPath);
 
     } catch (error) {
       console.error('MurekaService: Erro ao processar vídeo do YouTube:', error);
@@ -184,9 +198,9 @@ export class MurekaService {
       await this.handleGenerationError(error, musicRecord, { 
         title, 
         style: 'youtube', 
-        lyrics: description || '', 
+        lyrics: lyrics, 
         errorMessage, 
-        is_public: false 
+        is_public: isPublic
       });
       throw new Error(errorMessage);
     }
@@ -231,11 +245,11 @@ export class MurekaService {
       // Now, generate music from the uploaded file
       const { data, error: proxyError } = await this.supabase.invokeFunction('mureka-proxy', {
         body: {
-          murekaApiPath: 'instrumental/generate',
+          murekaApiPath: 'instrumental/remix',
           method: 'POST',
           requestBody: {
             file_id: fileId,
-            prompt: description || analysisDescription || 'Gerar música inspirada no áudio de referência.',
+            prompt: description || analysisDescription || 'Uma nova faixa instrumental com estilo, humor e instrumentação semelhantes ao áudio de referência.',
             model: 'auto',
             n: 1
           }
