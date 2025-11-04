@@ -180,13 +180,9 @@ export class LibraryComponent implements OnDestroy {
   async checkMusicStatus(music: Music): Promise<void> {
     if (!music.task_id) return;
 
-    // FIX: Retrieve the correct query path from music metadata. Default to 'song/query' for backward compatibility.
-    // This is now safe because the Music interface's metadata property is flexible.
-    // FIX: Corrected the type assertion to include the 'v1/' prefix, matching the service method's expected parameter type.
-    const queryPath = (music.metadata?.queryPath as 'v1/song/query' | 'v1/instrumental/query' | 'v1/voice_clone/query') || 'v1/song/query';
+    const queryPath = (music.metadata?.queryPath as 'song/query' | 'instrumental/query' | 'voice_clone/query') || 'song/query';
     
     try {
-      // FIX: Pass the correct queryPath to the status check.
       const result = await this.murekaService.queryMusicStatus(music.task_id, queryPath);
     
       // If status is final, update DB and local state
@@ -197,7 +193,6 @@ export class LibraryComponent implements OnDestroy {
           if (audio_url) {
             let finalUrl = audio_url;
             if (fileId) {
-              // FIX: Construct permanent URL for generated audio, consistent with mureka.service.ts
               finalUrl = `https://api.mureka.ai/v1/files/${fileId}/download`;
             }
             // FIX: Preserve existing metadata when updating the music record.

@@ -26,7 +26,6 @@ export interface Profile {
   display_name?: string;
   credits: number;
   stripe_customer_id?: string | null;
-  has_advanced_features?: boolean;
 }
 
 export interface Plan {
@@ -61,6 +60,16 @@ export interface Notification {
   message: string;
   read: boolean;
   type: 'info' | 'success' | 'warning' | 'error';
+}
+
+export interface ActivityHistoryItem {
+  id: string;
+  created_at: string;
+  type: 'transaction' | 'creation';
+  description: string;
+  amount?: number; // for transactions
+  status?: 'processing' | 'succeeded' | 'failed'; // for creations
+  metadata?: any;
 }
 
 
@@ -491,22 +500,47 @@ export class SupabaseService {
     }
   }
 
-  async getCreditTransactionsForUser(userId: string): Promise<CreditTransaction[]> {
+  async getActivityHistory(userId: string): Promise<ActivityHistoryItem[]> {
     if (!this.supabase) {
-      console.error('getCreditTransactionsForUser: Supabase client not initialized.');
+      console.error('getActivityHistory: Supabase client not initialized.');
       return [];
     }
-    const { data, error } = await this.supabase
-      .from('credit_transactions')
-      .select('*')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      console.error('getCreditTransactionsForUser: Error fetching transactions:', error.message);
-      return [];
+  
+    const [transactionsResult, musicsResult] = await Promise.all([
+      this.supabase.from('credit_transactions').select('*').eq('user_id', userId),
+      this.supabase.from('musics').select('id, created_at, title, status').eq('user_id', userId)
+    ]);
+  
+    if (transactionsResult.error) {
+      console.error('getActivityHistory: Error fetching transactions:', transactionsResult.error.message);
     }
-    return (data as CreditTransaction[]) || [];
+  
+    if (musicsResult.error) {
+      console.error('getActivityHistory: Error fetching music creations:', musicsResult.error.message);
+    }
+  
+    const mappedTransactions: ActivityHistoryItem[] = (transactionsResult.data || []).map((tx: CreditTransaction) => ({
+      id: tx.id,
+      created_at: tx.created_at,
+      type: 'transaction',
+      description: tx.description,
+      amount: tx.amount,
+      metadata: tx.metadata,
+    }));
+  
+    const mappedCreations: ActivityHistoryItem[] = (musicsResult.data || []).map((music: any) => ({
+      id: music.id,
+      created_at: music.created_at,
+      type: 'creation',
+      description: `Criação da música: "${music.title}"`,
+      status: music.status,
+    }));
+  
+    const combinedHistory = [...mappedTransactions, ...mappedCreations];
+    
+    combinedHistory.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  
+    return combinedHistory;
   }
 
   async loadNotifications(userId: string): Promise<void> {

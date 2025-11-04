@@ -1,7 +1,7 @@
 import { Component, ChangeDetectionStrategy, inject, computed, signal, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink, ActivatedRoute } from '@angular/router';
-import { SupabaseService, CreditTransaction, Notification } from '../services/supabase.service';
+import { SupabaseService, ActivityHistoryItem, Notification } from '../services/supabase.service';
 import { MurekaService } from '../services/mureka.service';
 
 @Component({
@@ -25,10 +25,10 @@ export class AccountComponent {
 
   // New state for tabs and data
   activeTab = signal<'overview' | 'history' | 'notifications'>('overview');
-  transactions = signal<CreditTransaction[]>([]);
+  activityHistory = signal<ActivityHistoryItem[]>([]);
   // Use notifications from the centralized service
   notifications = this.supabase.notifications;
-  isLoadingTransactions = signal(true);
+  isLoadingHistory = signal(true);
   isLoadingNotifications = this.supabase.isLoadingNotifications;
 
   hasActiveSubscription = computed(() => !!this.currentUserProfile()?.stripe_customer_id);
@@ -50,11 +50,11 @@ export class AccountComponent {
     effect(() => {
       const user = this.currentUser();
       if (user) {
-        this.loadTransactions(user.id);
+        this.loadActivityHistory(user.id);
         // Notifications are loaded by SupabaseService effect, so that's fine.
       } else {
         // If user logs out while on this page, clear the data
-        this.transactions.set([]);
+        this.activityHistory.set([]);
       }
     });
 
@@ -67,11 +67,11 @@ export class AccountComponent {
     });
   }
 
-  async loadTransactions(userId: string) {
-    this.isLoadingTransactions.set(true);
-    const data = await this.supabase.getCreditTransactionsForUser(userId);
-    this.transactions.set(data);
-    this.isLoadingTransactions.set(false);
+  async loadActivityHistory(userId: string) {
+    this.isLoadingHistory.set(true);
+    const data = await this.supabase.getActivityHistory(userId);
+    this.activityHistory.set(data);
+    this.isLoadingHistory.set(false);
   }
 
   async markAsRead(notification: Notification) {

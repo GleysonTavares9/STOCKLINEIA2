@@ -144,40 +144,59 @@
         <div class="p-1 rounded-2xl bg-gradient-to-br from-teal-500/50 to-cyan-500/50">
           <div class="bg-zinc-900 rounded-[15px]">
             <div class="p-6">
-              <h3 class="text-lg font-semibold text-zinc-300">Histórico de Transações</h3>
+              <h3 class="text-lg font-semibold text-zinc-300">Histórico de Atividades</h3>
             </div>
             <div class="border-t border-zinc-700">
-              @if (isLoadingTransactions()) {
+              @if (isLoadingHistory()) {
                 <div class="p-8 text-center text-zinc-500">Carregando histórico...</div>
               } @else {
-                @if (transactions().length === 0) {
-                  <div class="p-8 text-center text-zinc-500">Nenhuma transação encontrada.</div>
+                @if (activityHistory().length === 0) {
+                  <div class="p-8 text-center text-zinc-500">Nenhuma atividade encontrada.</div>
                 } @else {
                   <ul class="divide-y divide-zinc-700">
-                    @for (tx of transactions(); track tx.id) {
-                      <li class="p-6 flex items-center justify-between">
+                    @for (item of activityHistory(); track item.id) {
+                      <li class="p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                         <div class="flex items-center gap-4">
-                          @if (tx.amount > 0) {
-                            <div class="w-10 h-10 flex-shrink-0 rounded-full bg-green-900/50 flex items-center justify-center">
-                              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+                          @if (item.type === 'creation') {
+                            <div class="w-10 h-10 flex-shrink-0 rounded-full bg-cyan-900/50 flex items-center justify-center">
+                              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 6l12-3" />
                               </svg>
                             </div>
                           } @else {
-                             <div class="w-10 h-10 flex-shrink-0 rounded-full bg-red-900/50 flex items-center justify-center">
-                              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M20 12H4" />
-                              </svg>
-                            </div>
+                            @if (item.amount > 0) {
+                              <div class="w-10 h-10 flex-shrink-0 rounded-full bg-green-900/50 flex items-center justify-center">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+                                </svg>
+                              </div>
+                            } @else {
+                              <div class="w-10 h-10 flex-shrink-0 rounded-full bg-red-900/50 flex items-center justify-center">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                  <path stroke-linecap="round" stroke-linejoin="round" d="M20 12H4" />
+                                </svg>
+                              </div>
+                            }
                           }
                           <div>
-                            <p class="font-medium text-white">{{ tx.description }}</p>
-                            <p class="text-sm text-zinc-400">{{ tx.created_at | date:'dd/MM/yyyy HH:mm' }}</p>
+                            <p class="font-medium text-white">{{ item.description }}</p>
+                            <p class="text-sm text-zinc-400">{{ item.created_at | date:'dd/MM/yyyy HH:mm' }}</p>
                           </div>
                         </div>
-                        <p class="font-semibold text-lg" [class.text-green-400]="tx.amount > 0" [class.text-red-400]="tx.amount < 0">
-                          {{ tx.amount > 0 ? '+' : '' }}{{ tx.amount }} Créditos
-                        </p>
+                        <div class="w-full sm:w-auto flex justify-end">
+                          @if (item.type === 'creation') {
+                            <span class="text-xs font-medium px-3 py-1 rounded-full"
+                                  [class.bg-yellow-900/80]="item.status === 'processing'" [class.text-yellow-300]="item.status === 'processing'"
+                                  [class.bg-teal-900/80]="item.status === 'succeeded'" [class.text-teal-300]="item.status === 'succeeded'"
+                                  [class.bg-red-900/80]="item.status === 'failed'" [class.text-red-300]="item.status === 'failed'">
+                              {{ item.status === 'processing' ? 'Processando' : item.status === 'succeeded' ? 'Concluído' : 'Falhou' }}
+                            </span>
+                          } @else {
+                            <p class="font-semibold text-lg" [class.text-green-400]="item.amount > 0" [class.text-red-400]="item.amount <= 0">
+                              {{ item.amount > 0 ? '+' : '' }}{{ item.amount }} Créditos
+                            </p>
+                          }
+                        </div>
                       </li>
                     }
                   </ul>
