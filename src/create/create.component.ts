@@ -54,18 +54,17 @@ export class CreateComponent {
   // Music generation state (unified for all creation types)
   isGeneratingMusic = signal(false);
   generationError = signal<string | null>(null);
-  generatingMusicId = signal<string | null>(null);
   musicGenerationProgress = signal(0);
-  musicGenerationStatusMessage = signal('');
+  musicGenerationStatusMessage = signal('Iniciando...');
 
-  // New signal for a generation happening in the background
+  // New state for a generation happening in the background
   backgroundGeneration = signal<Music | null>(null);
 
   // Advanced audio creation state
   audioCreationMode = signal<'upload' | 'youtube' | 'clone'>('upload'); // Default to 'upload' for advanced section
   uploadedFile = signal<File | null>(null);
   youtubeUrl = signal<string>('');
-  audioTitle = signal<string>(''); // New signal for audio-based creation title
+  advancedTitle = signal<string>(''); // Title for advanced creation modes
 
   // Voice cloning state
   cloneLyrics = signal<string>('');
@@ -120,7 +119,7 @@ export class CreateComponent {
   canUploadAudio = computed(() => {
     const profile = this.currentUserProfile();
     return this.uploadedFile() !== null && 
-           this.audioTitle().trim().length > 0 && 
+           this.advancedTitle().trim().length > 0 && 
            !this.isGeneratingMusic() &&
            !!profile && profile.credits > 0;
   });
@@ -129,26 +128,16 @@ export class CreateComponent {
     const url = this.youtubeUrl().trim();
     const isYouTubeLink = url.includes('youtube.com/') || url.includes('youtu.be/');
     const profile = this.currentUserProfile();
-    
-    if (!isYouTubeLink || !this.audioTitle().trim() || this.isGeneratingMusic() || !profile || profile.credits <= 0) {
-      return false;
-    }
-
-    const hasStyle = this.selectedStyles().size > 0 || this.customStyle().trim().length > 0;
-    if (!hasStyle) return false;
-
-    if (this.isInstrumental()) {
-        return true;
-    }
-    
-    // For vocal YouTube processing, lyrics are required
-    return (this.lyrics().trim().length > 0 || this.lyricsDescription().trim().length > 0) && !this.isLyricsTooLong();
+    return isYouTubeLink && 
+           this.advancedTitle().trim().length > 0 && 
+           !this.isGeneratingMusic() &&
+           !!profile && profile.credits > 0;
   });
 
   canCloneVoice = computed(() => {
     const profile = this.currentUserProfile();
     return this.uploadedFile() !== null &&
-           this.audioTitle().trim().length > 0 && 
+           this.advancedTitle().trim().length > 0 && 
            this.cloneLyrics().trim().length > 0 &&
            this.cloneStyle().trim().length > 0 &&
            !this.isGeneratingMusic() &&
@@ -157,39 +146,14 @@ export class CreateComponent {
 
   constructor() {
     effect(() => {
-      const userMusic = this.murekaService.userMusic();
-      const activeId = this.generatingMusicId();
-
-      // Find any song that is processing but is NOT the one actively started here.
-      const backgroundMusic = userMusic.find(m => m.status === 'processing' && m.id !== activeId);
-      this.backgroundGeneration.set(backgroundMusic || null);
-
-      // Find the song that was actively started on this page to track its progress.
-      const activeMusic = activeId ? userMusic.find(m => m.id === activeId) : undefined;
-      
-      if (activeMusic) {
-        const status = activeMusic.status;
-        const progress = activeMusic.metadata?.progress ?? 0;
-        const message = activeMusic.metadata?.status_message ?? 'Iniciando...';
-        
-        this.musicGenerationProgress.set(progress);
-        this.musicGenerationStatusMessage.set(message);
-
-        // If the active song is finished, reset the component's "generating" state.
-        if (status === 'succeeded' || status === 'failed') {
-          setTimeout(() => {
-            if (this.generatingMusicId() === activeMusic?.id) {
-              this.isGeneratingMusic.set(false);
-              this.generatingMusicId.set(null);
-
-              if (status === 'succeeded') {
-                this.router.navigate(['/library']);
-              } else if (status === 'failed') {
-                this.generationError.set(activeMusic.metadata?.error || 'A geração da música falhou por um motivo desconhecido.');
-              }
-            }
-          }, 2000);
-        }
+      // Only show the background processing banner if we are not actively generating a song on this page.
+      if (!this.isGeneratingMusic()) {
+        const userMusic = this.murekaService.userMusic();
+        const backgroundMusic = userMusic.find(m => m.status === 'processing');
+        this.backgroundGeneration.set(backgroundMusic || null);
+      } else {
+        // If we are generating, don't show the banner for another song
+        this.backgroundGeneration.set(null);
       }
     }, { allowSignalWrites: true });
   }
@@ -200,11 +164,6 @@ export class CreateComponent {
       newStyles.has(style) ? newStyles.delete(style) : newStyles.add(style);
       return newStyles;
     });
-  }
-  
-  private getVocalPrompt(vocalGender: 'male' | 'female'): string {
-    const genderText = vocalGender === 'male' ? 'masculinos' : 'femininos';
-    return `com vocais ${genderText} expressivos que combinam com o estilo musical`;
   }
 
   async generateLyrics(): Promise<void> {
@@ -224,38 +183,78 @@ export class CreateComponent {
     }
   }
 
-  async startMusicGenerationWorkflow(): Promise<void> {
-    if (!this.canGenerateMusic()) return;
-
+  private async executeGeneration(generationFn: () => Promise<Music>): Promise<void> {
     this.isGeneratingMusic.set(true);
     this.generationError.set(null);
     this.backgroundGeneration.set(null); // Hide banner if starting a new one
 
     try {
-      const stylesArray = Array.from(this.selectedStyles());
-      const finalStyle = stylesArray.length > 0 ? stylesArray.join(', ') : this.customStyle().trim();
-      const title = this.songTitle().trim();
-
-      let musicRecord;
-      if (this.isInstrumental()) {
-        musicRecord = await this.murekaService.generateInstrumental(title, finalStyle, this.isPublic());
-      } else {
-        const vocalPrompt = this.getVocalPrompt(this.vocalGender());
-        const promptWithVocals = `${finalStyle}, ${vocalPrompt}`;
-        musicRecord = await this.murekaService.generateMusic(title, promptWithVocals, this.lyrics().trim(), this.isPublic());
-      }
+      const musicRecord = await generationFn();
       
-      this.generatingMusicId.set(musicRecord.id);
-      this.resetMainForm();
+      // Navigate to library and highlight the new song
+      this.router.navigate(['/library'], { queryParams: { highlight: musicRecord.id } });
+      
+      // Clear the relevant form after successful submission
+      if (this.audioCreationMode() === 'upload' || this.audioCreationMode() === 'youtube' || this.audioCreationMode() === 'clone') {
+          this.resetAdvancedForm();
+      } else {
+          this.resetMainForm();
+      }
 
     } catch (error: any) {
       console.error('Erro ao iniciar geração de música:', error);
-      this.generationError.set(error.message || 'Falha ao gerar a música. Tente novamente.');
+      this.generationError.set(error.message || 'Falha ao iniciar a geração. Tente novamente.');
+    } finally {
       this.isGeneratingMusic.set(false);
-      this.generatingMusicId.set(null);
     }
   }
+
+  startMusicGenerationWorkflow(): void {
+    if (!this.canGenerateMusic()) return;
   
+    this.executeGeneration(async () => {
+      const stylesArray = Array.from(this.selectedStyles());
+      const finalStyle = stylesArray.length > 0 ? stylesArray.join(', ') : this.customStyle().trim();
+      const title = this.songTitle().trim();
+  
+      if (this.isInstrumental()) {
+        return this.murekaService.generateInstrumental(title, finalStyle, this.isPublic());
+      } else {
+        const displayStyle = finalStyle;
+        const vocalPrompt = `com vocais ${this.vocalGender() === 'male' ? 'masculinos' : 'femininos'} expressivos que combinam com o estilo musical`;
+        const murekaPrompt = `${finalStyle}, ${vocalPrompt}`;
+        return this.murekaService.generateMusic(title, displayStyle, murekaPrompt, this.lyrics().trim(), this.isPublic());
+      }
+    });
+  }
+  
+  handleAudioUpload(): void {
+    if (!this.canUploadAudio()) return;
+    this.executeGeneration(() => 
+      this.murekaService.uploadAudio(this.uploadedFile()!, this.advancedTitle())
+    );
+  }
+  
+  handleYouTubeProcess(): void {
+    if (!this.canProcessYouTube()) return;
+    this.executeGeneration(() => 
+      this.murekaService.processYouTubeVideo(this.youtubeUrl(), this.advancedTitle(), this.isPublic())
+    );
+  }
+  
+  handleVoiceClone(): void {
+    if (!this.canCloneVoice()) return;
+    this.executeGeneration(() => 
+      this.murekaService.cloneVoice(
+        this.uploadedFile()!,
+        this.advancedTitle(),
+        this.cloneLyrics(),
+        this.cloneStyle(),
+        true // Default to public for now
+      )
+    );
+  }
+
   setAudioMode(mode: 'upload' | 'youtube' | 'clone') {
     if (this.audioCreationMode() === mode) return;
 
@@ -265,7 +264,7 @@ export class CreateComponent {
     }
 
     this.audioCreationMode.set(mode);
-    this.resetForms();
+    this.resetAdvancedForm();
     this.generationError.set(null);
   }
 
@@ -273,96 +272,7 @@ export class CreateComponent {
     const input = event.target as HTMLInputElement;
     this.uploadedFile.set(input.files?.[0] || null);
   }
-
-  async handleAudioUpload(): Promise<void> {
-    if (!this.canUploadAudio()) return;
-
-    this.isGeneratingMusic.set(true);
-    this.generationError.set(null);
-    this.backgroundGeneration.set(null);
-
-    try {
-        const musicRecord = await this.murekaService.uploadAudio(this.uploadedFile()!, this.audioTitle());
-        this.generatingMusicId.set(musicRecord.id);
-        this.resetAdvancedForm();
-    } catch (error: any) {
-        console.error('Erro ao fazer upload do áudio:', error);
-        this.generationError.set(error.message || 'Falha ao enviar o arquivo. Tente novamente.');
-        this.isGeneratingMusic.set(false);
-        this.generatingMusicId.set(null);
-    }
-  }
   
-  async handleYouTubeProcess(): Promise<void> {
-    if (!this.canProcessYouTube()) return;
-
-    this.isGeneratingMusic.set(true);
-    this.generationError.set(null);
-    this.backgroundGeneration.set(null);
-    
-    try {
-      const stylesArray = Array.from(this.selectedStyles());
-      const finalStyle = stylesArray.length > 0 ? stylesArray.join(', ') : this.customStyle().trim();
-      
-      let finalPrompt: string;
-      if (this.isInstrumental()) {
-          finalPrompt = `Uma nova faixa instrumental no estilo de ${finalStyle}, inspirada no áudio de referência do YouTube.`;
-      } else {
-          const vocalPrompt = this.getVocalPrompt(this.vocalGender());
-          finalPrompt = `Uma nova música no estilo de ${finalStyle}, ${vocalPrompt}, inspirada no áudio de referência do YouTube.`;
-      }
-
-      const musicRecord = await this.murekaService.processYouTubeVideo(
-        this.youtubeUrl(), 
-        this.audioTitle(),
-        finalPrompt, 
-        this.lyrics(),
-        this.isInstrumental(),
-        this.isPublic()
-      );
-
-      this.generatingMusicId.set(musicRecord.id);
-      this.resetAdvancedForm();
-
-    } catch (error: any) {
-        console.error('Erro ao processar vídeo do YouTube:', error);
-        this.generationError.set(error.message || 'Falha ao processar o vídeo. Verifique o link e tente novamente.');
-        this.isGeneratingMusic.set(false);
-        this.generatingMusicId.set(null);
-    }
-  }
-  
-  async handleVoiceClone(): Promise<void> {
-    if (!this.canCloneVoice()) return;
-
-    this.isGeneratingMusic.set(true);
-    this.generationError.set(null);
-    this.backgroundGeneration.set(null);
-
-    try {
-        const musicRecord = await this.murekaService.cloneVoice(
-          this.uploadedFile()!,
-          this.audioTitle(),
-          this.cloneLyrics(),
-          this.cloneStyle(),
-          true // Default to public for now
-        );
-        
-        this.generatingMusicId.set(musicRecord.id);
-        this.resetAdvancedForm();
-    } catch (error: any) {
-        console.error('Erro ao clonar voz:', error);
-        this.generationError.set(error.message || 'Falha ao clonar a voz. Tente novamente.');
-        this.isGeneratingMusic.set(false);
-        this.generatingMusicId.set(null);
-    }
-  }
-
-  private resetForms(): void {
-    this.resetMainForm();
-    this.resetAdvancedForm();
-  }
-
   private resetMainForm(): void {
     this.songTitle.set('');
     this.selectedStyles.set(new Set<string>());
@@ -375,11 +285,12 @@ export class CreateComponent {
   }
 
   private resetAdvancedForm(): void {
+    // Reset specific advanced form fields
     this.uploadedFile.set(null);
     this.youtubeUrl.set('');
-    this.audioTitle.set('');
+    this.advancedTitle.set('');
     this.cloneLyrics.set('');
     this.cloneStyle.set('');
-    this.generationError.set(null); 
+    this.generationError.set(null);
   }
 }
