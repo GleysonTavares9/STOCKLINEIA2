@@ -342,6 +342,12 @@ export class SupabaseService {
     return { user: data.user, error };
   }
 
+  private getRedirectUrl(): string {
+    // Para OAuth, o Supabase redireciona para esta URL com as informações da sessão no fragmento hash.
+    // O caminho deve apontar para o nosso componente de callback.
+    return `${window.location.origin}/#/auth/callback`;
+  }
+
   async signInWithGoogle(): Promise<{ error: AuthError | null }> {
     if (!this.supabase) {
       console.error('signInWithGoogle: Supabase client not initialized.');
@@ -351,12 +357,7 @@ export class SupabaseService {
     const { error } = await this.supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        // Definindo explicitamente a URL de redirecionamento para a origem da página atual.
-        // Isso garante que o usuário seja redirecionado de volta ao aplicativo após a autenticação com o Google.
-        // IMPORTANTE: Para que isso funcione, você deve adicionar esta URL (por exemplo, o domínio do seu aplicativo
-        // ou http://localhost:4200 para desenvolvimento local) à lista de "Additional Redirect URLs"
-        // nas configurações de autenticação do seu projeto Supabase.
-        redirectTo: window.location.origin,
+        redirectTo: this.getRedirectUrl(),
       }
     });
     if (error) {

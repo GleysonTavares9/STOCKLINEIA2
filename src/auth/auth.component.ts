@@ -400,12 +400,18 @@ export class AuthComponent implements OnInit {
     this.loading.set(true);
     this.errorMessage.set(null);
     this.isInvalidCredentialsError.set(false);
-    const { error } = await this.supabase.signInWithGoogle();
-    if (error) {
-      this.errorMessage.set(this.translateAuthError(error.message));
+    try {
+      const { error } = await this.supabase.signInWithGoogle();
+      if (error) {
+        this.errorMessage.set(this.translateAuthError(error.message));
+        this.loading.set(false);
+      }
+      // On success, Supabase handles the redirect. We don't set loading to false
+      // because the page will navigate away.
+    } catch (error: any) {
+      this.errorMessage.set('Ocorreu um erro inesperado durante o login com o Google.');
+      this.loading.set(false);
     }
-    // On success, Supabase handles the redirect. On failure, stop loading.
-    this.loading.set(false);
   }
 
   async handleAuth(event: Event): Promise<void> {
