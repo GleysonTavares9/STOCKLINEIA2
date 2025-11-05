@@ -2,7 +2,7 @@ import { Component, ChangeDetectionStrategy, signal, inject, computed, effect } 
 import { CommonModule } from '@angular/common';
 import { GeminiService } from '../services/gemini.service';
 import { MurekaService } from '../services/mureka.service';
-import { SupabaseService } from '../services/supabase.service';
+import { SupabaseService, type Music } from '../services/supabase.service';
 import { Router, RouterLink } from '@angular/router';
 
 
@@ -57,6 +57,9 @@ export class CreateComponent {
   generatingMusicId = signal<string | null>(null);
   musicGenerationProgress = signal(0);
   musicGenerationStatusMessage = signal('');
+
+  // New signal for a generation happening in the background
+  backgroundGeneration = signal<Music | null>(null);
 
   // Advanced audio creation state
   audioCreationMode = signal<'upload' | 'youtube' | 'clone'>('upload'); // Default to 'upload' for advanced section
@@ -154,33 +157,41 @@ export class CreateComponent {
 
   constructor() {
     effect(() => {
-      const currentGeneratingId = this.generatingMusicId();
-      if (currentGeneratingId) {
-        const musicInService = this.murekaService.userMusic().find(m => m.id === currentGeneratingId);
-        if (musicInService) {
-          const status = musicInService.status;
-          const progress = musicInService.metadata?.progress ?? 0;
-          const message = musicInService.metadata?.status_message ?? 'Iniciando...';
-          
-          this.musicGenerationProgress.set(progress);
-          this.musicGenerationStatusMessage.set(message);
+      const userMusic = this.murekaService.userMusic();
+      const activeId = this.generatingMusicId();
 
-          if (status === 'succeeded' || status === 'failed') {
-            // Keep the UI showing the final state for a moment before resetting
-            setTimeout(() => {
+      // Find any song that is processing but is NOT the one actively started here.
+      const backgroundMusic = userMusic.find(m => m.status === 'processing' && m.id !== activeId);
+      this.backgroundGeneration.set(backgroundMusic || null);
+
+      // Find the song that was actively started on this page to track its progress.
+      const activeMusic = activeId ? userMusic.find(m => m.id === activeId) : undefined;
+      
+      if (activeMusic) {
+        const status = activeMusic.status;
+        const progress = activeMusic.metadata?.progress ?? 0;
+        const message = activeMusic.metadata?.status_message ?? 'Iniciando...';
+        
+        this.musicGenerationProgress.set(progress);
+        this.musicGenerationStatusMessage.set(message);
+
+        // If the active song is finished, reset the component's "generating" state.
+        if (status === 'succeeded' || status === 'failed') {
+          setTimeout(() => {
+            if (this.generatingMusicId() === activeMusic?.id) {
               this.isGeneratingMusic.set(false);
               this.generatingMusicId.set(null);
 
               if (status === 'succeeded') {
                 this.router.navigate(['/library']);
               } else if (status === 'failed') {
-                this.generationError.set(musicInService.metadata?.error || 'Falha na geração da música.');
+                this.generationError.set(activeMusic.metadata?.error || 'A geração da música falhou por um motivo desconhecido.');
               }
-            }, 2000);
-          }
+            }
+          }, 2000);
         }
       }
-    });
+    }, { allowSignalWrites: true });
   }
 
   toggleStyle(style: string): void {
@@ -218,6 +229,7 @@ export class CreateComponent {
 
     this.isGeneratingMusic.set(true);
     this.generationError.set(null);
+    this.backgroundGeneration.set(null); // Hide banner if starting a new one
 
     try {
       const stylesArray = Array.from(this.selectedStyles());
@@ -267,6 +279,7 @@ export class CreateComponent {
 
     this.isGeneratingMusic.set(true);
     this.generationError.set(null);
+    this.backgroundGeneration.set(null);
 
     try {
         const musicRecord = await this.murekaService.uploadAudio(this.uploadedFile()!, this.audioTitle());
@@ -285,6 +298,7 @@ export class CreateComponent {
 
     this.isGeneratingMusic.set(true);
     this.generationError.set(null);
+    this.backgroundGeneration.set(null);
     
     try {
       const stylesArray = Array.from(this.selectedStyles());
@@ -323,6 +337,7 @@ export class CreateComponent {
 
     this.isGeneratingMusic.set(true);
     this.generationError.set(null);
+    this.backgroundGeneration.set(null);
 
     try {
         const musicRecord = await this.murekaService.cloneVoice(

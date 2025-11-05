@@ -21,6 +21,7 @@ interface MurekaQueryResponse {
 })
 export class MurekaService {
   private readonly supabase = inject(SupabaseService);
+  private currentlyPolling = new Set<string>();
 
   userMusic = signal<Music[]>([]);
   readonly isConfigured = computed(() => this.supabase.isConfigured());
@@ -29,12 +30,22 @@ export class MurekaService {
     effect(() => {
       const user = this.supabase.currentUser();
       if (user) {
-        untracked(async () => {
-          const music = await this.supabase.getMusicForUser(user.id);
-          this.userMusic.set(music);
+        // Carrega as músicas do usuário e inicia a verificação de status para qualquer
+        // música que tenha ficado "em processamento" de uma sessão anterior.
+        // Esta é agora a única fonte de inicialização de polling.
+        this.supabase.getMusicForUser(user.id).then(music => {
+            this.userMusic.set(music);
+            const processingMusic = music.filter(m => m.status === 'processing' && m.task_id);
+            console.log(`MurekaService: Encontradas ${processingMusic.length} música(s) em processamento na carga inicial.`);
+            processingMusic.forEach(m => {
+                const queryPath = (m.metadata?.queryPath as 'song/query' | 'instrumental/query' | 'voice_clone/query') || 'song/query';
+                this.pollForResult(m.id, m.task_id!, queryPath);
+            });
         });
       } else {
+        // Limpa o estado e as verificações ao fazer logout
         this.userMusic.set([]);
+        this.currentlyPolling.clear();
       }
     });
   }
@@ -652,6 +663,12 @@ export class MurekaService {
   }
   
   private pollForResult(musicId: string, taskId: string, queryPath: 'song/query' | 'instrumental/query' | 'voice_clone/query'): void {
+    if (this.currentlyPolling.has(taskId)) {
+      console.log(`MurekaService: A verificação para a tarefa ${taskId} já está ativa.`);
+      return;
+    }
+    this.currentlyPolling.add(taskId);
+
     const interval = 10000; // 10 seconds
     const maxAttempts = 60; // 10 minutes max
     let attempts = 0;
@@ -659,21 +676,24 @@ export class MurekaService {
     const executePoll = async () => {
       const originalMusic = this.userMusic().find(m => m.id === musicId);
       if (!originalMusic || !['processing'].includes(originalMusic.status)) {
-        console.log(`MurekaService: Polling stopped for task ${taskId} (music status is no longer 'processing' or record not found).`);
-        return; // Stop polling if music is no longer processing or record is gone
+        console.log(`MurekaService: Verificação para a tarefa ${taskId} interrompida (status da música não é mais 'processing').`);
+        this.currentlyPolling.delete(taskId);
+        return;
       }
 
       if (attempts >= maxAttempts) {
-        console.log(`MurekaService: Polling for task ${taskId} timed out after ${maxAttempts} attempts.`);
-        await this.supabase.updateMusic(musicId, { 
+        console.log(`MurekaService: A verificação para a tarefa ${taskId} atingiu o tempo limite.`);
+        const updatedMusic = await this.supabase.updateMusic(musicId, { 
           status: 'failed', 
           metadata: { ...(originalMusic?.metadata || {}), error: 'A geração demorou muito para responder (timeout).', progress: 100, status_message: 'Falha na geração.' } 
         });
+        if(updatedMusic) this.userMusic.update(musics => musics.map(m => m.id === musicId ? updatedMusic : m));
+        this.currentlyPolling.delete(taskId);
         return;
       }
       
       attempts++;
-      console.log(`MurekaService: Polling for task ${taskId}, attempt ${attempts}...`);
+      console.log(`MurekaService: Verificando tarefa ${taskId}, tentativa ${attempts}...`);
       
       try {
           const result = await this.queryMusicStatus(taskId, queryPath);
@@ -715,27 +735,25 @@ export class MurekaService {
                   break;
           }
 
-          // Update local record immediately for UI feedback
-          this.supabase.updateMusic(musicId, { 
+          const updatedMusic = await this.supabase.updateMusic(musicId, { 
             metadata: { 
               ...(originalMusic?.metadata || {}), 
               progress: currentProgress, 
               status_message: currentStatusMessage 
             } 
-          }).then(updated => {
-            if (updated) this.userMusic.update(musics => musics.map(m => m.id === musicId ? updated : m));
           });
-
+          if (updatedMusic) this.userMusic.update(musics => musics.map(m => m.id === musicId ? updatedMusic : m));
 
           if (isFinalStatus) {
               await this.handleFinalStatus(musicId, result);
+              this.currentlyPolling.delete(taskId);
           } else {
               setTimeout(executePoll, interval);
           }
       } catch (error) {
-          console.error(`MurekaService: Error polling for task ${taskId}:`, error);
+          console.error(`MurekaService: Erro ao verificar a tarefa ${taskId}:`, error);
           const errorMessage = await this.getApiErrorMessage(error, 'Erro ao verificar o status da geração.');
-          await this.supabase.updateMusic(musicId, { 
+          const updatedMusic = await this.supabase.updateMusic(musicId, { 
             status: 'failed', 
             metadata: { 
               ...(originalMusic?.metadata || {}), 
@@ -744,10 +762,12 @@ export class MurekaService {
               status_message: 'Falha na geração (erro de comunicação).' 
             } 
           });
+          if (updatedMusic) this.userMusic.update(musics => musics.map(m => m.id === musicId ? updatedMusic : m));
+          this.currentlyPolling.delete(taskId);
       }
     };
     
-    setTimeout(executePoll, interval);
+    setTimeout(executePoll, 5000); // Start first poll after 5s
   }
 
   private async handleFinalStatus(musicId: string, result: MurekaQueryResponse): Promise<void> {

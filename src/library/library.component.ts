@@ -13,16 +13,12 @@ import { Router, ActivatedRoute } from '@angular/router';
   styleUrls: ['./library.component.css'],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class LibraryComponent implements OnDestroy {
+export class LibraryComponent {
   private readonly murekaService = inject(MurekaService);
   private readonly playerService = inject(MusicPlayerService);
   private readonly supabase = inject(SupabaseService);
-  // Fix: Explicitly type the injected ActivatedRoute and Router to resolve type inference issues.
-  // FIX: Correctly inject ActivatedRoute instead of Router.
   private readonly route: ActivatedRoute = inject(ActivatedRoute);
   private readonly router: Router = inject(Router);
-
-  private pollInterval: any = null;
 
   userMusic = this.murekaService.userMusic;
   deleteError = signal<string | null>(null);
@@ -92,24 +88,14 @@ export class LibraryComponent implements OnDestroy {
 
   canExtendMusic = computed(() => {
     const duration = this.extendDuration();
-    return !this.isExtending() && duration > 0 && duration <= 60 && this.supabase.currentUserProfile()!.credits > 0;
+    const profile = this.supabase.currentUserProfile();
+    return !this.isExtending() && duration > 0 && duration <= 60 && !!profile && profile.credits > 0;
   });
 
   constructor() {
     this.handlePurchaseRedirect();
-
-    effect(() => {
-      const processingMusic = this.userMusic().filter(m => m.status === 'processing' && m.task_id);
-      
-      // Eagerly check status once when the component loads or music list changes
-      processingMusic.forEach(music => this.checkMusicStatus(music));
-
-      if (processingMusic.length > 0) {
-        this.startPolling();
-      } else {
-        this.stopPolling();
-      }
-    });
+    // A lógica de verificação de status (polling) agora é centralizada no MurekaService
+    // e acontece automaticamente em segundo plano para toda a aplicação.
   }
 
   private handlePurchaseRedirect(): void {
@@ -127,7 +113,7 @@ export class LibraryComponent implements OnDestroy {
                 this.purchaseStatus.set('error');
                 this.purchaseStatusMessage.set(`Erro ao finalizar a compra: ${error}`);
             } else {
-                this.purchaseStatusMessage.set('Compra concluída com sucesso! Sua assinatura está ativa.');
+                this.purchaseStatusMessage.set('Compra concluída com sucesso! Seus créditos foram adicionados.');
             }
             
             // Clean URL
@@ -149,89 +135,6 @@ export class LibraryComponent implements OnDestroy {
             });
         }
     });
-  }
-
-  ngOnDestroy(): void {
-    this.stopPolling();
-  }
-
-  startPolling(): void {
-    if (this.pollInterval) return; // Already polling
-    console.log('Starting polling for processing music...');
-    this.pollInterval = setInterval(() => {
-      const processingMusic = this.userMusic().filter(m => m.status === 'processing' && m.task_id);
-      if(processingMusic.length === 0) {
-        this.stopPolling();
-        return;
-      }
-      console.log(`Polling for status of ${processingMusic.length} song(s).`);
-      processingMusic.forEach(music => this.checkMusicStatus(music));
-    }, 10000); // Poll every 10 seconds
-  }
-
-  stopPolling(): void {
-    if (this.pollInterval) {
-      console.log('Stopping polling.');
-      clearInterval(this.pollInterval);
-      this.pollInterval = null;
-    }
-  }
-
-  async checkMusicStatus(music: Music): Promise<void> {
-    if (!music.task_id) return;
-
-    const queryPath = (music.metadata?.queryPath as 'song/query' | 'instrumental/query' | 'voice_clone/query') || 'song/query';
-    
-    try {
-      const result = await this.murekaService.queryMusicStatus(music.task_id, queryPath);
-    
-      // If status is final, update DB and local state
-      if (['succeeded', 'failed', 'timeouted', 'cancelled'].includes(result.status)) {
-        if (result.status === 'succeeded') {
-          const audio_url = result.choices?.[0]?.url;
-          const fileId = result.file_id;
-          if (audio_url) {
-            let finalUrl = audio_url;
-            if (fileId) {
-              finalUrl = `https://api.mureka.ai/v1/files/${fileId}/download`;
-            }
-            // FIX: Preserve existing metadata when updating the music record.
-            const updatedMusic = await this.supabase.updateMusic(music.id, { 
-              status: 'succeeded', 
-              audio_url: finalUrl,
-              // FIX: Pass metadata object, which is now allowed by the updated updateMusic method.
-              metadata: { ...(music.metadata || {}), file_id: fileId }
-            });
-            if (updatedMusic) {
-              this.userMusic.update(musics => musics.map(m => m.id === music.id ? updatedMusic : m));
-            }
-          } else {
-            const error = 'Geração bem-sucedida, mas a Mureka não forneceu um URL de áudio.';
-            const updatedMusic = await this.supabase.updateMusic(music.id, { status: 'failed', metadata: { ...(music.metadata || {}), error: error } });
-              if (updatedMusic) {
-              this.userMusic.update(musics => musics.map(m => m.id === music.id ? updatedMusic : m));
-            }
-          }
-        } else { // failed, timeouted, cancelled
-          const reason = result.failed_reason || `Geração falhou com status: ${result.status}`;
-          const updatedMusic = await this.supabase.updateMusic(music.id, { status: 'failed', metadata: { ...(music.metadata || {}), error: reason } });
-          if (updatedMusic) {
-            this.userMusic.update(musics => musics.map(m => m.id === music.id ? updatedMusic : m));
-          }
-        }
-      }
-    } catch (error: any) {
-        console.error(`Library: Failed to check status for task ${music.task_id}`, error);
-        // Se a consulta falhar, atualiza a música para o status 'failed' para interromper futuras tentativas.
-        // FIX: Correctly update the music record with an error by passing a metadata object.
-        const updatedMusic = await this.supabase.updateMusic(music.id, { 
-          status: 'failed', 
-          metadata: { ...(music.metadata || {}), error: error.message || 'Falha ao buscar atualização.' } 
-        });
-        if (updatedMusic) {
-            this.userMusic.update(musics => musics.map(m => m.id === music.id ? updatedMusic : m));
-        }
-    }
   }
 
   selectMusic(music: Music): void {
@@ -337,12 +240,7 @@ export class LibraryComponent implements OnDestroy {
     try {
         if (!music) throw new Error("Música não selecionada.");
         await this.murekaService.extendMusic(music.id, this.extendDuration());
-        
-        // FIX: Removed redundant credit consumption logic.
-        // The murekaService.extendMusic method already handles this.
-        
         this.closeExtendModal();
-
     } catch (error: any) {
         this.extendError.set(error.message || 'Falha ao estender a música.');
     } finally {
@@ -383,15 +281,13 @@ export class LibraryComponent implements OnDestroy {
       this.editError.set(null);
 
       try {
+          // The updateMusic method now throws an error on failure, which will be caught here.
           const updatedMusic = await this.supabase.updateMusic(music.id, {
               title: music.title.trim(),
               description: music.description.trim()
           });
-
-          if (!updatedMusic) {
-              throw new Error('A resposta do servidor estava vazia após a atualização.');
-          }
           
+          // This line only runs if the update was successful.
           this.murekaService.updateLocalMusic(updatedMusic);
           this.closeEditModal();
 

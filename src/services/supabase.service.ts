@@ -514,7 +514,13 @@ export class SupabaseService {
       console.error('getActivityHistory: Error fetching music creations:', musicsResult.error.message);
     }
   
-    const mappedTransactions: ActivityHistoryItem[] = (transactionsResult.data || []).map((tx: CreditTransaction) => ({
+    // FIX: Filter out transactions of type 'generation' to avoid duplicate entries in the activity feed.
+    // The 'creation' entry from the 'musics' table already represents this event.
+    const nonGenerationTransactions = (transactionsResult.data || []).filter(
+      (tx: CreditTransaction) => tx.type !== 'generation'
+    );
+  
+    const mappedTransactions: ActivityHistoryItem[] = nonGenerationTransactions.map((tx: CreditTransaction) => ({
       id: tx.id,
       created_at: tx.created_at,
       type: 'transaction',
@@ -706,11 +712,10 @@ export class SupabaseService {
     return data as Music;
   }
 
-  // FIX: Update method signature to accept `title`, `description`, and `metadata`, and remove the unsafe `error` property.
-  async updateMusic(musicId: string, updates: { title?: string, description?: string, mureka_id?: string, status?: 'processing' | 'succeeded' | 'failed', audio_url?: string, metadata?: { [key: string]: any } }): Promise<Music | null> {
+  async updateMusic(musicId: string, updates: { title?: string, description?: string, mureka_id?: string, status?: 'processing' | 'succeeded' | 'failed', audio_url?: string, metadata?: { [key: string]: any } }): Promise<Music> {
     if (!this.supabase) {
       console.error('updateMusic: Supabase client not initialized.');
-      return null;
+      throw new Error('Supabase client not initialized.');
     }
 
     // FIX: Simplified implementation. The caller is now responsible for constructing the metadata object.
@@ -730,8 +735,15 @@ export class SupabaseService {
     
     if (updateError) {
       console.error('updateMusic: Error updating music:', updateError.message);
-      return null;
+      // Throw an error to ensure failures are propagated and handled by calling services.
+      throw new Error(`Falha ao atualizar o registro da música ${musicId}: ${updateError.message}`);
     }
+
+    if (!data) {
+      // This case is also an error, as we expect a record to be returned.
+      throw new Error(`Falha ao atualizar o registro da música ${musicId}: Nenhum dado retornado após a atualização.`);
+    }
+
     console.log('updateMusic: Music record updated successfully for ID:', musicId);
     return data as Music;
   }
