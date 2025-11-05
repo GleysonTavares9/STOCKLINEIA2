@@ -39,18 +39,14 @@ export class SubscribeComponent implements OnInit, OnDestroy {
     const creditPacks = allPlans.filter(plan => plan.is_credit_pack);
     let subscriptionPlans: Plan[] = [];
 
-    if (currentCycle === 'annual') {
-        // Tenta filtrar por planos explicitamente anuais
-        const annualOnly = allPlans.filter(plan => plan.billing_cycle === 'annual' && !plan.is_credit_pack);
-        if (annualOnly.length > 0) {
-            subscriptionPlans = annualOnly;
-        } else {
-            // Fallback: se não houver planos anuais, mostra os mensais quando 'Anual' está selecionado
-            subscriptionPlans = allPlans.filter(plan => plan.billing_cycle === 'monthly' && !plan.is_credit_pack);
-        }
-    } else { // 'monthly'
-        subscriptionPlans = allPlans.filter(plan => plan.billing_cycle === 'monthly' && !plan.is_credit_pack);
-    }
+    // Filter subscription plans based on the selected billing cycle
+    subscriptionPlans = allPlans.filter(plan => 
+      !plan.is_credit_pack && plan.billing_cycle === currentCycle
+    );
+    
+    // Sort subscription plans by price
+    subscriptionPlans.sort((a, b) => a.price - b.price);
+
     return [...creditPacks, ...subscriptionPlans];
   });
 
@@ -61,7 +57,7 @@ export class SubscribeComponent implements OnInit, OnDestroy {
   totalAnnualCredits = computed(() => {
     if (this.billingCycle() !== 'annual') return 0;
     // Soma os créditos dos planos que estão sendo exibidos (excluindo pacotes de crédito)
-    const plansToSum = this.displayedPlans().filter(plan => !plan.is_credit_pack);
+    const plansToSum = this.displayedPlans().filter(plan => !plan.is_credit_pack && plan.billing_cycle === 'annual');
     return plansToSum.reduce((sum, plan) => sum + (plan.credits || 0), 0);
   });
 

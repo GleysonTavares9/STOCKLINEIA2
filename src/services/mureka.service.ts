@@ -97,8 +97,8 @@ export class MurekaService {
           original_filename: file.name,
           file_size: file.size,
           upload_type: 'direct',
-          progress: 5, // Uploaded, now waiting for processing
-          status_message: 'Arquivo enviado, aguardando processamento...'
+          progress: 5, // File uploaded, waiting for Mureka to process it
+          status_message: 'Arquivo enviado. Analisando o áudio...'
         }
       });
       
@@ -251,7 +251,7 @@ export class MurekaService {
               ...existingMetadata,
               analysis: describeData,
               progress: 20, // After analysis
-              status_message: 'Áudio analisado, gerando instrumental...'
+              status_message: 'Áudio analisado. Gerando instrumental...'
             }
           });
         }
@@ -680,15 +680,15 @@ export class MurekaService {
           switch (result.status) {
               case 'preparing':
                   currentProgress = 15;
-                  currentStatusMessage = 'Preparando os recursos...';
+                  currentStatusMessage = 'Preparando os recursos de IA...';
                   break;
               case 'queued':
                   currentProgress = 30;
-                  currentStatusMessage = 'Na fila de processamento...';
+                  currentStatusMessage = 'Na fila de processamento da Mureka...';
                   break;
               case 'running':
-                  currentProgress = 60;
-                  currentStatusMessage = 'Gerando a faixa de áudio...';
+                  currentProgress = result.progress ? 30 + (result.progress * 0.5) : 60; // Scale Mureka progress (30-80)
+                  currentStatusMessage = 'Gerando a faixa de áudio com IA...';
                   break;
               case 'streaming':
                   currentProgress = 85;
