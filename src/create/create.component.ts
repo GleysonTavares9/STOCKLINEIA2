@@ -112,7 +112,6 @@ export class CreateComponent {
 
   canUploadAudio = computed(() => {
     const profile = this.currentUserProfile();
-    // Use isGeneratingMusic for overall busy state
     return this.uploadedFile() !== null && 
            this.audioTitle().trim().length > 0 && 
            !this.isGeneratingMusic() &&
@@ -124,7 +123,6 @@ export class CreateComponent {
     const isYouTubeLink = url.includes('youtube.com/') || url.includes('youtu.be/');
     const profile = this.currentUserProfile();
     
-    // Use isGeneratingMusic for overall busy state
     if (!isYouTubeLink || !this.audioTitle().trim() || this.isGeneratingMusic() || !profile || profile.credits <= 0) {
       return false;
     }
@@ -142,7 +140,6 @@ export class CreateComponent {
 
   canCloneVoice = computed(() => {
     const profile = this.currentUserProfile();
-    // Use isGeneratingMusic for overall busy state
     return this.uploadedFile() !== null &&
            this.audioTitle().trim().length > 0 && 
            this.cloneLyrics().trim().length > 0 &&
@@ -251,9 +248,6 @@ export class CreateComponent {
       }
       
       this.resetMainForm();
-      // Navigation is now handled by the effect when generation completes
-      // this.router.navigate(['/library']); 
-
     } catch (error: any) {
       console.error('Erro ao iniciar geração de música:', error);
       this.generationError.set(error.message || 'Falha ao gerar a música. Tente novamente.');
@@ -261,23 +255,20 @@ export class CreateComponent {
       this.generatingMusicId.set(null);
       this.musicGenerationProgress.set(100);
       this.musicGenerationStatusMessage.set('Falha!');
-    } finally {
-      // Final state will be handled by the effect
     }
   }
   
   setAudioMode(mode: 'upload' | 'youtube' | 'clone') {
     if (this.audioCreationMode() === mode) return;
 
-    // Se o modo é avançado e o usuário não tem features avançadas, não permite a mudança
     if (!this.hasAdvancedFeatures()) {
       this.generationError.set('Recursos avançados requerem um plano superior. Por favor, assine para acessá-los.');
       return; 
     }
 
     this.audioCreationMode.set(mode);
-    this.resetForms(); // Reset all forms when switching modes
-    this.generationError.set(null); // Clear previous errors, if any.
+    this.resetForms();
+    this.generationError.set(null);
   }
 
   onFileSelected(event: Event): void {
@@ -288,10 +279,10 @@ export class CreateComponent {
   async handleAudioUpload(): Promise<void> {
     if (!this.canUploadAudio()) return;
 
-    this.isGeneratingMusic.set(true); // Unified busy state
-    this.generationError.set(null); // Use unified error signal
-    this.musicGenerationProgress.set(0); // Immediate feedback
-    this.musicGenerationStatusMessage.set('Iniciando upload de áudio...'); // Immediate feedback
+    this.isGeneratingMusic.set(true);
+    this.generationError.set(null);
+    this.musicGenerationProgress.set(0);
+    this.musicGenerationStatusMessage.set('Iniciando upload de áudio...');
 
     try {
         const tempMusic = await this.supabaseService.addMusic({
@@ -300,13 +291,12 @@ export class CreateComponent {
         });
         if (tempMusic) {
           this.generatingMusicId.set(tempMusic.id);
-          await this.murekaService.uploadAudio(this.uploadedFile()!, this.audioTitle()); // Uses audioTitle
+          await this.murekaService.uploadAudio(this.uploadedFile()!, this.audioTitle());
         } else {
           throw new Error('Falha ao registrar a música para upload.');
         }
 
         this.resetAdvancedForm();
-        // this.router.navigate(['/library']); // Redirect handled by effect
     } catch (error: any) {
         console.error('Erro ao fazer upload do áudio:', error);
         this.generationError.set(error.message || 'Falha ao enviar o arquivo. Tente novamente.');
@@ -314,18 +304,16 @@ export class CreateComponent {
         this.generatingMusicId.set(null);
         this.musicGenerationProgress.set(100);
         this.musicGenerationStatusMessage.set('Falha no upload!');
-    } finally {
-        // Final state will be handled by the effect
     }
   }
   
   async handleYouTubeProcess(): Promise<void> {
     if (!this.canProcessYouTube()) return;
 
-    this.isGeneratingMusic.set(true); // Unified busy state
-    this.generationError.set(null); // Use unified error signal
-    this.musicGenerationProgress.set(0); // Immediate feedback
-    this.musicGenerationStatusMessage.set('Iniciando processamento do YouTube...'); // Immediate feedback
+    this.isGeneratingMusic.set(true);
+    this.generationError.set(null);
+    this.musicGenerationProgress.set(0);
+    this.musicGenerationStatusMessage.set('Iniciando processamento do YouTube...');
     
     try {
       const stylesArray = Array.from(this.selectedStyles());
@@ -343,11 +331,12 @@ export class CreateComponent {
         title: this.audioTitle(), style: `YouTube: ${finalPrompt}`, lyrics: this.lyrics(), status: 'processing', is_public: this.isPublic(),
         metadata: { youtube_url: this.youtubeUrl(), queryPath: (this.isInstrumental() ? 'instrumental/query' : 'song/query'), progress: 0, status_message: 'Iniciando processamento do YouTube...' }
       });
+
       if (tempMusic) {
         this.generatingMusicId.set(tempMusic.id);
         await this.murekaService.processYouTubeVideo(
           this.youtubeUrl(), 
-          this.audioTitle(), // Uses audioTitle
+          this.audioTitle(),
           finalPrompt, 
           this.lyrics(),
           this.isInstrumental(),
@@ -358,7 +347,6 @@ export class CreateComponent {
       }
 
       this.resetAdvancedForm();
-      // this.router.navigate(['/library']); // Redirect handled by effect
 
     } catch (error: any) {
         console.error('Erro ao processar vídeo do YouTube:', error);
@@ -367,29 +355,28 @@ export class CreateComponent {
         this.generatingMusicId.set(null);
         this.musicGenerationProgress.set(100);
         this.musicGenerationStatusMessage.set('Falha no processamento do YouTube!');
-    } finally {
-        // Final state will be handled by the effect
     }
   }
   
   async handleVoiceClone(): Promise<void> {
     if (!this.canCloneVoice()) return;
 
-    this.isGeneratingMusic.set(true); // Unified busy state
-    this.generationError.set(null); // Use unified error signal
-    this.musicGenerationProgress.set(0); // Immediate feedback
-    this.musicGenerationStatusMessage.set('Iniciando clonagem de voz...'); // Immediate feedback
+    this.isGeneratingMusic.set(true);
+    this.generationError.set(null);
+    this.musicGenerationProgress.set(0);
+    this.musicGenerationStatusMessage.set('Iniciando clonagem de voz...');
 
     try {
         const tempMusic = await this.supabaseService.addMusic({
           title: this.audioTitle(), style: `Voz clonada, ${this.cloneStyle()}`, lyrics: this.cloneLyrics(), status: 'processing', is_public: true,
           metadata: { queryPath: 'voice_clone/query', type: 'voice_clone', progress: 0, status_message: 'Iniciando clonagem de voz...' }
         });
+
         if (tempMusic) {
           this.generatingMusicId.set(tempMusic.id);
           await this.murekaService.cloneVoice(
             this.uploadedFile()!,
-            this.audioTitle(), // Uses audioTitle
+            this.audioTitle(),
             this.cloneLyrics(),
             this.cloneStyle(),
             true
@@ -399,7 +386,6 @@ export class CreateComponent {
         }
         
         this.resetAdvancedForm();
-        // this.router.navigate(['/library']); // Redirect handled by effect
     } catch (error: any) {
         console.error('Erro ao clonar voz:', error);
         this.generationError.set(error.message || 'Falha ao clonar a voz. Tente novamente.');
@@ -407,8 +393,6 @@ export class CreateComponent {
         this.generatingMusicId.set(null);
         this.musicGenerationProgress.set(100);
         this.musicGenerationStatusMessage.set('Falha na clonagem de voz!');
-    } finally {
-        // Final state will be handled by the effect
     }
   }
 
@@ -418,7 +402,7 @@ export class CreateComponent {
   }
 
   private resetMainForm(): void {
-    this.songTitle.set(''); // Reset song title
+    this.songTitle.set('');
     this.selectedStyles.set(new Set<string>());
     this.customStyle.set('');
     this.lyrics.set('');
@@ -429,15 +413,11 @@ export class CreateComponent {
   }
 
   private resetAdvancedForm(): void {
-    // Reset fields specific to advanced forms
     this.uploadedFile.set(null);
     this.youtubeUrl.set('');
-    this.audioTitle.set(''); // Reset audioTitle
+    this.audioTitle.set('');
     this.cloneLyrics.set('');
     this.cloneStyle.set('');
-    // Clear errors from previous advanced generation attempt
     this.generationError.set(null); 
-    // It's also good to reset general fields that might have been used across tabs
-    // Note: songTitle is reset by resetMainForm now, so no need here if called together.
   }
 }

@@ -15,7 +15,7 @@ import { CommonModule } from '@angular/common';
   `,
 })
 export class AuthCallbackComponent {
-  // Este componente fornece uma tela de carregamento enquanto o Supabase processa o callback do OAuth.
-  // O ouvinte `onAuthStateChange` no `SupabaseService` detectará a nova sessão,
-  // e o `effect` global no `AppComponent` cuidará de redirecionar o usuário para a página correta.
+  // This component provides a loading screen while Supabase processes the OAuth callback.
+  // The `onAuthStateChange` listener in `SupabaseService` will detect the new session,
+  // and the global `effect` in `AppComponent` will handle redirecting the user to the correct page.
 }
