@@ -41,7 +41,7 @@ export class MurekaService {
 
   // ========== UPLOAD DE ÁUDIO LOCAL ==========
 
-  async uploadAudio(file: File, title: string, description?: string): Promise<void> {
+  async uploadAudio(file: File, title: string, description?: string): Promise<Music> {
     const user = this.supabase.currentUser();
     if (!this.isConfigured() || !user) {
       throw new Error('O Supabase não está configurado ou o usuário não está autenticado.');
@@ -107,6 +107,7 @@ export class MurekaService {
       }
 
       await this.processUploadedAudio(finalMusicRecord.id, fileId, title, description);
+      return finalMusicRecord;
 
     } catch (error) {
       console.error('MurekaService: Erro no upload de áudio:', error);
@@ -131,7 +132,7 @@ export class MurekaService {
     lyrics: string, 
     isInstrumental: boolean, 
     isPublic: boolean
-  ): Promise<void> {
+  ): Promise<Music> {
     const user = this.supabase.currentUser();
     if (!this.isConfigured() || !user) {
       throw new Error('O Supabase não está configurado ou o usuário não está autenticado.');
@@ -206,6 +207,7 @@ export class MurekaService {
       }
 
       this.pollForResult(finalMusicRecord.id, taskId, queryPath);
+      return finalMusicRecord;
 
     } catch (error) {
       console.error('MurekaService: Erro ao processar vídeo do YouTube:', error);
@@ -342,7 +344,7 @@ export class MurekaService {
 
   // ========== GERAÇÃO DE MÚSICA E INSTRUMENTAL ==========
 
-  async generateMusic(title: string, style: string, lyrics: string, isPublic: boolean): Promise<void> {
+  async generateMusic(title: string, style: string, lyrics: string, isPublic: boolean): Promise<Music> {
     const user = this.supabase.currentUser();
     if (!this.isConfigured() || !user) {
         const errorMsg = 'O Supabase não está configurado ou o usuário não está autenticado.';
@@ -403,6 +405,7 @@ export class MurekaService {
         this.userMusic.update(music => music.map(s => s.id === finalMusicRecord.id ? updatedRecord : s));
       }
       this.pollForResult(finalMusicRecord.id, taskId, 'song/query');
+      return finalMusicRecord;
 
     } catch (error) {
       console.error('MurekaService: Erro ao iniciar a geração da música:', error);
@@ -412,7 +415,7 @@ export class MurekaService {
     }
   }
 
-  async generateInstrumental(title: string, style: string, isPublic: boolean): Promise<void> {
+  async generateInstrumental(title: string, style: string, isPublic: boolean): Promise<Music> {
     const user = this.supabase.currentUser();
     if (!this.isConfigured() || !user) {
         const errorMsg = 'O Supabase não está configurado ou o usuário não está autenticado.';
@@ -469,6 +472,7 @@ export class MurekaService {
         this.userMusic.update(music => music.map(s => s.id === finalMusicRecord.id ? updatedRecord : s));
       }
       this.pollForResult(finalMusicRecord.id, taskId, 'instrumental/query');
+      return finalMusicRecord;
 
     } catch (error) {
       console.error('MurekaService: Erro ao iniciar a geração do instrumental:', error);
@@ -480,7 +484,7 @@ export class MurekaService {
 
   // ========== VOICE CLONING ==========
 
-  async cloneVoice(voiceSampleFile: File, title: string, lyrics: string, style: string, isPublic: boolean): Promise<void> {
+  async cloneVoice(voiceSampleFile: File, title: string, lyrics: string, style: string, isPublic: boolean): Promise<Music> {
     const user = this.supabase.currentUser();
     if (!this.isConfigured() || !user) {
       throw new Error('O Supabase não está configurado ou o usuário não está autenticado.');
@@ -543,6 +547,7 @@ export class MurekaService {
       if (updatedRecord) this.userMusic.update(music => music.map(s => s.id === finalMusicRecord.id ? updatedRecord : s));
 
       this.pollForResult(finalMusicRecord.id, taskId, 'voice_clone/query');
+      return finalMusicRecord;
 
     } catch (error) {
       const errorMessage = await this.getApiErrorMessage(error, 'Ocorreu um erro ao clonar a voz.');

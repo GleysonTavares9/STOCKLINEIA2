@@ -75,6 +75,9 @@ export class CreateComponent {
 
   // Computed property to check for advanced features based on user profile
   hasAdvancedFeatures = computed(() => {
+    // Para simplificar, vamos assumir que qualquer usuário com ID de cliente Stripe
+    // (ou seja, que já interagiu com o faturamento) tem acesso.
+    // Você pode refinar isso com base em uma coluna 'plan_id' no perfil, por exemplo.
     return !!this.currentUserProfile()?.stripe_customer_id;
   });
 
@@ -221,30 +224,16 @@ export class CreateComponent {
       const finalStyle = stylesArray.length > 0 ? stylesArray.join(', ') : this.customStyle().trim();
       const title = this.songTitle().trim();
 
-      const tempMusic = await this.supabaseService.addMusic({
-        title,
-        style: finalStyle,
-        lyrics: this.isInstrumental() ? '' : this.lyrics().trim(),
-        status: 'processing',
-        is_public: this.isPublic(),
-        metadata: { 
-          queryPath: this.isInstrumental() ? 'instrumental/query' : 'song/query', 
-          progress: 0, 
-          status_message: 'Iniciando geração...' 
-        }
-      });
-      if (!tempMusic) throw new Error('Falha ao registrar a música.');
-      
-      this.generatingMusicId.set(tempMusic.id);
-
+      let musicRecord;
       if (this.isInstrumental()) {
-        await this.murekaService.generateInstrumental(title, finalStyle, this.isPublic());
+        musicRecord = await this.murekaService.generateInstrumental(title, finalStyle, this.isPublic());
       } else {
         const vocalPrompt = this.getVocalPrompt(this.vocalGender());
         const promptWithVocals = `${finalStyle}, ${vocalPrompt}`;
-        await this.murekaService.generateMusic(title, promptWithVocals, this.lyrics().trim(), this.isPublic());
+        musicRecord = await this.murekaService.generateMusic(title, promptWithVocals, this.lyrics().trim(), this.isPublic());
       }
       
+      this.generatingMusicId.set(musicRecord.id);
       this.resetMainForm();
 
     } catch (error: any) {
@@ -280,16 +269,8 @@ export class CreateComponent {
     this.generationError.set(null);
 
     try {
-        const tempMusic = await this.supabaseService.addMusic({
-          title: this.audioTitle(), style: 'upload', lyrics: '', status: 'processing', is_public: true,
-          metadata: { progress: 0, status_message: 'Iniciando upload de áudio...' }
-        });
-
-        if (!tempMusic) throw new Error('Falha ao registrar a música para upload.');
-        
-        this.generatingMusicId.set(tempMusic.id);
-        await this.murekaService.uploadAudio(this.uploadedFile()!, this.audioTitle());
-
+        const musicRecord = await this.murekaService.uploadAudio(this.uploadedFile()!, this.audioTitle());
+        this.generatingMusicId.set(musicRecord.id);
         this.resetAdvancedForm();
     } catch (error: any) {
         console.error('Erro ao fazer upload do áudio:', error);
@@ -317,24 +298,7 @@ export class CreateComponent {
           finalPrompt = `Uma nova música no estilo de ${finalStyle}, ${vocalPrompt}, inspirada no áudio de referência do YouTube.`;
       }
 
-      const tempMusic = await this.supabaseService.addMusic({
-        title: this.audioTitle(), 
-        style: `YouTube: ${finalPrompt}`, 
-        lyrics: this.lyrics(), 
-        status: 'processing', 
-        is_public: this.isPublic(),
-        metadata: { 
-          youtube_url: this.youtubeUrl(), 
-          queryPath: (this.isInstrumental() ? 'instrumental/query' : 'song/query'), 
-          progress: 0, 
-          status_message: 'Iniciando processamento do YouTube...' 
-        }
-      });
-
-      if (!tempMusic) throw new Error('Falha ao registrar a música para YouTube.');
-
-      this.generatingMusicId.set(tempMusic.id);
-      await this.murekaService.processYouTubeVideo(
+      const musicRecord = await this.murekaService.processYouTubeVideo(
         this.youtubeUrl(), 
         this.audioTitle(),
         finalPrompt, 
@@ -343,6 +307,7 @@ export class CreateComponent {
         this.isPublic()
       );
 
+      this.generatingMusicId.set(musicRecord.id);
       this.resetAdvancedForm();
 
     } catch (error: any) {
@@ -360,31 +325,15 @@ export class CreateComponent {
     this.generationError.set(null);
 
     try {
-        const tempMusic = await this.supabaseService.addMusic({
-          title: this.audioTitle(), 
-          style: `Voz clonada, ${this.cloneStyle()}`, 
-          lyrics: this.cloneLyrics(), 
-          status: 'processing', 
-          is_public: true,
-          metadata: { 
-            queryPath: 'voice_clone/query', 
-            type: 'voice_clone', 
-            progress: 0, 
-            status_message: 'Iniciando clonagem de voz...' 
-          }
-        });
-
-        if (!tempMusic) throw new Error('Falha ao registrar a música para clonagem de voz.');
-        
-        this.generatingMusicId.set(tempMusic.id);
-        await this.murekaService.cloneVoice(
+        const musicRecord = await this.murekaService.cloneVoice(
           this.uploadedFile()!,
           this.audioTitle(),
           this.cloneLyrics(),
           this.cloneStyle(),
-          true
+          true // Default to public for now
         );
         
+        this.generatingMusicId.set(musicRecord.id);
         this.resetAdvancedForm();
     } catch (error: any) {
         console.error('Erro ao clonar voz:', error);
