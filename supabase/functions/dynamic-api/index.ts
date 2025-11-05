@@ -152,26 +152,31 @@ const addCreditsToUser = async (userId: string, credits: number): Promise<void> 
 
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Buscar créditos atuais do usuário
-    const { data: userData, error: fetchError } = await supabase
-      .from('users')
+    // FIX: Target the 'profiles' table instead of 'users' to correctly update user credits.
+    const { data: profileData, error: fetchError } = await supabase
+      .from('profiles')
       .select('credits')
       .eq('id', userId)
       .single();
 
     if (fetchError) {
-      throw new Error(`Erro ao buscar usuário: ${fetchError.message}`);
+      console.error(`Erro ao buscar perfil para o usuário ${userId}:`, fetchError);
+      throw new Error(`Erro ao buscar perfil do usuário: ${fetchError.message}`);
     }
 
-    const currentCredits = userData?.credits || 0;
+    if (!profileData) {
+      console.error(`Perfil não encontrado para o usuário ${userId}.`);
+      throw new Error(`Perfil não encontrado para o usuário ${userId}.`);
+    }
+
+    const currentCredits = profileData.credits || 0;
     const newCredits = currentCredits + credits;
 
-    // Atualizar créditos do usuário
+    // FIX: Update the 'profiles' table.
     const { error: updateError } = await supabase
-      .from('users')
+      .from('profiles')
       .update({ 
         credits: newCredits,
-        updated_at: new Date().toISOString()
       })
       .eq('id', userId);
 

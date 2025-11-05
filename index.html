@@ -13,7 +13,10 @@
   <style>
     body {
       font-family: 'Inter', sans-serif;
+      background-image: radial-gradient(circle at 1px 1px, rgba(255,255,255,0.04) 1px, transparent 0);
+      background-size: 25px 25px;
     }
+    
     @keyframes fadeInDown {
       from {
         opacity: 0;
@@ -26,6 +29,37 @@
     }
     .animate-fade-in-down {
       animation: fadeInDown 0.3s ease-out forwards;
+    }
+
+    @keyframes pulse-glow {
+      0%, 100% {
+        box-shadow: 0 0 15px rgba(6, 182, 212, 0.7), 0 0 25px rgba(20, 184, 166, 0.5);
+        transform: scale(1);
+      }
+      50% {
+        box-shadow: 0 0 30px rgba(6, 182, 212, 1), 0 0 50px rgba(20, 184, 166, 0.7);
+        transform: scale(1.08);
+      }
+    }
+    .animate-pulse-glow {
+      animation: pulse-glow 2s infinite ease-in-out;
+    }
+
+    /* Page Transition Animations */
+    @keyframes page-cover-anim {
+      from { transform: translateY(100%); }
+      to { transform: translateY(0); }
+    }
+    .animate-page-cover {
+      animation: page-cover-anim 0.4s ease-in-out forwards;
+    }
+
+    @keyframes page-reveal-anim {
+      from { transform: translateY(0); }
+      to { transform: translateY(-100%); }
+    }
+    .animate-page-reveal {
+      animation: page-reveal-anim 0.4s ease-in-out forwards;
     }
   </style>
   <script src="https://js.stripe.com/v3/"></script>

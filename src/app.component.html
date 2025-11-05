@@ -1,15 +1,19 @@
+<!-- Page transition overlay removed -->
 @if (isSupabaseConfigured()) {
   @if (authReady()) {
-    @if (currentUser(); as user) {
-      <!-- FULL APP SHELL FOR LOGGED-IN USERS -->
-      @if (currentMusic(); as music) {
-        <div 
-          class="fixed inset-0 -z-10 bg-cover bg-center transition-all duration-1000"
-          [style.background-image]="'url(' + getCoverArt(music.title) + ')'">
-          <div class="absolute inset-0 bg-black/80 backdrop-blur-2xl"></div>
-        </div>
-      }
-      <div class="min-h-screen bg-black/60 text-gray-300 flex flex-col">
+    <!-- UNIFIED APP SHELL -->
+    <div class="min-h-screen text-gray-300 flex flex-col" [class.bg-black/60]="currentUser()">
+      
+      @if (currentUser(); as user) {
+        <!-- Background image for logged-in users with music playing -->
+        @if (currentMusic(); as music) {
+          <div 
+            class="fixed inset-0 -z-10 bg-cover bg-center transition-all duration-1000"
+            [style.background-image]="'url(' + getCoverArt(music.title) + ')'">
+            <div class="absolute inset-0 bg-black/80 backdrop-blur-2xl"></div>
+          </div>
+        }
+
         <!-- Global Header -->
         <header class="sticky top-0 bg-black/80 backdrop-blur-sm z-30 border-b border-zinc-800">
           <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -76,12 +80,14 @@
             </div>
           </div>
         </header>
+      }
 
-        <!-- Main Content Outlet -->
-        <main class="flex-grow pb-20">
-          <router-outlet></router-outlet>
-        </main>
+      <!-- Main Content Outlet -->
+      <main class="flex-grow" [class.pb-20]="currentUser()">
+        <router-outlet></router-outlet>
+      </main>
 
+      @if (currentUser(); as user) {
         <!-- Bottom Navigation -->
         <nav class="fixed bottom-0 left-0 right-0 bg-black/80 backdrop-blur-sm z-30 border-t border-zinc-800">
           <div class="max-w-7xl mx-auto px-2 sm:px-6 lg:px-8">
@@ -121,13 +127,10 @@
               </div>
           </div>
         </nav>
-      </div>
-    } @else {
-      <!-- LOGGED OUT VIEW -->
-      <router-outlet></router-outlet>
-    }
+      }
+    </div>
 
-    <!-- Music Player at the bottom, rendered for both logged-in and logged-out users -->
+    <!-- Music Player at the bottom -->
     <app-music-player />
     
   } @else {

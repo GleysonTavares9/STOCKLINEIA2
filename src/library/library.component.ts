@@ -4,6 +4,7 @@ import { MurekaService } from '../services/mureka.service';
 import { SupabaseService, type Music } from '../services/supabase.service';
 import { MusicPlayerService } from '../services/music-player.service';
 import { Router, ActivatedRoute } from '@angular/router';
+import { Subscription } from 'rxjs';
 
 @Component({
   selector: 'app-library',
@@ -13,50 +14,46 @@ import { Router, ActivatedRoute } from '@angular/router';
   styleUrls: ['./library.component.css'],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class LibraryComponent {
+export class LibraryComponent implements OnDestroy {
   private readonly murekaService = inject(MurekaService);
   private readonly playerService = inject(MusicPlayerService);
   private readonly supabase = inject(SupabaseService);
   private readonly route: ActivatedRoute = inject(ActivatedRoute);
   private readonly router: Router = inject(Router);
+  private queryParamsSubscription: Subscription;
 
   userMusic = this.murekaService.userMusic;
   deleteError = signal<string | null>(null);
   clearError = signal<string | null>(null);
   visibilityError = signal<string | null>(null);
-  isDeleting = signal<string | null>(null); // store id of music being deleted
+  isDeleting = signal<string | null>(null);
   isClearing = signal(false);
-  isTogglingVisibility = signal<string | null>(null); // For visibility toggle loading state
-  musicPendingDeletion = signal<string | null>(null); // Para confirmação de exclusão
+  isTogglingVisibility = signal<string | null>(null);
+  musicPendingDeletion = signal<string | null>(null);
 
   purchaseStatus = signal<'success' | 'cancelled' | 'error' | null>(null);
   purchaseStatusMessage = signal<string | null>(null);
   expandedStyles = signal(new Set<string>());
   expandedLyricsId = signal<string | null>(null);
 
-  // New state for extending music
   musicToExtend = signal<Music | null>(null);
   extendDuration = signal<number>(30);
   isExtending = signal(false);
   extendError = signal<string | null>(null);
 
-  // New state for editing music
   musicToEdit = signal<Music | null>(null);
   isEditing = signal(false);
   editError = signal<string | null>(null);
   
-  // New state for search
   searchTerm = signal<string>('');
+  highlightedMusicId = signal<string | null>(null);
   
   playlist = computed(() => this.userMusic().filter(m => m.status === 'succeeded' && m.audio_url));
-
   hasFailedMusic = computed(() => this.userMusic().some(m => m.status === 'failed'));
   
   filteredMusic = computed(() => {
     const term = this.searchTerm().toLowerCase().trim();
-    if (!term) {
-        return this.userMusic();
-    }
+    if (!term) return this.userMusic();
     return this.userMusic().filter(music => 
         music.title.toLowerCase().includes(term) ||
         music.style.toLowerCase().includes(term)
@@ -94,8 +91,41 @@ export class LibraryComponent {
 
   constructor() {
     this.handlePurchaseRedirect();
-    // A lógica de verificação de status (polling) agora é centralizada no MurekaService
-    // e acontece automaticamente em segundo plano para toda a aplicação.
+    
+    this.queryParamsSubscription = this.route.queryParams.subscribe(params => {
+      const highlightId = params['highlight'];
+      if (highlightId) {
+        // Fix: Corrected typo from `highlightMusicId` to `highlightedMusicId`.
+        this.highlightedMusicId.set(highlightId);
+        // Use a timeout to ensure the element is rendered before scrolling
+        setTimeout(() => this.scrollToHighlightedMusic(), 100);
+      }
+    });
+  }
+
+  ngOnDestroy(): void {
+    this.queryParamsSubscription.unsubscribe();
+  }
+
+  private scrollToHighlightedMusic(): void {
+    const id = this.highlightedMusicId();
+    if (!id) return;
+    
+    const element = document.getElementById(`music-card-${id}`);
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      // The highlight class is applied via signal, but we remove the signal after the animation
+      setTimeout(() => {
+        this.highlightedMusicId.set(null);
+        // Clean the URL
+        this.router.navigate([], {
+          relativeTo: this.route,
+          queryParams: { highlight: null },
+          queryParamsHandling: 'merge',
+          replaceUrl: true
+        });
+      }, 4000); // Animation is 2s * 2 iterations = 4s
+    }
   }
 
   private handlePurchaseRedirect(): void {
@@ -116,17 +146,15 @@ export class LibraryComponent {
                 this.purchaseStatusMessage.set('Compra concluída com sucesso! Seus créditos foram adicionados.');
             }
             
-            // Clean URL
             this.router.navigate([], {
                 relativeTo: this.route,
                 queryParams: { status: null, session_id: null },
-                queryParamsHandling: 'merge', // remove only the handled params
+                queryParamsHandling: 'merge',
                 replaceUrl: true
             });
         } else if (status === 'cancelled') {
             this.purchaseStatus.set('cancelled');
             this.purchaseStatusMessage.set('Sua compra foi cancelada. Você pode tentar novamente a qualquer momento.');
-            // Clean URL
             this.router.navigate([], {
                 relativeTo: this.route,
                 queryParams: { status: null },
@@ -146,11 +174,8 @@ export class LibraryComponent {
   toggleStyleExpansion(style: string): void {
     this.expandedStyles.update(currentSet => {
       const newSet = new Set(currentSet);
-      if (newSet.has(style)) {
-        newSet.delete(style);
-      } else {
-        newSet.add(style);
-      }
+      if (newSet.has(style)) newSet.delete(style);
+      else newSet.add(style);
       return newSet;
     });
   }
@@ -167,16 +192,10 @@ export class LibraryComponent {
   async toggleVisibility(music: Music): Promise<void> {
     this.isTogglingVisibility.set(music.id);
     this.visibilityError.set(null);
-    const newVisibility = !music.is_public;
     try {
-      await this.murekaService.updateMusicVisibility(music, newVisibility);
+      await this.murekaService.updateMusicVisibility(music, !music.is_public);
     } catch (error: any) {
       this.visibilityError.set(error.message || 'Falha ao atualizar visibilidade.');
-      // Revert optimistic update on failure by re-fetching
-      const user = this.supabase.currentUser();
-      if(user) {
-        this.murekaService.userMusic.set(await this.supabase.getMusicForUser(user.id));
-      }
     } finally {
       this.isTogglingVisibility.set(null);
     }
@@ -219,7 +238,6 @@ export class LibraryComponent {
     return `https://picsum.photos/seed/art-${title}/400/400`;
   }
 
-  // == Extend Music Methods ==
   openExtendModal(music: Music): void {
     this.musicToExtend.set(music);
     this.extendDuration.set(30);
@@ -248,9 +266,7 @@ export class LibraryComponent {
     }
   }
   
-  // == Edit Music Methods ==
   openEditModal(music: Music): void {
-    // Deep copy to avoid mutating the original object while editing
     this.musicToEdit.set(JSON.parse(JSON.stringify(music)));
     this.editError.set(null);
   }
@@ -262,9 +278,7 @@ export class LibraryComponent {
   onEditInput(field: 'title' | 'description', event: Event): void {
     const value = (event.target as HTMLInputElement).value;
     this.musicToEdit.update(music => {
-        if (music) {
-            return { ...music, [field]: value };
-        }
+        if (music) return { ...music, [field]: value };
         return null;
     });
   }
@@ -281,16 +295,12 @@ export class LibraryComponent {
       this.editError.set(null);
 
       try {
-          // The updateMusic method now throws an error on failure, which will be caught here.
           const updatedMusic = await this.supabase.updateMusic(music.id, {
               title: music.title.trim(),
               description: music.description.trim()
           });
-          
-          // This line only runs if the update was successful.
           this.murekaService.updateLocalMusic(updatedMusic);
           this.closeEditModal();
-
       } catch (error: any) {
           this.editError.set(error.message || 'Falha ao atualizar a música.');
       } finally {

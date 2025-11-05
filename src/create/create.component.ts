@@ -1,4 +1,4 @@
-import { Component, ChangeDetectionStrategy, signal, inject, computed, effect } from '@angular/core';
+import { Component, ChangeDetectionStrategy, signal, inject, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { GeminiService } from '../services/gemini.service';
 import { MurekaService } from '../services/mureka.service';
@@ -41,9 +41,11 @@ export class CreateComponent {
 
   // Style options
   readonly musicStyles = [
-    'Pop', 'Rock', 'Sertanejo', 'Eletrônica', 'Hip Hop', 'Funk',
-    'Acústico', 'Ambiente', 'Clássico', 'MPB', 'Samba', 'Forró',
-    'R&B', 'Reggae', 'Lo-Fi', 'Jazz', 'Blues', 'Gospel', 'Folk', 'Country'
+    'Acústico', 'Ambiente', 'Axé', 'Blues', 'Bossa Nova', 'Choro', 
+    'Clássico', 'Country', 'Disco', 'Eletrônica', 'Folk', 'Forró', 
+    'Funk', 'Gospel', 'Hip Hop', 'Indie', 'Jazz', 'Lo-Fi', 'Metal', 
+    'MPB', 'Pagode', 'Pop', 'Punk', 'R&B', 'Reggae', 'Rock', 'Samba', 
+    'Sertanejo', 'Soul'
   ];
 
   // AI Lyrics generation state
@@ -54,11 +56,6 @@ export class CreateComponent {
   // Music generation state (unified for all creation types)
   isGeneratingMusic = signal(false);
   generationError = signal<string | null>(null);
-  musicGenerationProgress = signal(0);
-  musicGenerationStatusMessage = signal('Iniciando...');
-
-  // New state for a generation happening in the background
-  backgroundGeneration = signal<Music | null>(null);
 
   // Advanced audio creation state
   audioCreationMode = signal<'upload' | 'youtube' | 'clone'>('upload'); // Default to 'upload' for advanced section
@@ -77,10 +74,21 @@ export class CreateComponent {
 
   // Computed property to check for advanced features based on user profile
   hasAdvancedFeatures = computed(() => {
-    // Para simplificar, vamos assumir que qualquer usuário com ID de cliente Stripe
-    // (ou seja, que já interagiu com o faturamento) tem acesso.
-    // Você pode refinar isso com base em uma coluna 'plan_id' no perfil, por exemplo.
-    return !!this.currentUserProfile()?.stripe_customer_id;
+    // This is an example, you might base this on subscription tier
+    const profile = this.currentUserProfile();
+    if (!profile) return false;
+    // For this app, let's assume having a stripe_customer_id means they are a paid user
+    // with access to advanced features.
+    return !!profile.stripe_customer_id;
+  });
+  
+  // New state for a generation happening in the background, derived with computed
+  backgroundGeneration = computed(() => {
+    if (this.isGeneratingMusic()) {
+        return null; // Don't show the banner if we are actively generating on this page
+    }
+    // Find if there's any other song being processed
+    return this.murekaService.userMusic().find(m => m.status === 'processing') || null;
   });
 
   canGenerateLyrics = computed(() => {
@@ -92,28 +100,17 @@ export class CreateComponent {
   });
 
   canGenerateMusic = computed(() => {
-    // Disable if any generation is in progress (lyrics or music)
-    if (this.generatingLyrics() || this.isGeneratingMusic()) {
-      return false;
-    }
-    // Disable if Mureka/Supabase is not configured or user has no credits
-    if (!this.isMurekaConfigured() || !this.currentUserProfile() || this.currentUserProfile()!.credits <= 0) {
-      return false;
-    }
+    if (this.generatingLyrics() || this.isGeneratingMusic()) return false;
+    if (!this.isMurekaConfigured() || !this.currentUserProfile() || this.currentUserProfile()!.credits <= 0) return false;
 
     const hasStyle = this.selectedStyles().size > 0 || this.customStyle().trim().length > 0;
     const hasTitle = this.songTitle().trim().length > 0;
     if (!hasStyle || !hasTitle) return false;
 
-    if (this.isInstrumental()) {
-      return true; // Only style and title needed for instrumental
-    }
+    if (this.isInstrumental()) return true;
 
-    // For non-instrumental, lyrics are required (either entered or AI generated description)
     const hasLyrics = this.lyrics().trim().length > 0 && !this.isLyricsTooLong();
-    const hasLyricsDesc = this.lyricsDescription().trim().length > 0; // If description is present, user expects AI to generate.
-
-    return hasLyrics || hasLyricsDesc;
+    return hasLyrics;
   });
 
   canUploadAudio = computed(() => {
@@ -145,17 +142,7 @@ export class CreateComponent {
   });
 
   constructor() {
-    effect(() => {
-      // Only show the background processing banner if we are not actively generating a song on this page.
-      if (!this.isGeneratingMusic()) {
-        const userMusic = this.murekaService.userMusic();
-        const backgroundMusic = userMusic.find(m => m.status === 'processing');
-        this.backgroundGeneration.set(backgroundMusic || null);
-      } else {
-        // If we are generating, don't show the banner for another song
-        this.backgroundGeneration.set(null);
-      }
-    }, { allowSignalWrites: true });
+    // Constructor is now empty as the effect was replaced by a computed signal.
   }
 
   toggleStyle(style: string): void {
@@ -186,15 +173,12 @@ export class CreateComponent {
   private async executeGeneration(generationFn: () => Promise<Music>): Promise<void> {
     this.isGeneratingMusic.set(true);
     this.generationError.set(null);
-    this.backgroundGeneration.set(null); // Hide banner if starting a new one
 
     try {
       const musicRecord = await generationFn();
       
-      // Navigate to library and highlight the new song
       this.router.navigate(['/library'], { queryParams: { highlight: musicRecord.id } });
       
-      // Clear the relevant form after successful submission
       if (this.audioCreationMode() === 'upload' || this.audioCreationMode() === 'youtube' || this.audioCreationMode() === 'clone') {
           this.resetAdvancedForm();
       } else {
@@ -214,15 +198,14 @@ export class CreateComponent {
   
     this.executeGeneration(async () => {
       const stylesArray = Array.from(this.selectedStyles());
-      const finalStyle = stylesArray.length > 0 ? stylesArray.join(', ') : this.customStyle().trim();
+      const displayStyle = stylesArray.length > 0 ? stylesArray.join(', ') : this.customStyle().trim();
       const title = this.songTitle().trim();
   
       if (this.isInstrumental()) {
-        return this.murekaService.generateInstrumental(title, finalStyle, this.isPublic());
+        return this.murekaService.generateInstrumental(title, displayStyle, this.isPublic());
       } else {
-        const displayStyle = finalStyle;
         const vocalPrompt = `com vocais ${this.vocalGender() === 'male' ? 'masculinos' : 'femininos'} expressivos que combinam com o estilo musical`;
-        const murekaPrompt = `${finalStyle}, ${vocalPrompt}`;
+        const murekaPrompt = `${displayStyle}, ${vocalPrompt}`;
         return this.murekaService.generateMusic(title, displayStyle, murekaPrompt, this.lyrics().trim(), this.isPublic());
       }
     });
@@ -250,7 +233,7 @@ export class CreateComponent {
         this.advancedTitle(),
         this.cloneLyrics(),
         this.cloneStyle(),
-        true // Default to public for now
+        true
       )
     );
   }
@@ -285,7 +268,6 @@ export class CreateComponent {
   }
 
   private resetAdvancedForm(): void {
-    // Reset specific advanced form fields
     this.uploadedFile.set(null);
     this.youtubeUrl.set('');
     this.advancedTitle.set('');

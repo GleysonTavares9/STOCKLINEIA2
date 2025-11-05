@@ -101,7 +101,10 @@
             @let songsToShow = expandedStyles().has(group.style) ? group.songs : group.songs.slice(0, 3);
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
               @for (music of songsToShow; track music.id) {
-                <div class="flex flex-col h-full group">
+                <div 
+                  class="flex flex-col h-full group"
+                  [id]="'music-card-' + music.id"
+                  [class.pulse-highlight]="highlightedMusicId() === music.id">
                   <div class="p-1 rounded-lg bg-gradient-to-br from-teal-500/30 via-transparent to-cyan-500/30 transition-all duration-300 group-hover:from-teal-400/80 group-hover:to-cyan-500/80 group-hover:scale-[1.03] group-hover:shadow-xl group-hover:shadow-black/40 flex-grow">
                     <div class="bg-zinc-900 rounded-md flex flex-col overflow-hidden h-full">
                       <div 
@@ -120,13 +123,18 @@
                           </div>
                         }
                         @if(music.status === 'processing') {
-                           <div class="absolute inset-0 bg-black/60 flex flex-col items-center justify-center p-4">
-                            <svg class="animate-spin h-8 w-8 text-teal-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                            </svg>
-                            <p class="mt-3 text-sm text-center text-zinc-300">Processando...</p>
-                          </div>
+                           <div class="absolute inset-0 bg-black/70 backdrop-blur-sm flex flex-col items-center justify-center p-4 text-center">
+                              <div class="relative w-20 h-20">
+                                <svg class="w-full h-full" viewBox="0 0 100 100">
+                                  <circle class="text-zinc-700" stroke-width="8" stroke="currentColor" fill="transparent" r="40" cx="50" cy="50" />
+                                  <circle class="text-teal-500" stroke-width="8" [attr.stroke-dasharray]="251.2" [attr.stroke-dashoffset]="251.2 - (251.2 * (music.metadata?.progress || 0)) / 100" stroke-linecap="round" stroke="currentColor" fill="transparent" r="40" cx="50" cy="50" style="transition: stroke-dashoffset 0.3s;" />
+                                </svg>
+                                <span class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-lg font-bold text-teal-400">
+                                  {{ music.metadata?.progress || 0 }}%
+                                </span>
+                              </div>
+                              <p class="mt-3 text-sm font-medium text-zinc-300">{{ music.metadata?.status_message || 'Processando...' }}</p>
+                            </div>
                         }
                          @if(music.status === 'failed') {
                            <div class="absolute inset-0 bg-black/80 backdrop-blur-sm flex flex-col items-center justify-center p-4">
