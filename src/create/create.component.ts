@@ -22,6 +22,7 @@ export class CreateComponent {
 
   readonly currentUser = this.supabaseService.currentUser;
   readonly currentUserProfile = this.supabaseService.currentUserProfile;
+  readonly isLoadingProfile = this.supabaseService.isLoadingProfile;
 
   // Config signals
   readonly isGeminiConfigured = this.geminiService.isConfigured;
