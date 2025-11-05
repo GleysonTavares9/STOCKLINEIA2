@@ -342,12 +342,6 @@ export class SupabaseService {
     return { user: data.user, error };
   }
 
-  private getRedirectUrl(): string {
-    // Para OAuth, o Supabase redireciona para esta URL com as informações da sessão no fragmento hash.
-    // O caminho deve apontar para o nosso componente de callback.
-    return `${window.location.origin}/#/auth/callback`;
-  }
-
   async signInWithGoogle(): Promise<{ error: AuthError | null }> {
     if (!this.supabase) {
       console.error('signInWithGoogle: Supabase client not initialized.');
@@ -357,7 +351,7 @@ export class SupabaseService {
     const { error } = await this.supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: this.getRedirectUrl(),
+        redirectTo: window.location.origin,
       }
     });
     if (error) {

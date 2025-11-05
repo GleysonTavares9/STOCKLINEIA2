@@ -77,8 +77,7 @@ export class AppComponent {
       // FIX: The `isActive` method requires a complete `IsActiveMatchOptions` object.
       // Added `queryParams`, `fragment`, and `matrixParams` properties to satisfy the method signature for an exact path match.
       const onAuthRoute = this.router.isActive('/auth', { paths: 'exact', queryParams: 'ignored', fragment: 'ignored', matrixParams: 'ignored' }) 
-        || this.router.isActive('/', { paths: 'exact', queryParams: 'ignored', fragment: 'ignored', matrixParams: 'ignored' })
-        || this.router.isActive('/auth/callback', { paths: 'exact', queryParams: 'ignored', fragment: 'ignored', matrixParams: 'ignored' });
+        || this.router.isActive('/', { paths: 'exact', queryParams: 'ignored', fragment: 'ignored', matrixParams: 'ignored' });
     
       if (user) {
         // User is LOGGED IN
