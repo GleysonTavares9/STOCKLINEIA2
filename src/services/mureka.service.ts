@@ -12,6 +12,8 @@ interface MurekaQueryResponse {
   failed_reason?: string;
   choices?: { url: string; flac_url?: string; duration?: number; id?: string }[];
   file_id?: string;
+  // FIX: Adicionado campo de progresso à resposta da query Mureka
+  progress?: number;
 }
 
 @Injectable({
@@ -53,7 +55,8 @@ export class MurekaService {
         style: 'uploaded',
         lyrics: description || '',
         status: 'processing',
-        is_public: false
+        is_public: false,
+        metadata: { progress: 0, status_message: 'Iniciando upload...' } // Initial progress
       });
 
       if (!musicRecord) {
@@ -93,7 +96,9 @@ export class MurekaService {
           file_id: fileId,
           original_filename: file.name,
           file_size: file.size,
-          upload_type: 'direct'
+          upload_type: 'direct',
+          progress: 5, // Uploaded, now waiting for processing
+          status_message: 'Arquivo enviado, aguardando processamento...'
         }
       });
       
@@ -142,7 +147,7 @@ export class MurekaService {
         lyrics: lyrics,
         status: 'processing', 
         is_public: isPublic,
-        metadata: { youtube_url: youtubeUrl, queryPath: queryPath }
+        metadata: { youtube_url: youtubeUrl, queryPath: queryPath, progress: 0, status_message: 'Iniciando processamento do YouTube...' }
       });
 
       if (!musicRecord) {
@@ -190,7 +195,9 @@ export class MurekaService {
         mureka_id: taskId,
         metadata: {
           ...(finalMusicRecord.metadata || {}),
-          processing_method: processingMethod
+          processing_method: processingMethod,
+          progress: 10, // Request sent, now waiting for Mureka
+          status_message: 'Vídeo do YouTube processado. Gerando faixa...'
         }
       });
       
@@ -243,6 +250,8 @@ export class MurekaService {
             metadata: { 
               ...existingMetadata,
               analysis: describeData,
+              progress: 20, // After analysis
+              status_message: 'Áudio analisado, gerando instrumental...'
             }
           });
         }
@@ -276,7 +285,9 @@ export class MurekaService {
         metadata: {
           ...existingMetadata,
           queryPath: 'instrumental/query',
-          processing_method: 'generation_from_upload'
+          processing_method: 'generation_from_upload',
+          progress: 30, // Request sent, now waiting for Mureka
+          status_message: 'Geração do instrumental iniciada...'
         }
       });
       
@@ -292,7 +303,7 @@ export class MurekaService {
       
       const updatedMusic = await this.supabase.updateMusic(musicId, { 
         status: 'failed', 
-        metadata: { ...(originalRecord?.metadata || {}), error: errorMessage } 
+        metadata: { ...(originalRecord?.metadata || {}), error: errorMessage, progress: 100, status_message: 'Falha na geração.' } 
       });
 
       if (updatedMusic) {
@@ -316,13 +327,13 @@ export class MurekaService {
     if (musicRecord) {
       const updatedMusic = await this.supabase.updateMusic(musicRecord.id, { 
         status: 'failed', 
-        metadata: { ...(musicRecord.metadata || {}), error: details.errorMessage } 
+        metadata: { ...(musicRecord.metadata || {}), error: details.errorMessage, progress: 100, status_message: 'Falha na geração.' } 
       });
       if (updatedMusic) {
           this.userMusic.update(music => music.map(s => s.id === updatedMusic.id ? updatedMusic : s));
       }
     } else {
-       const newFailedMusic = await this.supabase.addMusic({ title: details.title, style: details.style, lyrics: details.lyrics, status: 'failed', error: details.errorMessage, is_public: details.is_public });
+       const newFailedMusic = await this.supabase.addMusic({ title: details.title, style: details.style, lyrics: details.lyrics, status: 'failed', error: details.errorMessage, is_public: details.is_public, metadata: { progress: 100, status_message: 'Falha na geração.' } });
        if (newFailedMusic) {
           this.userMusic.update(current => [newFailedMusic, ...current]);
        }
@@ -347,7 +358,7 @@ export class MurekaService {
         lyrics,
         status: 'processing',
         is_public: isPublic,
-        metadata: { queryPath: 'song/query' }
+        metadata: { queryPath: 'song/query', progress: 0, status_message: 'Iniciando geração da música...' }
       });
 
       if (!musicRecord) {
@@ -384,7 +395,10 @@ export class MurekaService {
       await this.supabase.consumeCredits(user.id, 1, `Criação de música: "${title}"`, musicRecord.id);
 
       const taskId = data.id;
-      const updatedRecord = await this.supabase.updateMusic(finalMusicRecord.id, { mureka_id: taskId });
+      const updatedRecord = await this.supabase.updateMusic(finalMusicRecord.id, { 
+        mureka_id: taskId,
+        metadata: { ...(finalMusicRecord.metadata || {}), progress: 10, status_message: 'Requisição enviada. Aguardando a Mureka...' }
+      });
       if (updatedRecord) {
         this.userMusic.update(music => music.map(s => s.id === finalMusicRecord.id ? updatedRecord : s));
       }
@@ -414,7 +428,7 @@ export class MurekaService {
         lyrics: '',
         status: 'processing',
         is_public: isPublic,
-        metadata: { queryPath: 'instrumental/query' }
+        metadata: { queryPath: 'instrumental/query', progress: 0, status_message: 'Iniciando geração do instrumental...' }
       });
 
       if (!musicRecord) {
@@ -447,7 +461,10 @@ export class MurekaService {
       await this.supabase.consumeCredits(user.id, 1, `Criação de instrumental: "${title}"`, musicRecord.id);
 
       const taskId = data.id;
-      const updatedRecord = await this.supabase.updateMusic(finalMusicRecord.id, { mureka_id: taskId });
+      const updatedRecord = await this.supabase.updateMusic(finalMusicRecord.id, { 
+        mureka_id: taskId,
+        metadata: { ...(finalMusicRecord.metadata || {}), progress: 10, status_message: 'Requisição enviada. Aguardando a Mureka...' }
+      });
       if (updatedRecord) {
         this.userMusic.update(music => music.map(s => s.id === finalMusicRecord.id ? updatedRecord : s));
       }
@@ -477,7 +494,7 @@ export class MurekaService {
         lyrics,
         status: 'processing',
         is_public: isPublic,
-        metadata: { queryPath: 'voice_clone/query', type: 'voice_clone' }
+        metadata: { queryPath: 'voice_clone/query', type: 'voice_clone', progress: 0, status_message: 'Iniciando clonagem de voz...' }
       });
 
       if (!musicRecord) throw new Error('Falha ao criar o registro da música.');
@@ -519,7 +536,10 @@ export class MurekaService {
 
       const taskId = data.id;
 
-      const updatedRecord = await this.supabase.updateMusic(finalMusicRecord.id, { mureka_id: taskId });
+      const updatedRecord = await this.supabase.updateMusic(finalMusicRecord.id, { 
+        mureka_id: taskId,
+        metadata: { ...(finalMusicRecord.metadata || {}), progress: 10, status_message: 'Amostra de voz enviada. Gerando voz clonada...' }
+      });
       if (updatedRecord) this.userMusic.update(music => music.map(s => s.id === finalMusicRecord.id ? updatedRecord : s));
 
       this.pollForResult(finalMusicRecord.id, taskId, 'voice_clone/query');
@@ -561,7 +581,9 @@ export class MurekaService {
             metadata: { 
               original_music_id: originalMusic.id, 
               queryPath: queryPath,
-              processing_method: 'extended'
+              processing_method: 'extended',
+              progress: 0,
+              status_message: 'Iniciando extensão da música...'
             }
         });
 
@@ -586,7 +608,10 @@ export class MurekaService {
         await this.supabase.consumeCredits(user.id, 1, `Extensão de música: "${originalMusic.title}"`, newMusicRecord.id);
 
         const taskId = data.id;
-        const updatedRecord = await this.supabase.updateMusic(newMusicRecord.id, { mureka_id: taskId });
+        const updatedRecord = await this.supabase.updateMusic(newMusicRecord.id, { 
+          mureka_id: taskId,
+          metadata: { ...(newMusicRecord.metadata || {}), progress: 10, status_message: 'Requisição de extensão enviada...' }
+        });
         if (updatedRecord) this.userMusic.update(music => music.map(s => s.id === newMusicRecord!.id ? updatedRecord : s));
         
         this.pollForResult(newMusicRecord.id, taskId, queryPath);
@@ -627,10 +652,18 @@ export class MurekaService {
     let attempts = 0;
 
     const executePoll = async () => {
+      const originalMusic = this.userMusic().find(m => m.id === musicId);
+      if (!originalMusic || !['processing'].includes(originalMusic.status)) {
+        console.log(`MurekaService: Polling stopped for task ${taskId} (music status is no longer 'processing' or record not found).`);
+        return; // Stop polling if music is no longer processing or record is gone
+      }
+
       if (attempts >= maxAttempts) {
         console.log(`MurekaService: Polling for task ${taskId} timed out after ${maxAttempts} attempts.`);
-        const originalMusic = this.userMusic().find(m => m.id === musicId);
-        await this.supabase.updateMusic(musicId, { status: 'failed', metadata: { ...(originalMusic?.metadata || {}), error: 'A geração demorou muito para responder (timeout).' } });
+        await this.supabase.updateMusic(musicId, { 
+          status: 'failed', 
+          metadata: { ...(originalMusic?.metadata || {}), error: 'A geração demorou muito para responder (timeout).', progress: 100, status_message: 'Falha na geração.' } 
+        });
         return;
       }
       
@@ -641,6 +674,54 @@ export class MurekaService {
           const result = await this.queryMusicStatus(taskId, queryPath);
           const isFinalStatus = ['succeeded', 'failed', 'timeouted', 'cancelled'].includes(result.status);
           
+          let currentProgress: number;
+          let currentStatusMessage: string;
+
+          switch (result.status) {
+              case 'preparing':
+                  currentProgress = 15;
+                  currentStatusMessage = 'Preparando os recursos...';
+                  break;
+              case 'queued':
+                  currentProgress = 30;
+                  currentStatusMessage = 'Na fila de processamento...';
+                  break;
+              case 'running':
+                  currentProgress = 60;
+                  currentStatusMessage = 'Gerando a faixa de áudio...';
+                  break;
+              case 'streaming':
+                  currentProgress = 85;
+                  currentStatusMessage = 'Renderizando e finalizando a música...';
+                  break;
+              case 'succeeded':
+                  currentProgress = 100;
+                  currentStatusMessage = 'Música gerada com sucesso!';
+                  break;
+              case 'failed':
+              case 'timeouted':
+              case 'cancelled':
+                  currentProgress = 100;
+                  currentStatusMessage = result.failed_reason || 'Falha na geração.';
+                  break;
+              default:
+                  currentProgress = (originalMusic.metadata?.progress as number) || 0; // Keep previous progress
+                  currentStatusMessage = (originalMusic.metadata?.status_message as string) || 'Status desconhecido.';
+                  break;
+          }
+
+          // Update local record immediately for UI feedback
+          this.supabase.updateMusic(musicId, { 
+            metadata: { 
+              ...(originalMusic?.metadata || {}), 
+              progress: currentProgress, 
+              status_message: currentStatusMessage 
+            } 
+          }).then(updated => {
+            if (updated) this.userMusic.update(musics => musics.map(m => m.id === musicId ? updated : m));
+          });
+
+
           if (isFinalStatus) {
               await this.handleFinalStatus(musicId, result);
           } else {
@@ -649,8 +730,15 @@ export class MurekaService {
       } catch (error) {
           console.error(`MurekaService: Error polling for task ${taskId}:`, error);
           const errorMessage = await this.getApiErrorMessage(error, 'Erro ao verificar o status da geração.');
-          const originalMusic = this.userMusic().find(m => m.id === musicId);
-          await this.supabase.updateMusic(musicId, { status: 'failed', metadata: { ...(originalMusic?.metadata || {}), error: errorMessage } });
+          await this.supabase.updateMusic(musicId, { 
+            status: 'failed', 
+            metadata: { 
+              ...(originalMusic?.metadata || {}), 
+              error: errorMessage, 
+              progress: 100, 
+              status_message: 'Falha na geração (erro de comunicação).' 
+            } 
+          });
       }
     };
     
@@ -679,20 +767,22 @@ export class MurekaService {
                   ...existingMetadata, 
                   file_id: fileId,
                   duration: result.choices?.[0]?.duration,
-                  mureka_choice_id: result.choices?.[0]?.id
+                  mureka_choice_id: result.choices?.[0]?.id,
+                  progress: 100, // Final state
+                  status_message: 'Música gerada com sucesso!'
                 }
             });
         } else {
             updatedMusic = await this.supabase.updateMusic(musicId, { 
                 status: 'failed', 
-                metadata: { ...existingMetadata, error: 'Sucesso, mas a Mureka não forneceu um URL de áudio.' } 
+                metadata: { ...existingMetadata, error: 'Sucesso, mas a Mureka não forneceu um URL de áudio.', progress: 100, status_message: 'Falha na geração.' } 
             });
         }
     } else {
         const reason = result.failed_reason || `A geração falhou com o status: ${result.status}`;
         updatedMusic = await this.supabase.updateMusic(musicId, { 
             status: 'failed', 
-            metadata: { ...existingMetadata, error: reason } 
+            metadata: { ...existingMetadata, error: reason, progress: 100, status_message: 'Falha na geração.' } 
         });
     }
 

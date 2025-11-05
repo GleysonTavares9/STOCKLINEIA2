@@ -229,39 +229,47 @@
       </div>
     </div>
 
-    <!-- BOTÃO DE CRIAÇÃO -->
+    <!-- BOTÃO DE CRIAÇÃO / PROGRESSO -->
     <div class="text-center">
       @if (generationError()) {
         <p class="text-red-400 text-sm mb-4">{{ generationError() }}</p>
       }
-      <button 
-        (click)="startMusicGenerationWorkflow()"
-        [disabled]="!canGenerateMusic() || isGeneratingMusic()"
-        class="w-full sm:w-auto py-4 px-10 rounded-full font-extrabold text-lg transition-all duration-300 flex items-center justify-center mx-auto shadow-lg transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-teal-500/50"
-        [class.bg-gradient-to-r]="canGenerateMusic() && !isGeneratingMusic()"
-        [class.from-teal-500]="canGenerateMusic() && !isGeneratingMusic()"
-        [class.to-cyan-600]="canGenerateMusic() && !isGeneratingMusic()"
-        [class.hover:shadow-xl]="canGenerateMusic() && !isGeneratingMusic()"
-        [class.hover:shadow-teal-500/40]="canGenerateMusic() && !isGeneratingMusic()"
-        [class.text-white]="canGenerateMusic() && !isGeneratingMusic()"
-        [class.bg-zinc-800]="!canGenerateMusic() || isGeneratingMusic()"
-        [class.text-zinc-500]="!canGenerateMusic() || isGeneratingMusic()"
-        [class.cursor-not-allowed]="!canGenerateMusic() || isGeneratingMusic()">
-        @if (isGeneratingMusic()) {
-          <div class="waveform">
-            <div class="waveform__bar"></div>
-            <div class="waveform__bar"></div>
-            <div class="waveform__bar"></div>
-            <div class="waveform__bar"></div>
+      @if (isGeneratingMusic()) {
+        <div class="w-full sm:w-auto py-4 px-6 rounded-full font-extrabold text-lg transition-all duration-300 flex flex-col items-center justify-center mx-auto shadow-lg bg-zinc-800 text-zinc-300">
+          <div class="relative w-24 h-24 mb-3">
+            <!-- Circular track background -->
+            <div class="absolute inset-0 rounded-full border-4 border-zinc-700"></div>
+            <!-- Animated progress spinner -->
+            <div 
+              class="absolute inset-0 rounded-full border-4 border-transparent border-t-teal-500 animate-spin-slow">
+            </div>
+            <!-- Percentage text -->
+            <span class="absolute inset-0 flex items-center justify-center text-xl font-bold text-teal-400">
+              {{ musicGenerationProgress() }}%
+            </span>
           </div>
-          <span class="ml-3">Gerando...</span>
-        } @else {
+          <span class="mb-2 text-sm">{{ musicGenerationStatusMessage() }}</span>
+        </div>
+      } @else {
+        <button 
+          (click)="startMusicGenerationWorkflow()"
+          [disabled]="!canGenerateMusic()"
+          class="w-full sm:w-auto py-4 px-10 rounded-full font-extrabold text-lg transition-all duration-300 flex items-center justify-center mx-auto shadow-lg transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-teal-500/50"
+          [class.bg-gradient-to-r]="canGenerateMusic()"
+          [class.from-teal-500]="canGenerateMusic()"
+          [class.to-cyan-600]="canGenerateMusic()"
+          [class.hover:shadow-xl]="canGenerateMusic()"
+          [class.hover:shadow-teal-500/40]="canGenerateMusic()"
+          [class.text-white]="canGenerateMusic()"
+          [class.bg-zinc-800]="!canGenerateMusic()"
+          [class.text-zinc-500]="!canGenerateMusic()"
+          [class.cursor-not-allowed]="!canGenerateMusic()">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
               <path stroke-linecap="round" stroke-linejoin="round" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
             </svg>
             <span>Criar (Custa 1 crédito)</span>
-        }
-      </button>
+        </button>
+      }
       @if (currentUserProfile() && !isGeneratingMusic()) {
         <p class="mt-3 text-sm text-zinc-400">
           Você tem {{ currentUserProfile()!.credits }} crédito(s) restante(s).
@@ -327,7 +335,7 @@
                         <p class="text-xs text-zinc-500 mt-2">Arquivo selecionado: {{ uploadedFile()!.name }}</p>
                     }
                 </div>
-                <button (click)="handleAudioUpload()" [disabled]="!canUploadAudio()" class="w-full py-2.5 px-4 bg-teal-600 rounded-lg text-white font-semibold flex items-center justify-center hover:bg-teal-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                <button (click)="handleAudioUpload()" [disabled]="!canUploadAudio() || isGeneratingMusic()" class="w-full py-2.5 px-4 bg-teal-600 rounded-lg text-white font-semibold flex items-center justify-center hover:bg-teal-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
                     @if (isUploading()) {
                         <svg class="animate-spin h-5 w-5 mr-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
                         Criando...
@@ -384,13 +392,13 @@
                           <label class="block text-sm font-medium text-zinc-300 mb-2">Gênero Vocal</label>
                           <div class="flex gap-4">
                             <button type="button" (click)="vocalGender.set('male')" class="flex-1 py-2 px-4 rounded-lg font-semibold border transition-colors" [class.bg-teal-600]="vocalGender() === 'male'" [class.border-teal-600]="vocalGender() === 'male'" [class.text-white]="vocalGender() === 'male'" [class.bg-zinc-800]="vocalGender() !== 'male'" [class.border-zinc-700]="vocalGender() !== 'male'" [class.text-zinc-400]="vocalGender() !== 'male'" [class.hover:bg-zinc-700]="vocalGender() !== 'male'">Masculino</button>
-                            <button type="button" (click)="vocalGender.set('female')" class="flex-1 py-2 px-4 rounded-lg font-semibold border transition-colors" [class.bg-teal-600]="vocalGender() === 'female'" [class.border-teal-600]="vocalGender() === 'female'" [class.text-white]="vocalGender() === 'female'" [class.bg-zinc-800]="vocalGender() !== 'female'" [class.border-zinc-700]="vocalGender() !== 'female'" [class.text-zinc-400]="vocalGender() !== 'female'" [class.hover:bg-zinc-700]="vocalGender() !== 'female'">Feminino</button>
+                            <button type="button" (click)="vocalGender.set('female')" class="flex-1 py-2 px-4 rounded-lg font-semibold border transition-colors" [class.bg-teal-600]="vocalGender() === 'female'" [class.border-teal-600]="vocalGender() === 'female'" [class.text-white]="vocalGender() === 'female'" [class.bg-zinc-800]="vocalGender() !== 'female'" [class.border-zinc-700]="vocalGender() !== 'female'" [class.text-zinc-400]="vocalGender() !== 'female'" [class.hover:bg-zinc-700]="!vocalGender() !== 'female'">Feminino</button>
                           </div>
                         </div>
                       </div>
                     }
                   </div>
-                  <button (click)="handleYouTubeProcess()" [disabled]="!canProcessYouTube()" class="w-full py-2.5 px-4 bg-teal-600 rounded-lg text-white font-semibold flex items-center justify-center hover:bg-teal-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                  <button (click)="handleYouTubeProcess()" [disabled]="!canProcessYouTube() || isGeneratingMusic()" class="w-full py-2.5 px-4 bg-teal-600 rounded-lg text-white font-semibold flex items-center justify-center hover:bg-teal-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
                     @if (isUploading()) {
                         <svg class="animate-spin h-5 w-5 mr-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
                         Criando...
@@ -420,7 +428,7 @@
                       <label for="clone-style" class="block text-sm font-medium text-zinc-300 mb-2">Estilo do acompanhamento musical</label>
                       <input type="text" id="clone-style" [value]="cloneStyle()" (input)="cloneStyle.set($event.target.value)" placeholder="Ex: Piano triste, batida Lo-Fi, violão acústico" class="w-full p-3 bg-zinc-800 border border-zinc-700 rounded-md text-gray-200 placeholder-zinc-400 focus:ring-1 focus:ring-teal-500 focus:border-teal-500">
                   </div>
-                  <button (click)="handleVoiceClone()" [disabled]="!canCloneVoice()" class="w-full py-2.5 px-4 bg-teal-600 rounded-lg text-white font-semibold flex items-center justify-center hover:bg-teal-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                  <button (click)="handleVoiceClone()" [disabled]="!canCloneVoice() || isGeneratingMusic()" class="w-full py-2.5 px-4 bg-teal-600 rounded-lg text-white font-semibold flex items-center justify-center hover:bg-teal-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
                       @if (isUploading()) {
                           <svg class="animate-spin h-5 w-5 mr-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
                           Clonando Voz...

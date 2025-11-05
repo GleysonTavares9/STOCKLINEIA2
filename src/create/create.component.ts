@@ -1,4 +1,4 @@
-import { Component, ChangeDetectionStrategy, signal, inject, computed } from '@angular/core';
+import { Component, ChangeDetectionStrategy, signal, inject, computed, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { GeminiService } from '../services/gemini.service';
 import { MurekaService } from '../services/mureka.service';
@@ -53,6 +53,11 @@ export class CreateComponent {
   // Music generation state
   isGeneratingMusic = signal(false);
   generationError = signal<string | null>(null);
+  
+  // FIX: New signals to track specific music generation progress
+  generatingMusicId = signal<string | null>(null);
+  musicGenerationProgress = signal(0);
+  musicGenerationStatusMessage = signal('');
 
   // Advanced audio creation state
   audioCreationMode = signal<'upload' | 'youtube' | 'clone'>('upload');
@@ -137,7 +142,31 @@ export class CreateComponent {
            !!profile && profile.credits > 0;
   });
 
-  constructor() {}
+  constructor() {
+    // FIX: Effect to observe music generation progress
+    effect(() => {
+      const currentGeneratingId = this.generatingMusicId();
+      if (currentGeneratingId) {
+        const musicInService = this.murekaService.userMusic().find(m => m.id === currentGeneratingId);
+        if (musicInService) {
+          const status = musicInService.status;
+          const progress = musicInService.metadata?.progress ?? 0;
+          const message = musicInService.metadata?.status_message ?? 'Iniciando...';
+          
+          this.musicGenerationProgress.set(progress);
+          this.musicGenerationStatusMessage.set(message);
+
+          if (status === 'succeeded' || status === 'failed') {
+            this.isGeneratingMusic.set(false);
+            this.generatingMusicId.set(null); // Reset after completion
+            if (status === 'failed') {
+              this.generationError.set(musicInService.metadata?.error || 'Falha na geração da música.');
+            }
+          }
+        }
+      }
+    });
+  }
 
   toggleStyle(style: string): void {
     this.selectedStyles.update(currentStyles => {
@@ -175,29 +204,56 @@ export class CreateComponent {
 
     this.isGeneratingMusic.set(true);
     this.generationError.set(null);
+    this.musicGenerationProgress.set(0);
+    this.musicGenerationStatusMessage.set('Iniciando...');
 
     try {
       const stylesArray = Array.from(this.selectedStyles());
       const finalStyle = stylesArray.length > 0 ? stylesArray.join(', ') : this.customStyle().trim();
       const title = this.songTitle().trim();
 
+      let musicRecordId: string | undefined;
+
       if (this.isInstrumental()) {
-        // The service now handles credit consumption.
-        await this.murekaService.generateInstrumental(title, finalStyle, this.isPublic());
+        const tempMusic = await this.supabaseService.addMusic({
+          title, style: finalStyle, lyrics: '', status: 'processing', is_public: this.isPublic(),
+          metadata: { queryPath: 'instrumental/query', progress: 0, status_message: 'Iniciando geração do instrumental...' }
+        });
+        if (tempMusic) {
+          this.generatingMusicId.set(tempMusic.id);
+          await this.murekaService.generateInstrumental(title, finalStyle, this.isPublic());
+        } else {
+          throw new Error('Falha ao registrar a música para instrumental.');
+        }
       } else {
         const vocalPrompt = this.getVocalPrompt(this.vocalGender());
         const promptWithVocals = `${finalStyle}, ${vocalPrompt}`;
-        await this.murekaService.generateMusic(title, promptWithVocals, this.lyrics().trim(), this.isPublic());
+
+        const tempMusic = await this.supabaseService.addMusic({
+          title, style: promptWithVocals, lyrics: this.lyrics().trim(), status: 'processing', is_public: this.isPublic(),
+          metadata: { queryPath: 'song/query', progress: 0, status_message: 'Iniciando geração da música...' }
+        });
+        if (tempMusic) {
+          this.generatingMusicId.set(tempMusic.id);
+          await this.murekaService.generateMusic(title, promptWithVocals, this.lyrics().trim(), this.isPublic());
+        } else {
+          throw new Error('Falha ao registrar a música.');
+        }
       }
       
       this.resetMainForm();
-      this.router.navigate(['/library']);
+      // Navigation is now handled by the effect when generation completes
+      // this.router.navigate(['/library']); 
 
     } catch (error: any) {
       console.error('Erro ao iniciar geração de música:', error);
       this.generationError.set(error.message || 'Falha ao gerar a música. Tente novamente.');
+      this.isGeneratingMusic.set(false); // Ensure state reset on error
+      this.generatingMusicId.set(null);
+      this.musicGenerationProgress.set(100);
+      this.musicGenerationStatusMessage.set('Falha!');
     } finally {
-      this.isGeneratingMusic.set(false);
+      // Final state will be handled by the effect
     }
   }
   
@@ -218,14 +274,31 @@ export class CreateComponent {
 
     this.isUploading.set(true);
     this.uploadError.set(null);
+    this.musicGenerationProgress.set(0);
+    this.musicGenerationStatusMessage.set('Iniciando upload de áudio...');
+    this.isGeneratingMusic.set(true); // Treat advanced generation like regular generation for progress UI
 
     try {
-        await this.murekaService.uploadAudio(this.uploadedFile()!, this.songTitle());
+        const tempMusic = await this.supabaseService.addMusic({
+          title: this.songTitle(), style: 'upload', lyrics: '', status: 'processing', is_public: true,
+          metadata: { progress: 0, status_message: 'Iniciando upload de áudio...' }
+        });
+        if (tempMusic) {
+          this.generatingMusicId.set(tempMusic.id);
+          await this.murekaService.uploadAudio(this.uploadedFile()!, this.songTitle());
+        } else {
+          throw new Error('Falha ao registrar a música para upload.');
+        }
+
         this.resetAdvancedForm();
-        this.router.navigate(['/library']);
+        // this.router.navigate(['/library']);
     } catch (error: any) {
         console.error('Erro ao fazer upload do áudio:', error);
         this.uploadError.set(error.message || 'Falha ao enviar o arquivo. Tente novamente.');
+        this.isGeneratingMusic.set(false);
+        this.generatingMusicId.set(null);
+        this.musicGenerationProgress.set(100);
+        this.musicGenerationStatusMessage.set('Falha no upload!');
     } finally {
         this.isUploading.set(false);
     }
@@ -236,6 +309,9 @@ export class CreateComponent {
 
     this.isUploading.set(true);
     this.uploadError.set(null);
+    this.musicGenerationProgress.set(0);
+    this.musicGenerationStatusMessage.set('Iniciando processamento do YouTube...');
+    this.isGeneratingMusic.set(true); // Treat advanced generation like regular generation for progress UI
     
     try {
       const stylesArray = Array.from(this.selectedStyles());
@@ -249,21 +325,34 @@ export class CreateComponent {
           finalPrompt = `Uma nova música no estilo de ${finalStyle}, ${vocalPrompt}, inspirada no áudio de referência do YouTube.`;
       }
 
-      await this.murekaService.processYouTubeVideo(
-        this.youtubeUrl(), 
-        this.songTitle(), 
-        finalPrompt, 
-        this.lyrics(),
-        this.isInstrumental(),
-        this.isPublic()
-      );
+      const tempMusic = await this.supabaseService.addMusic({
+        title: this.songTitle(), style: `YouTube: ${finalPrompt}`, lyrics: this.lyrics(), status: 'processing', is_public: this.isPublic(),
+        metadata: { youtube_url: this.youtubeUrl(), queryPath: (this.isInstrumental() ? 'instrumental/query' : 'song/query'), progress: 0, status_message: 'Iniciando processamento do YouTube...' }
+      });
+      if (tempMusic) {
+        this.generatingMusicId.set(tempMusic.id);
+        await this.murekaService.processYouTubeVideo(
+          this.youtubeUrl(), 
+          this.songTitle(), 
+          finalPrompt, 
+          this.lyrics(),
+          this.isInstrumental(),
+          this.isPublic()
+        );
+      } else {
+        throw new Error('Falha ao registrar a música para YouTube.');
+      }
 
       this.resetAdvancedForm();
-      this.router.navigate(['/library']);
+      // this.router.navigate(['/library']);
 
     } catch (error: any) {
         console.error('Erro ao processar vídeo do YouTube:', error);
         this.uploadError.set(error.message || 'Falha ao processar o vídeo. Verifique o link e tente novamente.');
+        this.isGeneratingMusic.set(false);
+        this.generatingMusicId.set(null);
+        this.musicGenerationProgress.set(100);
+        this.musicGenerationStatusMessage.set('Falha no processamento do YouTube!');
     } finally {
         this.isUploading.set(false);
     }
@@ -274,21 +363,37 @@ export class CreateComponent {
 
     this.isUploading.set(true);
     this.uploadError.set(null);
+    this.musicGenerationProgress.set(0);
+    this.musicGenerationStatusMessage.set('Iniciando clonagem de voz...');
+    this.isGeneratingMusic.set(true); // Treat advanced generation like regular generation for progress UI
 
     try {
-        await this.murekaService.cloneVoice(
-          this.uploadedFile()!,
-          this.songTitle(),
-          this.cloneLyrics(),
-          this.cloneStyle(),
-          true
-        );
+        const tempMusic = await this.supabaseService.addMusic({
+          title: this.songTitle(), style: `Voz clonada, ${this.cloneStyle()}`, lyrics: this.cloneLyrics(), status: 'processing', is_public: true,
+          metadata: { queryPath: 'voice_clone/query', type: 'voice_clone', progress: 0, status_message: 'Iniciando clonagem de voz...' }
+        });
+        if (tempMusic) {
+          this.generatingMusicId.set(tempMusic.id);
+          await this.murekaService.cloneVoice(
+            this.uploadedFile()!,
+            this.songTitle(),
+            this.cloneLyrics(),
+            this.cloneStyle(),
+            true
+          );
+        } else {
+          throw new Error('Falha ao registrar a música para clonagem de voz.');
+        }
         
         this.resetAdvancedForm();
-        this.router.navigate(['/library']);
+        // this.router.navigate(['/library']);
     } catch (error: any) {
         console.error('Erro ao clonar voz:', error);
         this.uploadError.set(error.message || 'Falha ao clonar a voz. Tente novamente.');
+        this.isGeneratingMusic.set(false);
+        this.generatingMusicId.set(null);
+        this.musicGenerationProgress.set(100);
+        this.musicGenerationStatusMessage.set('Falha na clonagem de voz!');
     } finally {
         this.isUploading.set(false);
     }
