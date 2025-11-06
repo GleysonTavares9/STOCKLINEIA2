@@ -65,7 +65,8 @@ export class AppComponent {
     
       if (!ready) return;
     
-      const onAuthRoute = this.router.isActive('/auth', { paths: 'exact', queryParams: 'ignored', fragment: 'ignored', matrixParams: 'ignored' }) 
+      const onAuthRoute = this.router.isActive('/auth', { paths: 'exact', queryParams: 'ignored', fragment: 'ignored', matrixParams: 'ignored' })
+        || this.router.isActive('/auth/callback', { paths: 'exact', queryParams: 'ignored', fragment: 'ignored', matrixParams: 'ignored' })
         || this.router.isActive('/', { paths: 'exact', queryParams: 'ignored', fragment: 'ignored', matrixParams: 'ignored' });
     
       if (user) {
