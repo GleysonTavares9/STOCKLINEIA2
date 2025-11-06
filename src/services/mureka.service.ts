@@ -72,7 +72,7 @@ export class StocklineAiService {
 
       const fileContent = await this.fileToBase64(file);
       
-      const { data, error: proxyError } = await this.supabase.invokeFunction('stockline-ai-proxy', {
+      const { data, error: proxyError } = await this.supabase.invokeFunction('mureka-proxy', {
         body: {
           apiPath: 'files/upload',
           method: 'POST',
@@ -155,7 +155,7 @@ export class StocklineAiService {
         n: 1,
       };
 
-      const { data, error: proxyError } = await this.supabase.invokeFunction('stockline-ai-proxy', {
+      const { data, error: proxyError } = await this.supabase.invokeFunction('mureka-proxy', {
         body: { apiPath: apiPath, method: 'POST', requestBody }
       });
 
@@ -204,7 +204,7 @@ export class StocklineAiService {
 
       let analysisDescription = '';
       try {
-        const { data: describeData, error: describeError } = await this.supabase.invokeFunction('stockline-ai-proxy', {
+        const { data: describeData, error: describeError } = await this.supabase.invokeFunction('mureka-proxy', {
           body: {
             apiPath: 'song/describe',
             method: 'POST',
@@ -227,7 +227,7 @@ export class StocklineAiService {
         console.warn('StocklineAiService: Não foi possível analisar o áudio:', describeError);
       }
 
-      const { data, error: proxyError } = await this.supabase.invokeFunction('stockline-ai-proxy', {
+      const { data, error: proxyError } = await this.supabase.invokeFunction('mureka-proxy', {
         body: {
           apiPath: 'instrumental/generate',
           method: 'POST',
@@ -339,7 +339,7 @@ export class StocklineAiService {
         aiRequestBody.lyrics = lyrics;
       }
 
-      const { data, error: proxyError } = await this.supabase.invokeFunction('stockline-ai-proxy', {
+      const { data, error: proxyError } = await this.supabase.invokeFunction('mureka-proxy', {
           body: {
               apiPath: 'song/generate',
               method: 'POST',
@@ -403,7 +403,7 @@ export class StocklineAiService {
         n: 1,
       };
 
-      const { data, error: proxyError } = await this.supabase.invokeFunction('stockline-ai-proxy', {
+      const { data, error: proxyError } = await this.supabase.invokeFunction('mureka-proxy', {
           body: {
               apiPath: 'instrumental/generate',
               method: 'POST',
@@ -458,7 +458,7 @@ export class StocklineAiService {
       this.userMusic.update(current => [finalMusicRecord, ...current]);
 
       const fileContent = await this.fileToBase64(voiceSampleFile);
-      const { data: uploadData, error: uploadError } = await this.supabase.invokeFunction('stockline-ai-proxy', {
+      const { data: uploadData, error: uploadError } = await this.supabase.invokeFunction('mureka-proxy', {
         body: {
           apiPath: 'files/upload',
           method: 'POST',
@@ -476,7 +476,7 @@ export class StocklineAiService {
       if (uploadData?.error) throw uploadData;
       const fileId = uploadData.id;
 
-      const { data, error: proxyError } = await this.supabase.invokeFunction('stockline-ai-proxy', {
+      const { data, error: proxyError } = await this.supabase.invokeFunction('mureka-proxy', {
         body: {
           apiPath: 'voice_clone/generate',
           method: 'POST',
@@ -546,7 +546,7 @@ export class StocklineAiService {
 
         const extendPath = queryPath.replace('query', 'extend');
 
-        const { data, error: proxyError } = await this.supabase.invokeFunction('stockline-ai-proxy', {
+        const { data, error: proxyError } = await this.supabase.invokeFunction('mureka-proxy', {
             body: {
                 apiPath: extendPath,
                 method: 'POST',
@@ -658,7 +658,7 @@ export class StocklineAiService {
   }
 
   private async queryMusicStatus(taskId: string, queryPath: 'song/query' | 'instrumental/query' | 'voice_clone/query' = 'song/query'): Promise<AIQueryResponse> {
-    const { data, error: proxyError } = await this.supabase.invokeFunction('stockline-ai-proxy', {
+    const { data, error: proxyError } = await this.supabase.invokeFunction('mureka-proxy', {
         body: {
             apiPath: `${queryPath}/${taskId}`,
             method: 'GET',
@@ -757,10 +757,10 @@ export class StocklineAiService {
         return 'O Supabase não está configurado. Verifique as credenciais.';
     }
 
-    const functionName = 'stockline-ai-proxy';
+    const functionName = 'mureka-proxy';
     if (error?.message && (error.message.toLowerCase().includes('function not found') || error.message.includes('NotFoundException'))) {
-      if (error.message.includes(functionName)) {
-        return `Erro de Configuração: A função '${functionName}' não foi encontrada no Supabase. Após a recente mudança de nome, você precisa renomear a Edge Function de 'mureka-proxy' para '${functionName}' no seu painel do Supabase e reimplantá-la (re-deploy).`;
+      if (error.message.includes(functionName) || error.message.includes('stockline-ai-proxy')) {
+        return `Erro de Configuração: A função '${functionName}' não foi encontrada no Supabase. Verifique se a Edge Function foi implantada corretamente com este nome.`;
       }
     }
 
@@ -799,7 +799,7 @@ export class StocklineAiService {
             const apiMsg = parsedDetails.details.message || JSON.stringify(parsedDetails.details);
             return `Erro da API de IA (via proxy - Status: ${parsedDetails.status || 'desconhecido'}): ${apiMsg}`;
         } else if (parsedDetails.error) {
-            return `Erro da função do Supabase (stockline-ai-proxy): ${parsedDetails.error}`;
+            return `Erro da função do Supabase (mureka-proxy): ${parsedDetails.error}`;
         }
     }
     
