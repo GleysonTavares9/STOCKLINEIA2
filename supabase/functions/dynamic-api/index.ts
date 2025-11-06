@@ -115,26 +115,43 @@ const handleGetCheckoutSession = async (stripe: Stripe, body: any) => {
   });
 };
 
-// Mapeamento dos planos baseado na sua lista
+// Busca a quantidade de créditos dinamicamente do banco de dados
 const getCreditsFromPriceId = async (priceId: string, quantity: number): Promise<number> => {
-  // Definição dos planos baseado no JSON que você forneceu
-  const plans = [
-    { id: "1", price_id: "price_1SFr8GEaMssn2zemQADq2BjG", credits: 60, name: "Básico" },
-    { id: "2", price_id: "price_1SFr8mEaMssn2zemIlFlxF7z", credits: 100, name: "Intermediário" },
-    { id: "3", price_id: "price_1SFr8VEaMssn2zemOfkVwP5W", credits: 220, name: "Avançado" },
-    { id: "4", price_id: "price_1SLB0TEaMssn2zem6SYUuG0v", credits: 530, name: "Premium" },
-    { id: "5", price_id: "price_1SLB0qEaMssn2zemmnjCeIyD", credits: 1500, name: "Empresarial" }
-  ];
+  try {
+    const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2');
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
-  const plan = plans.find(p => p.price_id === priceId);
-  
-  if (!plan) {
-    console.error(`PriceId não encontrado: ${priceId}`);
-    return 0;
+    if (!supabaseUrl || !supabaseServiceKey) {
+      throw new Error('Variáveis de ambiente do Supabase não configuradas para busca de créditos.');
+    }
+
+    // Usa a chave de serviço para ter permissões de leitura na tabela de planos.
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    const { data: plan, error } = await supabase
+      .from('plans')
+      .select('credits')
+      .eq('price_id', priceId)
+      .single();
+
+    if (error) {
+      throw new Error(`Erro ao buscar plano no BD: ${error.message}`);
+    }
+
+    if (!plan) {
+      console.error(`PriceId não encontrado na tabela 'plans': ${priceId}`);
+      return 0; // Retorno seguro
+    }
+
+    const credits = plan.credits || 0;
+    console.log(`Plano identificado via BD: ${credits} créditos`);
+    return credits * quantity;
+
+  } catch (e) {
+    console.error(`Falha ao obter créditos do BD para o priceId ${priceId}:`, e.message);
+    return 0; // Retorno seguro em caso de falha
   }
-
-  console.log(`Plano identificado: ${plan.name} - ${plan.credits} créditos`);
-  return plan.credits * quantity;
 };
 
 // Função para adicionar créditos ao usuário (usando Supabase)

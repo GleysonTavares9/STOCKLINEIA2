@@ -106,7 +106,7 @@ export class FeedComponent {
   async shareMusic(song: Music): Promise<void> {
     const shareData = {
       title: `STOCKLINE AI Music: ${song.title}`,
-      text: `Uau! ✨ Ouça "${song.title}", uma música que criei com STOCKLINE, a plataforma de IA para gerar músicas incríveis. Crie a sua também!`,
+      text: `A próxima grande música pode ser sua. 🎶 Criei "${song.title}" com a IA da STOCKLINE. Experimente de graça e libere sua criatividade!`,
       url: `${window.location.origin}`,
     };
 

@@ -195,18 +195,20 @@ export class CreateComponent {
 
   startMusicGenerationWorkflow(): void {
     if (!this.canGenerateMusic()) return;
-  
+
     this.executeGeneration(async () => {
       const stylesArray = Array.from(this.selectedStyles());
-      const displayStyle = stylesArray.length > 0 ? stylesArray.join(', ') : this.customStyle().trim();
+      const finalStyle = stylesArray.length > 0 ? stylesArray.join(', ') : this.customStyle().trim();
       const title = this.songTitle().trim();
-  
+      const currentLyrics = this.lyrics().trim();
+      const currentVocalGender = this.vocalGender();
+      const isPublicFlag = this.isPublic();
+
       if (this.isInstrumental()) {
-        return this.murekaService.generateInstrumental(title, displayStyle, this.isPublic());
+        return this.murekaService.generateInstrumental(title, finalStyle, isPublicFlag);
       } else {
-        const vocalPrompt = `com vocais ${this.vocalGender() === 'male' ? 'masculinos' : 'femininos'} expressivos que combinam com o estilo musical`;
-        const murekaPrompt = `${displayStyle}, ${vocalPrompt}`;
-        return this.murekaService.generateMusic(title, displayStyle, murekaPrompt, this.lyrics().trim(), this.isPublic());
+        const murekaPrompt = `${finalStyle}, com vocais ${currentVocalGender === 'male' ? 'masculinos' : 'femininos'}`;
+        return this.murekaService.generateMusic(title, finalStyle, murekaPrompt, currentLyrics, isPublicFlag);
       }
     });
   }
