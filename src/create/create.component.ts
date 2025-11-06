@@ -1,7 +1,7 @@
 import { Component, ChangeDetectionStrategy, signal, inject, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { GeminiService } from '../services/gemini.service';
-import { MurekaService } from '../services/mureka.service';
+import { StocklineAiService } from '../services/mureka.service';
 import { SupabaseService, type Music } from '../services/supabase.service';
 import { Router, RouterLink } from '@angular/router';
 
@@ -16,7 +16,7 @@ import { Router, RouterLink } from '@angular/router';
 })
 export class CreateComponent {
   private readonly geminiService: GeminiService = inject(GeminiService);
-  private readonly murekaService: MurekaService = inject(MurekaService);
+  private readonly stocklineAiService: StocklineAiService = inject(StocklineAiService);
   private readonly supabaseService: SupabaseService = inject(SupabaseService);
   private readonly router: Router = inject(Router);
 
@@ -26,7 +26,7 @@ export class CreateComponent {
 
   // Config signals
   readonly isGeminiConfigured = this.geminiService.isConfigured;
-  readonly isMurekaConfigured = this.murekaService.isConfigured;
+  readonly isAiMusicConfigured = this.stocklineAiService.isConfigured;
   readonly supabaseInitError = this.supabaseService.supabaseInitError;
 
   // Form signals
@@ -88,7 +88,7 @@ export class CreateComponent {
         return null; // Don't show the banner if we are actively generating on this page
     }
     // Find if there's any other song being processed
-    return this.murekaService.userMusic().find(m => m.status === 'processing') || null;
+    return this.stocklineAiService.userMusic().find(m => m.status === 'processing') || null;
   });
 
   canGenerateLyrics = computed(() => {
@@ -101,7 +101,7 @@ export class CreateComponent {
 
   canGenerateMusic = computed(() => {
     if (this.generatingLyrics() || this.isGeneratingMusic()) return false;
-    if (!this.isMurekaConfigured() || !this.currentUserProfile() || this.currentUserProfile()!.credits <= 0) return false;
+    if (!this.isAiMusicConfigured() || !this.currentUserProfile() || this.currentUserProfile()!.credits <= 0) return false;
 
     const hasStyle = this.selectedStyles().size > 0 || this.customStyle().trim().length > 0;
     const hasTitle = this.songTitle().trim().length > 0;
@@ -205,10 +205,10 @@ export class CreateComponent {
       const isPublicFlag = this.isPublic();
 
       if (this.isInstrumental()) {
-        return this.murekaService.generateInstrumental(title, finalStyle, isPublicFlag);
+        return this.stocklineAiService.generateInstrumental(title, finalStyle, isPublicFlag);
       } else {
-        const murekaPrompt = `${finalStyle}, com vocais ${currentVocalGender === 'male' ? 'masculinos' : 'femininos'}`;
-        return this.murekaService.generateMusic(title, finalStyle, murekaPrompt, currentLyrics, isPublicFlag);
+        const aiPrompt = `${finalStyle}, com vocais ${currentVocalGender === 'male' ? 'masculinos' : 'femininos'}`;
+        return this.stocklineAiService.generateMusic(title, finalStyle, aiPrompt, currentLyrics, isPublicFlag);
       }
     });
   }
@@ -216,21 +216,21 @@ export class CreateComponent {
   handleAudioUpload(): void {
     if (!this.canUploadAudio()) return;
     this.executeGeneration(() => 
-      this.murekaService.uploadAudio(this.uploadedFile()!, this.advancedTitle())
+      this.stocklineAiService.uploadAudio(this.uploadedFile()!, this.advancedTitle())
     );
   }
   
   handleYouTubeProcess(): void {
     if (!this.canProcessYouTube()) return;
     this.executeGeneration(() => 
-      this.murekaService.processYouTubeVideo(this.youtubeUrl(), this.advancedTitle(), this.isPublic())
+      this.stocklineAiService.processYouTubeVideo(this.youtubeUrl(), this.advancedTitle(), this.isPublic())
     );
   }
   
   handleVoiceClone(): void {
     if (!this.canCloneVoice()) return;
     this.executeGeneration(() => 
-      this.murekaService.cloneVoice(
+      this.stocklineAiService.cloneVoice(
         this.uploadedFile()!,
         this.advancedTitle(),
         this.cloneLyrics(),

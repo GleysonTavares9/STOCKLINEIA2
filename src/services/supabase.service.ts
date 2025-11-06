@@ -6,7 +6,7 @@ import { environment } from '../auth/config';
 // Define the structure of a Music object, matching the 'musics' table
 export interface Music {
   id: string; // UUID from DB
-  task_id?: string; // Mureka Task ID, from 'task_id' column
+  task_id?: string; // AI Task ID, from 'task_id' column
   user_id: string;
   user_email?: string; // Populated from a join with profiles
   title: string;
@@ -351,7 +351,7 @@ export class SupabaseService {
     const { error } = await this.supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: window.location.origin,
+        redirectTo: `${window.location.origin}/auth/callback`,
       }
     });
     if (error) {
@@ -712,18 +712,17 @@ export class SupabaseService {
     return data as Music;
   }
 
-  async updateMusic(musicId: string, updates: { title?: string, description?: string, mureka_id?: string, status?: 'processing' | 'succeeded' | 'failed', audio_url?: string, metadata?: { [key: string]: any } }): Promise<Music> {
+  async updateMusic(musicId: string, updates: { title?: string, description?: string, ai_task_id?: string, status?: 'processing' | 'succeeded' | 'failed', audio_url?: string, metadata?: { [key: string]: any } }): Promise<Music> {
     if (!this.supabase) {
       console.error('updateMusic: Supabase client not initialized.');
       throw new Error('Supabase client not initialized.');
     }
 
-    // FIX: Simplified implementation. The caller is now responsible for constructing the metadata object.
-    const { mureka_id, ...rest } = updates;
+    const { ai_task_id, ...rest } = updates;
     const dbUpdates: { [key: string]: any } = { ...rest };
 
-    if (mureka_id) {
-        dbUpdates.task_id = mureka_id;
+    if (ai_task_id) {
+        dbUpdates.task_id = ai_task_id;
     }
     
     const { data, error: updateError } = await this.supabase

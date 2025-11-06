@@ -2,12 +2,12 @@ import { Injectable, signal, inject, effect, untracked, computed } from '@angula
 import { HttpErrorResponse } from '@angular/common/http';
 import { SupabaseService, Music } from './supabase.service';
 
-interface MurekaGenerateResponse {
+interface AIGenerateResponse {
   id: string;
   file_id?: string;
 }
 
-interface MurekaQueryResponse {
+interface AIQueryResponse {
   status: 'preparing' | 'queued' | 'running' | 'streaming' | 'succeeded' | 'failed' | 'timeouted' | 'cancelled';
   failed_reason?: string;
   choices?: { url: string; flac_url?: string; duration?: number; id?: string }[];
@@ -18,7 +18,7 @@ interface MurekaQueryResponse {
 @Injectable({
   providedIn: 'root',
 })
-export class MurekaService {
+export class StocklineAiService {
   private readonly supabase = inject(SupabaseService);
   private currentlyPolling = new Set<string>();
 
@@ -32,7 +32,7 @@ export class MurekaService {
         this.supabase.getMusicForUser(user.id).then(music => {
             this.userMusic.set(music);
             const processingMusic = music.filter(m => m.status === 'processing' && m.task_id);
-            console.log(`MurekaService: Encontradas ${processingMusic.length} música(s) em processamento na carga inicial.`);
+            console.log(`StocklineAiService: Encontradas ${processingMusic.length} música(s) em processamento na carga inicial.`);
             processingMusic.forEach(m => {
                 const queryPath = (m.metadata?.queryPath as 'song/query' | 'instrumental/query' | 'voice_clone/query') || 'song/query';
                 this.pollForResult(m.id, m.task_id!, queryPath);
@@ -72,9 +72,9 @@ export class MurekaService {
 
       const fileContent = await this.fileToBase64(file);
       
-      const { data, error: proxyError } = await this.supabase.invokeFunction('mureka-proxy', {
+      const { data, error: proxyError } = await this.supabase.invokeFunction('stockline-ai-proxy', {
         body: {
-          murekaApiPath: 'files/upload',
+          apiPath: 'files/upload',
           method: 'POST',
           isFileUpload: true,
           requestBody: {
@@ -92,7 +92,7 @@ export class MurekaService {
       const fileId = data.id;
       
       const updatedRecordWithFile = await this.supabase.updateMusic(finalMusicRecord.id, { 
-        mureka_id: fileId,
+        ai_task_id: fileId,
         metadata: { 
           ...(finalMusicRecord.metadata || {}),
           file_id: fileId,
@@ -155,8 +155,8 @@ export class MurekaService {
         n: 1,
       };
 
-      const { data, error: proxyError } = await this.supabase.invokeFunction('mureka-proxy', {
-        body: { murekaApiPath: apiPath, method: 'POST', requestBody }
+      const { data, error: proxyError } = await this.supabase.invokeFunction('stockline-ai-proxy', {
+        body: { apiPath: apiPath, method: 'POST', requestBody }
       });
 
       if (proxyError) throw proxyError;
@@ -166,7 +166,7 @@ export class MurekaService {
 
       const taskId = data.id;
       const updatedRecord = await this.supabase.updateMusic(finalMusicRecord.id, { 
-        mureka_id: taskId,
+        ai_task_id: taskId,
         metadata: {
           ...(finalMusicRecord.metadata || {}),
           progress: 10,
@@ -204,9 +204,9 @@ export class MurekaService {
 
       let analysisDescription = '';
       try {
-        const { data: describeData, error: describeError } = await this.supabase.invokeFunction('mureka-proxy', {
+        const { data: describeData, error: describeError } = await this.supabase.invokeFunction('stockline-ai-proxy', {
           body: {
-            murekaApiPath: 'song/describe',
+            apiPath: 'song/describe',
             method: 'POST',
             requestBody: { file_id: fileId }
           }
@@ -224,12 +224,12 @@ export class MurekaService {
           });
         }
       } catch (describeError) {
-        console.warn('MurekaService: Não foi possível analisar o áudio:', describeError);
+        console.warn('StocklineAiService: Não foi possível analisar o áudio:', describeError);
       }
 
-      const { data, error: proxyError } = await this.supabase.invokeFunction('mureka-proxy', {
+      const { data, error: proxyError } = await this.supabase.invokeFunction('stockline-ai-proxy', {
         body: {
-          murekaApiPath: 'instrumental/generate',
+          apiPath: 'instrumental/generate',
           method: 'POST',
           requestBody: {
             file_id: fileId,
@@ -248,7 +248,7 @@ export class MurekaService {
       const taskId = data.id;
       
       const updatedRecord = await this.supabase.updateMusic(musicId, { 
-        mureka_id: taskId,
+        ai_task_id: taskId,
         metadata: {
           ...existingMetadata,
           queryPath: 'instrumental/query',
@@ -303,7 +303,7 @@ export class MurekaService {
     }
   }
 
-  async generateMusic(title: string, displayStyle: string, murekaPrompt: string, lyrics: string, isPublic: boolean): Promise<Music> {
+  async generateMusic(title: string, displayStyle: string, aiPrompt: string, lyrics: string, isPublic: boolean): Promise<Music> {
     const user = this.supabase.currentUser();
     if (!this.isConfigured() || !user) {
         const errorMsg = 'O Supabase não está configurado ou o usuário não está autenticado.';
@@ -329,34 +329,34 @@ export class MurekaService {
       const finalMusicRecord = musicRecord;
       this.userMusic.update(current => [finalMusicRecord, ...current]);
       
-      const murekaRequestBody: { [key: string]: any } = {
-        prompt: murekaPrompt,
+      const aiRequestBody: { [key: string]: any } = {
+        prompt: aiPrompt,
         model: 'auto',
         n: 1, 
       };
       
       if (lyrics && lyrics.trim().length > 0) {
-        murekaRequestBody.lyrics = lyrics;
+        aiRequestBody.lyrics = lyrics;
       }
 
-      const { data, error: proxyError } = await this.supabase.invokeFunction('mureka-proxy', {
+      const { data, error: proxyError } = await this.supabase.invokeFunction('stockline-ai-proxy', {
           body: {
-              murekaApiPath: 'song/generate',
+              apiPath: 'song/generate',
               method: 'POST',
-              requestBody: murekaRequestBody,
+              requestBody: aiRequestBody,
           }
       });
 
       if (proxyError) throw proxyError;
       if (data?.error) throw data;
-      if (typeof data.id !== 'string') throw new Error('A API Mureka não retornou um ID de tarefa válido.');
+      if (typeof data.id !== 'string') throw new Error('A API de IA não retornou um ID de tarefa válido.');
 
       await this.supabase.consumeCredits(user.id, 1, `Criação de música: "${title}"`, musicRecord.id);
 
       const taskId = data.id;
       const updatedRecord = await this.supabase.updateMusic(finalMusicRecord.id, { 
-        mureka_id: taskId,
-        metadata: { ...(finalMusicRecord.metadata || {}), progress: 10, status_message: 'Requisição enviada. Aguardando a Mureka...' }
+        ai_task_id: taskId,
+        metadata: { ...(finalMusicRecord.metadata || {}), progress: 10, status_message: 'Requisição enviada. Aguardando a IA...' }
       });
       if (updatedRecord) {
         this.userMusic.update(music => music.map(s => s.id === finalMusicRecord.id ? updatedRecord : s));
@@ -397,30 +397,30 @@ export class MurekaService {
       const finalMusicRecord = musicRecord;
       this.userMusic.update(current => [finalMusicRecord, ...current]);
       
-      const murekaRequestBody = {
+      const aiRequestBody = {
         prompt: style,
         model: 'auto',
         n: 1,
       };
 
-      const { data, error: proxyError } = await this.supabase.invokeFunction('mureka-proxy', {
+      const { data, error: proxyError } = await this.supabase.invokeFunction('stockline-ai-proxy', {
           body: {
-              murekaApiPath: 'instrumental/generate',
+              apiPath: 'instrumental/generate',
               method: 'POST',
-              requestBody: murekaRequestBody,
+              requestBody: aiRequestBody,
           }
       });
 
       if (proxyError) throw proxyError;
       if (data?.error) throw data;
-      if (typeof data.id !== 'string') throw new Error('A API Mureka não retornou um ID de tarefa válido.');
+      if (typeof data.id !== 'string') throw new Error('A API de IA não retornou um ID de tarefa válido.');
 
       await this.supabase.consumeCredits(user.id, 1, `Criação de instrumental: "${title}"`, musicRecord.id);
 
       const taskId = data.id;
       const updatedRecord = await this.supabase.updateMusic(finalMusicRecord.id, { 
-        mureka_id: taskId,
-        metadata: { ...(finalMusicRecord.metadata || {}), progress: 10, status_message: 'Requisição enviada. Aguardando a Mureka...' }
+        ai_task_id: taskId,
+        metadata: { ...(finalMusicRecord.metadata || {}), progress: 10, status_message: 'Requisição enviada. Aguardando a IA...' }
       });
       if (updatedRecord) {
         this.userMusic.update(music => music.map(s => s.id === finalMusicRecord.id ? updatedRecord : s));
@@ -458,9 +458,9 @@ export class MurekaService {
       this.userMusic.update(current => [finalMusicRecord, ...current]);
 
       const fileContent = await this.fileToBase64(voiceSampleFile);
-      const { data: uploadData, error: uploadError } = await this.supabase.invokeFunction('mureka-proxy', {
+      const { data: uploadData, error: uploadError } = await this.supabase.invokeFunction('stockline-ai-proxy', {
         body: {
-          murekaApiPath: 'files/upload',
+          apiPath: 'files/upload',
           method: 'POST',
           isFileUpload: true,
           requestBody: {
@@ -476,9 +476,9 @@ export class MurekaService {
       if (uploadData?.error) throw uploadData;
       const fileId = uploadData.id;
 
-      const { data, error: proxyError } = await this.supabase.invokeFunction('mureka-proxy', {
+      const { data, error: proxyError } = await this.supabase.invokeFunction('stockline-ai-proxy', {
         body: {
-          murekaApiPath: 'voice_clone/generate',
+          apiPath: 'voice_clone/generate',
           method: 'POST',
           requestBody: { file_id: fileId, lyrics: lyrics, prompt: style, model: 'auto', n: 1 },
         }
@@ -492,7 +492,7 @@ export class MurekaService {
       const taskId = data.id;
 
       const updatedRecord = await this.supabase.updateMusic(finalMusicRecord.id, { 
-        mureka_id: taskId,
+        ai_task_id: taskId,
         metadata: { ...(finalMusicRecord.metadata || {}), progress: 10, status_message: 'Amostra de voz enviada. Gerando voz clonada...' }
       });
       if (updatedRecord) this.userMusic.update(music => music.map(s => s.id === finalMusicRecord.id ? updatedRecord : s));
@@ -515,7 +515,7 @@ export class MurekaService {
     
     const originalMusic = this.userMusic().find(m => m.id === originalMusicId);
     if (!originalMusic || !originalMusic.task_id) {
-        throw new Error("Música original ou ID da tarefa Mureka não encontrado para extensão.");
+        throw new Error("Música original ou ID da tarefa de IA não encontrado para extensão.");
     }
 
     const queryPath = originalMusic.metadata?.queryPath as 'song/query' | 'instrumental/query' | 'voice_clone/query' | undefined;
@@ -546,9 +546,9 @@ export class MurekaService {
 
         const extendPath = queryPath.replace('query', 'extend');
 
-        const { data, error: proxyError } = await this.supabase.invokeFunction('mureka-proxy', {
+        const { data, error: proxyError } = await this.supabase.invokeFunction('stockline-ai-proxy', {
             body: {
-                murekaApiPath: extendPath,
+                apiPath: extendPath,
                 method: 'POST',
                 requestBody: { id: originalMusic.task_id, duration: durationInSeconds },
             }
@@ -561,7 +561,7 @@ export class MurekaService {
 
         const taskId = data.id;
         const updatedRecord = await this.supabase.updateMusic(newMusicRecord.id, { 
-          mureka_id: taskId,
+          ai_task_id: taskId,
           metadata: { ...(newMusicRecord.metadata || {}), progress: 10, status_message: 'Requisição de extensão enviada...' }
         });
         if (updatedRecord) this.userMusic.update(music => music.map(s => s.id === finalNewMusicRecord.id ? updatedRecord : s));
@@ -657,10 +657,10 @@ export class MurekaService {
     setTimeout(executePoll, 5000);
   }
 
-  private async queryMusicStatus(taskId: string, queryPath: 'song/query' | 'instrumental/query' | 'voice_clone/query' = 'song/query'): Promise<MurekaQueryResponse> {
-    const { data, error: proxyError } = await this.supabase.invokeFunction('mureka-proxy', {
+  private async queryMusicStatus(taskId: string, queryPath: 'song/query' | 'instrumental/query' | 'voice_clone/query' = 'song/query'): Promise<AIQueryResponse> {
+    const { data, error: proxyError } = await this.supabase.invokeFunction('stockline-ai-proxy', {
         body: {
-            murekaApiPath: `${queryPath}/${taskId}`,
+            apiPath: `${queryPath}/${taskId}`,
             method: 'GET',
         }
     });
@@ -668,10 +668,10 @@ export class MurekaService {
     if (proxyError) throw proxyError;
     if (data?.error) throw data;
 
-    return data as MurekaQueryResponse;
+    return data as AIQueryResponse;
   }
 
-  private async handleFinalStatus(musicId: string, result: MurekaQueryResponse): Promise<void> {
+  private async handleFinalStatus(musicId: string, result: AIQueryResponse): Promise<void> {
     const originalMusic = this.userMusic().find(m => m.id === musicId);
     if (!originalMusic) return;
 
@@ -684,12 +684,12 @@ export class MurekaService {
             updatedMusic = await this.supabase.updateMusic(musicId, { 
                 status: 'succeeded', 
                 audio_url: audioUrl,
-                metadata: { ...existingMetadata, duration: result.choices?.[0]?.duration, mureka_choice_id: result.choices?.[0]?.id }
+                metadata: { ...existingMetadata, duration: result.choices?.[0]?.duration, ai_choice_id: result.choices?.[0]?.id }
             });
         } else {
             updatedMusic = await this.supabase.updateMusic(musicId, { 
                 status: 'failed', 
-                metadata: { ...existingMetadata, error: 'Sucesso, mas a Mureka não forneceu um URL de áudio.' } 
+                metadata: { ...existingMetadata, error: 'Sucesso, mas a API de IA não forneceu um URL de áudio.' } 
             });
         }
     } else {
@@ -786,13 +786,13 @@ export class MurekaService {
     }
 
     if (parsedDetails) {
-        if (parsedDetails.error?.includes('MUREKA_API_KEY not configured')) {
-            return 'Erro de configuração no servidor: a chave da API Mureka não foi configurada na Edge Function.';
-        } else if (parsedDetails.error === 'Mureka API call failed' && parsedDetails.details) {
-            const murekaMsg = parsedDetails.details.message || JSON.stringify(parsedDetails.details);
-            return `Erro da API Mureka (via proxy - Status: ${parsedDetails.status || 'desconhecido'}): ${murekaMsg}`;
+        if (parsedDetails.error?.includes('STOCKLINE_AI_API_KEY not configured')) {
+            return 'Erro de configuração no servidor: a chave da API da STOCKLINE AI não foi configurada na Edge Function.';
+        } else if (parsedDetails.error === 'AI API call failed' && parsedDetails.details) {
+            const apiMsg = parsedDetails.details.message || JSON.stringify(parsedDetails.details);
+            return `Erro da API de IA (via proxy - Status: ${parsedDetails.status || 'desconhecido'}): ${apiMsg}`;
         } else if (parsedDetails.error) {
-            return `Erro da função do Supabase (mureka-proxy): ${parsedDetails.error}`;
+            return `Erro da função do Supabase (stockline-ai-proxy): ${parsedDetails.error}`;
         }
     }
     

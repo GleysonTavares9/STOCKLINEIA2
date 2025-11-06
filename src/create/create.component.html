@@ -16,24 +16,24 @@
     </div>
   }
 
-  @if (!isMurekaConfigured() || !isGeminiConfigured() || supabaseInitError()) {
+  @if (!isAiMusicConfigured() || !isGeminiConfigured() || supabaseInitError()) {
     <div class="mb-8 p-6 rounded-2xl bg-red-900/30 border border-red-700 text-red-300 text-center">
       <h2 class="font-bold text-lg mb-2">⚠️ Configuração de Backend Crítica Necessária ⚠️</h2>
       <p class="mb-2">
         @if (supabaseInitError()) {
           {{ supabaseInitError() }}
         } @else {
-          As APIs de IA (Mureka e Gemini) não estão configuradas ou acessíveis, o que desativa as principais funcionalidades do aplicativo.
+          As APIs de IA (STOCKLINE AI e Gemini) não estão configuradas ou acessíveis, o que desativa as principais funcionalidades do aplicativo.
           Isso pode ocorrer devido a problemas de implantação das Edge Functions ou falta de configuração das chaves de API.
         }
       </p>
       <div class="mt-4 text-sm font-semibold">
         PARA CORRIGIR: <br>
         1. Verifique se as credenciais do Supabase (URL e Anon Key) estão corretas em <code class="bg-red-700/30 text-white px-1 py-0.5 rounded">src/auth/config.ts</code>. <br>
-        2. Certifique-se de que as Edge Functions <strong>`mureka-proxy` e `bright-worker`</strong> estão <strong>implantadas (deployed)</strong> no seu projeto Supabase. <br>
+        2. Certifique-se de que as Edge Functions <strong>`stockline-ai-proxy` e `bright-worker`</strong> estão <strong>implantadas (deployed)</strong> no seu projeto Supabase. <br>
         3. Confirme que as seguintes variáveis de ambiente estão configuradas como <strong class="text-white">segredos (secrets)</strong> nas respectivas Edge Functions, no painel do Supabase (<code class="bg-red-700/30 text-white px-1 py-0.5 rounded">Projeto &gt; Edge Functions &gt; [Sua Função] &gt; Settings &gt; Secrets</code>):
         <ul class="list-disc list-inside text-left mt-2 ml-4">
-            <li><strong>`MUREKA_API_KEY`</strong> (para a função <code class="bg-red-700/30 text-white px-1 py-0.5 rounded">mureka-proxy</code>)</li>
+            <li><strong>`STOCKLINE_AI_API_KEY`</strong> (para a função <code class="bg-red-700/30 text-white px-1 py-0.5 rounded">stockline-ai-proxy</code>)</li>
             <li><strong>`GIMINI_AI_API_KEY`</strong> (para a função <code class="bg-red-700/30 text-white px-1 py-0.5 rounded">bright-worker</code>)</li>
         </ul>
         <p class="mt-4 text-zinc-400">

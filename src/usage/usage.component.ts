@@ -2,7 +2,7 @@ import { Component, ChangeDetectionStrategy, inject, computed, signal } from '@a
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { SupabaseService } from '../services/supabase.service';
-import { MurekaService } from '../services/mureka.service';
+import { StocklineAiService } from '../services/mureka.service';
 
 @Component({
   selector: 'app-usage',
@@ -13,11 +13,11 @@ import { MurekaService } from '../services/mureka.service';
 })
 export class UsageComponent {
   private readonly supabase = inject(SupabaseService);
-  private readonly murekaService = inject(MurekaService);
+  private readonly stocklineAiService = inject(StocklineAiService);
 
   currentUser = this.supabase.currentUser;
   currentUserProfile = this.supabase.currentUserProfile;
-  userMusic = this.murekaService.userMusic;
+  userMusic = this.stocklineAiService.userMusic;
 
   isManaging = signal(false);
   managementError = signal<string | null>(null);

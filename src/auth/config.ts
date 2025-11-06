@@ -14,17 +14,17 @@
  * 
  * --------------------------------------------------------------------------
  * 
- * **ATENÇÃO ESPECIAL: CHAVES DE API SECRETAS (STRIPE, MUREKA & GEMINI)**
+ * **ATENÇÃO ESPECIAL: CHAVES DE API SECRETAS (STRIPE, STOCKLINE AI & GEMINI)**
  * 
- * As chaves `STRIPE_SECRET_KEY`, `MUREKA_API_KEY` e `GIMINI_AI_API_KEY` são **CHAVES SECRETAS DE BACKEND**. Elas NÃO DEVEM
+ * As chaves `STRIPE_SECRET_KEY`, `STOCKLINE_AI_API_KEY` e `GIMINI_AI_API_KEY` são **CHAVES SECRETAS DE BACKEND**. Elas NÃO DEVEM
  * ser incluídas diretamente no frontend. A comunicação com essas APIs agora é feita através de 
- * Edge Functions do Supabase (`dynamic-api`, `mureka-proxy`, `bright-worker`), que é a prática recomendada de 
+ * Edge Functions do Supabase (`dynamic-api`, `stockline-ai-proxy`, `bright-worker`), que é a prática recomendada de 
  * segurança para proteger suas chaves.
  * 
  * Você DEVE configurar as seguintes variáveis de ambiente diretamente nas suas Edge Functions
  * no painel do Supabase (em Settings -> Secrets):
  *  - `STRIPE_SECRET_KEY`: Na Edge Function `dynamic-api`.
- *  - `MUREKA_API_KEY`: Na Edge Function `mureka-proxy`.
+ *  - `STOCKLINE_AI_API_KEY`: Na Edge Function `stockline-ai-proxy`.
  *  - `GIMINI_AI_API_KEY`: Na Edge Function `bright-worker`.
  * 
  * --------------------------------------------------------------------------
@@ -42,7 +42,7 @@
  *    - `SUPABASE_ANON_KEY` (ou `PRÓXIMA_CHAVE_PÚBLICA_SUPABASE_ANON_KEY`): A chave anônima (public) do seu projeto Supabase.
  *    - `STRIPE_PUBLISHABLE_KEY` (ou `PRÓXIMA_CHAVE_PUBLICÁVEL_DA_FAIXA_PÚBLICA`): Sua chave publicável (pk_...) do Stripe, para ser usada pelo frontend.
  *    - `STRIPE_SECRET_KEY`: Sua chave secreta (sk_...) do Stripe (para a Edge Function `dynamic-api` no Supabase).
- *    - `MUREKA_API_KEY`: Sua chave da API Mureka (para a Edge Function `mureka-proxy` no Supabase).
+ *    - `STOCKLINE_AI_API_KEY`: Sua chave da API de música (para a Edge Function `stockline-ai-proxy` no Supabase).
  *    - `GIMINI_AI_API_KEY`: Sua chave da API Gemini (para a Edge Function `bright-worker` no Supabase).
  * 
  * PARA DESENVOLVIMENTO LOCAL:

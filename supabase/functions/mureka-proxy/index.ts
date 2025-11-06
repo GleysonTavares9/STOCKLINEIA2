@@ -15,7 +15,8 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
 };
 
-const MUREKA_API_BASE_URL = 'https://api.mureka.ai/v1';
+// This URL remains pointed at the underlying service provider.
+const API_BASE_URL = 'https://api.mureka.ai/v1';
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -23,37 +24,37 @@ serve(async (req) => {
   }
 
   try {
-    const murekaApiKey = Deno.env.get('MUREKA_API_KEY');
+    const stocklineAiApiKey = Deno.env.get('STOCKLINE_AI_API_KEY');
 
-    if (!murekaApiKey) {
-      console.error('Mureka Proxy: MUREKA_API_KEY environment variable is not configured.');
-      return new Response(JSON.stringify({ error: 'MUREKA_API_KEY not configured on Supabase Edge Function. Please check your Supabase secrets.' }), {
+    if (!stocklineAiApiKey) {
+      console.error('STOCKLINE AI Proxy: STOCKLINE_AI_API_KEY environment variable is not configured.');
+      return new Response(JSON.stringify({ error: 'STOCKLINE_AI_API_KEY not configured on Supabase Edge Function. Please check your Supabase secrets.' }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    console.log('Mureka Proxy: Using API Key (last 4 chars):', murekaApiKey.slice(-4));
+    console.log('STOCKLINE AI Proxy: Using API Key (last 4 chars):', stocklineAiApiKey.slice(-4));
     
     const parsedBody = await req.json();
-    const { murekaApiPath, method, requestBody, queryParams, isFileUpload } = parsedBody;
+    const { apiPath, method, requestBody, queryParams, isFileUpload } = parsedBody;
 
-    if (!murekaApiPath || !method) {
-        return new Response(JSON.stringify({ error: 'Missing murekaApiPath or method in request body for Mureka proxy.' }), {
+    if (!apiPath || !method) {
+        return new Response(JSON.stringify({ error: 'Missing apiPath or method in request body for STOCKLINE AI proxy.' }), {
             status: 400,
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
     }
 
     const headers: HeadersInit = {
-      'Authorization': `Bearer ${murekaApiKey}`,
+      'Authorization': `Bearer ${stocklineAiApiKey}`,
     };
     
     let body: BodyInit | undefined = undefined;
 
     if (method === 'POST' && requestBody) {
       if (isFileUpload) {
-          console.log('Mureka Proxy: Handling file upload (multipart/form-data).');
+          console.log('STOCKLINE AI Proxy: Handling file upload (multipart/form-data).');
           const { fileContent, fileName, fileType, purpose } = requestBody;
           
           if (!purpose) {
@@ -76,65 +77,65 @@ serve(async (req) => {
           formData.append('purpose', purpose);
           body = formData;
       } else {
-          console.log('Mureka Proxy: Handling JSON POST request.');
+          console.log('STOCKLINE AI Proxy: Handling JSON POST request.');
           headers['Content-Type'] = 'application/json';
           body = JSON.stringify(requestBody);
       }
     } else {
-      console.log('Mureka Proxy: Handling GET or non-body request.');
+      console.log('STOCKLINE AI Proxy: Handling GET or non-body request.');
     }
 
-    let murekaUrl = `${MUREKA_API_BASE_URL}/${murekaApiPath}`;
+    let apiUrl = `${API_BASE_URL}/${apiPath}`;
     if (queryParams) {
         const params = new URLSearchParams(queryParams);
-        murekaUrl += `?${params.toString()}`;
+        apiUrl += `?${params.toString()}`;
     }
 
-    console.log(`Mureka Proxy: Forwarding ${method} request to Mureka URL: ${murekaUrl}`);
+    console.log(`STOCKLINE AI Proxy: Forwarding ${method} request to URL: ${apiUrl}`);
     if (body && typeof body === 'string') {
-      console.log('Mureka Proxy: Mureka request body:', body);
+      console.log('STOCKLINE AI Proxy: Request body:', body);
     }
     
-    const murekaResponse = await fetch(murekaUrl, {
+    const apiResponse = await fetch(apiUrl, {
         method,
         headers,
         body,
     });
 
-    console.log('Mureka Proxy: Raw Mureka API response status:', murekaResponse.status);
-    const rawMurekaResponseBody = await murekaResponse.text();
-    console.log('Mureka Proxy: Raw Mureka API response body:', rawMurekaResponseBody);
+    console.log('STOCKLINE AI Proxy: Raw API response status:', apiResponse.status);
+    const rawApiResponseBody = await apiResponse.text();
+    console.log('STOCKLINE AI Proxy: Raw API response body:', rawApiResponseBody);
 
-    if (!murekaResponse.ok) {
-        let murekaErrorData;
+    if (!apiResponse.ok) {
+        let apiErrorData;
         try {
-            murekaErrorData = JSON.parse(rawMurekaResponseBody);
+            apiErrorData = JSON.parse(rawApiResponseBody);
         } catch {
-            murekaErrorData = { message: rawMurekaResponseBody || 'Could not parse Mureka API error response or empty body.' };
+            apiErrorData = { message: rawApiResponseBody || 'Could not parse API error response or empty body.' };
         }
-        console.error(`Mureka Proxy: Mureka API returned error status ${murekaResponse.status}:`, murekaErrorData);
+        console.error(`STOCKLINE AI Proxy: API returned error status ${apiResponse.status}:`, apiErrorData);
         return new Response(JSON.stringify({ 
-            error: 'Mureka API call failed', 
-            status: murekaResponse.status, 
-            details: murekaErrorData 
+            error: 'AI API call failed', 
+            status: apiResponse.status, 
+            details: apiErrorData 
         }), {
-            status: murekaResponse.status,
+            status: apiResponse.status,
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
     }
 
     // Safely parse the JSON body, handling cases where the response might be empty.
     // This prevents the function from crashing on a successful (2xx) but empty response.
-    let murekaData = {};
-    if (rawMurekaResponseBody.trim()) {
+    let apiData = {};
+    if (rawApiResponseBody.trim()) {
       try {
-        murekaData = JSON.parse(rawMurekaResponseBody);
+        apiData = JSON.parse(rawApiResponseBody);
       } catch (e) {
-        console.error('Mureka Proxy: Failed to parse successful Mureka API response:', e.message);
-        // This is a server-side issue: the proxy's contract with Mureka is broken.
+        console.error('STOCKLINE AI Proxy: Failed to parse successful API response:', e.message);
+        // This is a server-side issue: the proxy's contract with the API is broken.
         return new Response(JSON.stringify({ 
-          error: 'Mureka API returned a malformed successful response.', 
-          details: rawMurekaResponseBody 
+          error: 'The AI API returned a malformed successful response.', 
+          details: rawApiResponseBody 
         }), {
           status: 502, // Bad Gateway, as the upstream response was invalid
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -142,14 +143,14 @@ serve(async (req) => {
       }
     }
 
-    return new Response(JSON.stringify(murekaData), {
+    return new Response(JSON.stringify(apiData), {
         status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 
   } catch (error) {
-    console.error('Mureka Proxy: Uncaught error:', error);
-    return new Response(JSON.stringify({ error: error.message || 'Internal server error in Mureka proxy.' }), {
+    console.error('STOCKLINE AI Proxy: Uncaught error:', error);
+    return new Response(JSON.stringify({ error: error.message || 'Internal server error in the AI proxy.' }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });

@@ -2,7 +2,7 @@ import { Component, ChangeDetectionStrategy, inject, computed, signal, effect } 
 import { CommonModule } from '@angular/common';
 import { RouterLink, ActivatedRoute } from '@angular/router';
 import { SupabaseService, ActivityHistoryItem, Notification } from '../services/supabase.service';
-import { MurekaService } from '../services/mureka.service';
+import { StocklineAiService } from '../services/mureka.service';
 
 @Component({
   selector: 'app-account',
@@ -13,12 +13,13 @@ import { MurekaService } from '../services/mureka.service';
 })
 export class AccountComponent {
   private readonly supabase = inject(SupabaseService);
-  private readonly murekaService = inject(MurekaService);
+  private readonly stocklineAiService = inject(StocklineAiService);
+  // Fix: Correctly inject ActivatedRoute instead of Router.
   private readonly route: ActivatedRoute = inject(ActivatedRoute);
 
   currentUser = this.supabase.currentUser;
   currentUserProfile = this.supabase.currentUserProfile;
-  userMusic = this.murekaService.userMusic;
+  userMusic = this.stocklineAiService.userMusic;
 
   isManaging = signal(false);
   managementError = signal<string | null>(null);

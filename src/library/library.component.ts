@@ -1,6 +1,6 @@
 import { Component, ChangeDetectionStrategy, inject, signal, computed, OnDestroy, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { MurekaService } from '../services/mureka.service';
+import { StocklineAiService } from '../services/mureka.service';
 import { SupabaseService, type Music } from '../services/supabase.service';
 import { MusicPlayerService } from '../services/music-player.service';
 import { Router, ActivatedRoute } from '@angular/router';
@@ -15,14 +15,15 @@ import { Subscription } from 'rxjs';
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class LibraryComponent implements OnDestroy {
-  private readonly murekaService = inject(MurekaService);
+  private readonly stocklineAiService = inject(StocklineAiService);
   private readonly playerService = inject(MusicPlayerService);
   private readonly supabase = inject(SupabaseService);
+  // Fix: Correctly inject ActivatedRoute for the 'route' property.
   private readonly route: ActivatedRoute = inject(ActivatedRoute);
   private readonly router: Router = inject(Router);
   private queryParamsSubscription: Subscription;
 
-  userMusic = this.murekaService.userMusic;
+  userMusic = this.stocklineAiService.userMusic;
   deleteError = signal<string | null>(null);
   clearError = signal<string | null>(null);
   visibilityError = signal<string | null>(null);
@@ -193,7 +194,7 @@ export class LibraryComponent implements OnDestroy {
     this.isTogglingVisibility.set(music.id);
     this.visibilityError.set(null);
     try {
-      await this.murekaService.updateMusicVisibility(music, !music.is_public);
+      await this.stocklineAiService.updateMusicVisibility(music, !music.is_public);
     } catch (error: any) {
       this.visibilityError.set(error.message || 'Falha ao atualizar visibilidade.');
     } finally {
@@ -213,7 +214,7 @@ export class LibraryComponent implements OnDestroy {
     this.isDeleting.set(musicId);
     this.deleteError.set(null);
     try {
-      await this.murekaService.deleteMusic(musicId);
+      await this.stocklineAiService.deleteMusic(musicId);
       this.musicPendingDeletion.set(null);
     } catch (error: any) {
       this.deleteError.set(error.message || 'Falha ao apagar a música.');
@@ -226,7 +227,7 @@ export class LibraryComponent implements OnDestroy {
     this.isClearing.set(true);
     this.clearError.set(null);
     try {
-      await this.murekaService.clearFailedMusic();
+      await this.stocklineAiService.clearFailedMusic();
     } catch (error: any) {
       this.clearError.set(error.message || 'Falha ao limpar as músicas com falha.');
     } finally {
@@ -257,7 +258,7 @@ export class LibraryComponent implements OnDestroy {
 
     try {
         if (!music) throw new Error("Música não selecionada.");
-        await this.murekaService.extendMusic(music.id, this.extendDuration());
+        await this.stocklineAiService.extendMusic(music.id, this.extendDuration());
         this.closeExtendModal();
     } catch (error: any) {
         this.extendError.set(error.message || 'Falha ao estender a música.');
@@ -299,7 +300,7 @@ export class LibraryComponent implements OnDestroy {
               title: music.title.trim(),
               description: music.description.trim()
           });
-          this.murekaService.updateLocalMusic(updatedMusic);
+          this.stocklineAiService.updateLocalMusic(updatedMusic);
           this.closeEditModal();
       } catch (error: any) {
           this.editError.set(error.message || 'Falha ao atualizar a música.');
