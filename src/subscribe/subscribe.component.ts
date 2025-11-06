@@ -16,7 +16,8 @@ declare var Stripe: any;
 })
 export class SubscribeComponent implements OnInit, OnDestroy {
   private readonly supabase = inject(SupabaseService);
-  private readonly router = inject(Router);
+  // Fix: Explicitly type the injected Router to resolve 'Property 'navigate' does not exist on type 'unknown'' error.
+  private readonly router: Router = inject(Router);
 
   billingCycle = signal<'annual' | 'monthly'>('monthly');
   isLoading = signal<string | null>(null); // Plan ID for purchase button

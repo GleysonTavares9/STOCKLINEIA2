@@ -757,6 +757,13 @@ export class StocklineAiService {
         return 'O Supabase não está configurado. Verifique as credenciais.';
     }
 
+    const functionName = 'stockline-ai-proxy';
+    if (error?.message && (error.message.toLowerCase().includes('function not found') || error.message.includes('NotFoundException'))) {
+      if (error.message.includes(functionName)) {
+        return `Erro de Configuração: A função '${functionName}' não foi encontrada no Supabase. Após a recente mudança de nome, você precisa renomear a Edge Function de 'mureka-proxy' para '${functionName}' no seu painel do Supabase e reimplantá-la (re-deploy).`;
+      }
+    }
+
     let bodyToParse: any = null;
     const bodyStream = error?.context?.body || error?.body;
 
