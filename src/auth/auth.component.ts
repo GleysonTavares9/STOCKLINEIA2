@@ -1,8 +1,11 @@
-import { Component, ChangeDetectionStrategy, signal, inject, effect, computed, OnInit } from '@angular/core';
+import { Component, ChangeDetectionStrategy, signal, inject, effect, computed, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { Router, ActivatedRoute } from '@angular/router';
+import { Router, ActivatedRoute, NavigationEnd } from '@angular/router'; // Add NavigationEnd
 import { SupabaseService, Music } from '../services/supabase.service';
 import { MusicPlayerService } from '../services/music-player.service';
+import { Subscription } from 'rxjs'; // Import Subscription
+import { filter } from 'rxjs/operators'; // Import filter
+
 
 @Component({
   selector: 'app-auth',
@@ -11,12 +14,13 @@ import { MusicPlayerService } from '../services/music-player.service';
   templateUrl: './auth.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class AuthComponent implements OnInit {
+export class AuthComponent implements OnInit, OnDestroy { // Implement OnInit and OnDestroy
   private readonly supabase = inject(SupabaseService);
   private readonly playerService = inject(MusicPlayerService);
   // Fix: Explicitly type the injected Router and ActivatedRoute to resolve type inference issues.
   private readonly router: Router = inject(Router);
   private readonly route: ActivatedRoute = inject(ActivatedRoute);
+  private routerSubscription: Subscription; // To manage route param subscription
   
   readonly isSupabaseConfigured = this.supabase.isConfigured;
 
@@ -63,6 +67,18 @@ export class AuthComponent implements OnInit {
             this.infoMessage.set(params['message']);
         }
     });
+
+    // Listen to router events to catch query params on initial load and navigation
+    this.routerSubscription = this.router.events.pipe(
+      filter(event => event instanceof NavigationEnd)
+    ).subscribe(() => {
+      this.route.queryParams.subscribe(params => {
+        const playMusicId = params['play_music_id'];
+        if (playMusicId) {
+          this.playSharedMusic(playMusicId);
+        }
+      });
+    });
   }
 
   ngOnInit(): void {
@@ -72,6 +88,12 @@ export class AuthComponent implements OnInit {
     }).catch(error => {
       console.error('AuthComponent: Error loading public music:', error);
     });
+  }
+
+  ngOnDestroy(): void {
+    if (this.routerSubscription) {
+      this.routerSubscription.unsubscribe();
+    }
   }
 
   public maskEmail(email?: string, displayName?: string): string {
@@ -208,6 +230,41 @@ export class AuthComponent implements OnInit {
       // Always show a generic message to prevent leaking information about which emails are registered.
       this.infoMessage.set('Se existir uma conta para este e-mail, um link para redefinir a senha foi enviado.');
       this.loading.set(false);
+  }
+
+  private async playSharedMusic(musicId: string): Promise<void> {
+    // Check if the music is already playing or loaded to avoid redundant actions
+    if (this.playerService.currentMusic()?.id === musicId) {
+      this.clearPlayMusicIdFromUrl();
+      return;
+    }
+
+    console.log(`AuthComponent: Attempting to play shared music ID (unauthenticated): ${musicId}`);
+    try {
+      const music = await this.supabase.getMusicById(musicId);
+      if (music && music.status === 'succeeded' && music.audio_url) {
+        // Use the current publicMusic list as a playlist, if available, otherwise just the shared music.
+        const publicMusicList = this.publicMusic().length > 0 ? this.publicMusic() : [music];
+        this.playerService.selectMusicAndPlaylist(music, publicMusicList);
+        console.log(`AuthComponent: Successfully played shared music: ${music.title}`);
+      } else {
+        console.warn(`AuthComponent: Shared music ID ${musicId} not found, not succeeded, or no audio URL.`);
+      }
+    } catch (error) {
+      console.error(`AuthComponent: Error playing shared music ID ${musicId}:`, error);
+    } finally {
+      this.clearPlayMusicIdFromUrl();
+    }
+  }
+
+  private clearPlayMusicIdFromUrl(): void {
+    // Remove the play_music_id query parameter from the URL
+    this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { play_music_id: null }, // Set it to null to remove it
+      queryParamsHandling: 'merge', // Merge with existing query params
+      replaceUrl: true // Replace current history entry to avoid back button issues
+    });
   }
 
   private translateAuthError(message: string): string {

@@ -1,7 +1,10 @@
-import { Component, ChangeDetectionStrategy, inject, signal, computed } from '@angular/core';
+import { Component, ChangeDetectionStrategy, inject, signal, computed, OnInit, OnDestroy } from '@angular/core';
 import { SupabaseService, Music } from '../services/supabase.service';
 import { CommonModule } from '@angular/common';
 import { MusicPlayerService } from '../services/music-player.service';
+import { Router, ActivatedRoute, NavigationEnd } from '@angular/router'; // Add NavigationEnd
+import { Subscription } from 'rxjs'; // Import Subscription
+import { filter } from 'rxjs/operators'; // Import filter
 
 @Component({
   selector: 'app-feed',
@@ -10,9 +13,12 @@ import { MusicPlayerService } from '../services/music-player.service';
   templateUrl: './feed.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class FeedComponent {
+export class FeedComponent implements OnInit, OnDestroy { // Implement OnInit and OnDestroy
   private readonly supabase = inject(SupabaseService);
   private readonly playerService = inject(MusicPlayerService);
+  private readonly router = inject(Router); // Inject Router
+  private readonly route = inject(ActivatedRoute); // Inject ActivatedRoute
+  private routerSubscription: Subscription; // To manage route param subscription
   
   publicMusic = signal<Music[]>([]);
   likedSongs = this.supabase.userLikes; // Use signal from the service for persistence
@@ -49,6 +55,29 @@ export class FeedComponent {
 
   constructor() {
     this.loadPublicMusic();
+
+    // Listen to router events to catch query params on initial load and navigation
+    this.routerSubscription = this.router.events.pipe(
+      filter(event => event instanceof NavigationEnd)
+    ).subscribe(() => {
+      this.route.queryParams.subscribe(params => {
+        const playMusicId = params['play_music_id'];
+        if (playMusicId) {
+          this.playSharedMusic(playMusicId);
+        }
+      });
+    });
+  }
+
+  ngOnInit(): void {
+    // This part is handled by the constructor and the routerSubscription for queryParams.
+    // Keeping ngOnInit for other potential initialization if needed in the future.
+  }
+
+  ngOnDestroy(): void {
+    if (this.routerSubscription) {
+      this.routerSubscription.unsubscribe();
+    }
   }
 
   async loadPublicMusic() {
@@ -104,10 +133,14 @@ export class FeedComponent {
 
   // Method to share a song using the Web Share API or clipboard fallback
   async shareMusic(song: Music): Promise<void> {
+    // Construct the share URL with the music ID
+    // Assumes hash-based routing, so the ID is part of the hash fragment
+    const shareUrl = `${window.location.origin}/#/?play_music_id=${song.id}`;
+
     const shareData = {
-      title: `STOCKLINE AI Music: ${song.title}`,
-      text: `A próxima grande música pode ser sua. 🎶 Criei "${song.title}" com a IA da STOCKLINE. Experimente de graça e libere sua criatividade!`,
-      url: `${window.location.origin}`,
+      title: `🎶 Ouça "${song.title}" na STOCKLINE AI Music!`,
+      text: `🚀 Criei uma música incrível com IA na STOCKLINE! Ouça "${song.title}" agora e comece a criar suas próprias faixas gratuitamente! Acesse: ${shareUrl}`,
+      url: shareUrl, // The URL for sharing
     };
 
     // SVG do logo com cor embutida para compartilhamento
@@ -119,7 +152,7 @@ export class FeedComponent {
       // Usa a Web Share API se disponível
       if (navigator.share) {
         // Tenta compartilhar com o arquivo do logo se o navegador suportar
-        if (navigator.canShare && navigator.canShare({ files: [logoFile] })) {
+        if (navigator.canShare && navigator.canShare({ files: [logoFile], ...shareData })) { // Include shareData for canShare check
           await navigator.share({
             ...shareData,
             files: [logoFile],
@@ -130,8 +163,8 @@ export class FeedComponent {
         }
       } else {
         // Fallback para área de transferência se a Web Share API não for suportada
-        await navigator.clipboard.writeText(`${shareData.text}\n\n${shareData.url}`);
-        alert('Link copiado para a área de transferência!');
+        await navigator.clipboard.writeText(`${shareData.text}`); // Copy the enhanced text to clipboard
+        alert('Link da música copiado para a área de transferência! Compartilhe e inspire!');
       }
     } catch (error) {
       // Ignora o erro se o usuário cancelar o compartilhamento
@@ -139,7 +172,7 @@ export class FeedComponent {
         console.error('Sharing failed:', error);
         // Tenta a área de transferência como último recurso
         try {
-          await navigator.clipboard.writeText(`${shareData.text}\n\n${shareData.url}`);
+          await navigator.clipboard.writeText(`${shareData.text}`);
           alert('O compartilhamento falhou. O link foi copiado para a área de transferência!');
         } catch (copyError) {
           console.error('Clipboard fallback failed:', copyError);
@@ -147,6 +180,41 @@ export class FeedComponent {
         }
       }
     }
+  }
+
+  private async playSharedMusic(musicId: string): Promise<void> {
+    // Check if the music is already playing or loaded to avoid redundant actions
+    if (this.playerService.currentMusic()?.id === musicId) {
+      this.clearPlayMusicIdFromUrl();
+      return;
+    }
+
+    console.log(`FeedComponent: Attempting to play shared music ID: ${musicId}`);
+    try {
+      const music = await this.supabase.getMusicById(musicId);
+      if (music && music.status === 'succeeded' && music.audio_url) {
+        // Use the current publicMusic list as a playlist, if available, otherwise just the shared music.
+        const publicMusicList = this.publicMusic().length > 0 ? this.publicMusic() : [music];
+        this.playerService.selectMusicAndPlaylist(music, publicMusicList);
+        console.log(`FeedComponent: Successfully played shared music: ${music.title}`);
+      } else {
+        console.warn(`FeedComponent: Shared music ID ${musicId} not found, not succeeded, or no audio URL.`);
+      }
+    } catch (error) {
+      console.error(`FeedComponent: Error playing shared music ID ${musicId}:`, error);
+    } finally {
+      this.clearPlayMusicIdFromUrl();
+    }
+  }
+
+  private clearPlayMusicIdFromUrl(): void {
+    // Remove the play_music_id query parameter from the URL
+    this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { play_music_id: null }, // Set it to null to remove it
+      queryParamsHandling: 'merge', // Merge with existing query params
+      replaceUrl: true // Replace current history entry to avoid back button issues
+    });
   }
 
   toggleStyleExpansion(style: string): void {

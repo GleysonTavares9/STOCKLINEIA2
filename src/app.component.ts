@@ -65,17 +65,23 @@ export class AppComponent {
     
       if (!ready) return;
     
+      // Capture current query params, especially 'play_music_id'
+      const currentUrlTree = this.router.parseUrl(this.router.url);
+      const currentQueryParams = currentUrlTree.queryParams;
+
       const onAuthRoute = this.router.isActive('/auth', { paths: 'exact', queryParams: 'ignored', fragment: 'ignored', matrixParams: 'ignored' })
         || this.router.isActive('/auth/callback', { paths: 'exact', queryParams: 'ignored', fragment: 'ignored', matrixParams: 'ignored' })
         || this.router.isActive('/', { paths: 'exact', queryParams: 'ignored', fragment: 'ignored', matrixParams: 'ignored' });
     
       if (user) {
         if (onAuthRoute) {
-          this.router.navigate(['/feed']);
+          // Redirect to /feed, preserving existing query parameters
+          this.router.navigate(['/feed'], { queryParams: currentQueryParams });
         }
       } else {
         if (!onAuthRoute) {
-          this.router.navigate(['/']);
+          // If not on an auth route and no user, navigate to root, preserving existing query parameters
+          this.router.navigate(['/'], { queryParams: currentQueryParams });
         }
       }
     });

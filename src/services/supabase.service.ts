@@ -1,5 +1,4 @@
 import { Injectable, signal, computed } from '@angular/core';
-// Fix: Corrected import statement for Supabase types to resolve module errors.
 import { createClient, type SupabaseClient, type User, type AuthError, type Session } from '@supabase/supabase-js';
 import { environment } from '../auth/config';
 
@@ -9,6 +8,7 @@ export interface Music {
   task_id?: string; // AI Task ID, from 'task_id' column
   user_id: string;
   user_email?: string; // Populated from a join with profiles
+  user_display_name?: string; // New: Add display name for shared music
   title: string;
   style: string;
   description: string; // The 'lyrics' are stored in this column
@@ -882,6 +882,40 @@ export class SupabaseService {
     }
     console.log('getMusicForUser: Fetched music for user ID:', userId);
     return (data as Music[]) || [];
+  }
+
+  async getMusicById(musicId: string): Promise<Music | null> {
+    if (!this.supabase) {
+      console.error('getMusicById: Supabase client not initialized.');
+      return null;
+    }
+
+    // Include profiles to get user_display_name and user_email
+    const { data, error } = await this.supabase
+      .from('musics')
+      .select('*, profiles(id, display_name, email)')
+      .eq('id', musicId)
+      .single();
+
+    if (error) {
+      console.error(`getMusicById: Error fetching music ${musicId}:`, error.message);
+      return null;
+    }
+
+    if (!data) {
+      console.warn(`getMusicById: No music found for ID: ${musicId}.`);
+      return null;
+    }
+
+    // Map profile data onto the music object for consistency
+    const music: Music = {
+      ...data,
+      user_email: data.profiles?.email || undefined,
+      user_display_name: data.profiles?.display_name || undefined,
+    };
+
+    console.log(`getMusicById: Fetched music for ID: ${musicId}`);
+    return music;
   }
 
   async deleteMusic(musicId: string): Promise<{ error: any; count: number | null }> {
