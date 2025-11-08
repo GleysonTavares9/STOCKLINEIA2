@@ -18,4 +18,7 @@ export class AuthCallbackComponent {
   // This component provides a loading screen while Supabase processes the OAuth callback.
   // The `onAuthStateChange` listener in `SupabaseService` will detect the new session,
   // and the global `effect` in `AppComponent` will handle redirecting the user to the correct page.
+  constructor() {
+    console.log('AuthCallbackComponent: Componente de callback de autenticação carregado.');
+  }
 }

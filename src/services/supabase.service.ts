@@ -351,9 +351,9 @@ export class SupabaseService {
     const { error } = await this.supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        // ✅ CORREÇÃO: Redireciona para a raiz para evitar o conflito de hashes.
-        // O Supabase Client é inteligente o suficiente para capturar o token de sessão na raiz.
-        redirectTo: `${window.location.origin}/`,
+        // ✅ CORREÇÃO: Redireciona para a rota '/auth/callback' para evitar o conflito de hashes,
+        // permitindo que o Supabase Client capture corretamente o token de sessão.
+        redirectTo: `${window.location.origin}/#/auth/callback`,
       }
     });
     if (error) {
@@ -984,6 +984,7 @@ export class SupabaseService {
 
   async getPlans(): Promise<Plan[]> {
     const supabaseUrl = environment.supabaseUrl;
+    // Fix: Access `supabaseKey` directly from the `environment` object.
     const supabaseKey = environment.supabaseKey;
 
     if (!this.isConfigured()) {
