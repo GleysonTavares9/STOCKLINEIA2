@@ -351,10 +351,9 @@ export class SupabaseService {
     const { error } = await this.supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        // Fix: Changed redirectTo to remove the hash (#) as Supabase will append its own hash
-        // fragment for the access token, which conflicts with client-side hash routing.
-        // This ensures the OAuth flow correctly returns the session fragment.
-        redirectTo: `${window.location.origin}/auth/callback`,
+        // ✅ CORREÇÃO: Redireciona para a raiz para evitar o conflito de hashes.
+        // O Supabase Client é inteligente o suficiente para capturar o token de sessão na raiz.
+        redirectTo: `${window.location.origin}/`,
       }
     });
     if (error) {
