@@ -351,10 +351,13 @@ export class SupabaseService {
     const { error } = await this.supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        // A correção consiste em redirecionar para uma rota específica do Angular que processa callbacks
-        // com roteamento baseado em hash, permitindo que o Supabase lide com o hash de tokens.
-        // O `/#/` é o prefixo padrão para rotas Angular com `withHashLocation()`.
-        redirectTo: window.location.origin + '/#/auth/callback',
+        // Redireciona para a URL base. O Supabase JS SDK irá processar o hash de tokens.
+        // O AuthCallbackComponent irá então reagir à mudança de estado de autenticação.
+        redirectTo: window.location.origin,
+        queryParams: {
+          access_type: 'offline',
+          prompt: 'consent'
+        }
       }
     });
     if (error) {
@@ -362,6 +365,10 @@ export class SupabaseService {
     }
     return { error };
   }
+
+  // NOVO MÉTODO: handleAuthCallback para lidar com o callback do OAuth
+  // Este método não é mais necessário, pois o Supabase SDK e o `onAuthStateChange` lidam com isso automaticamente.
+  // Será removido para simplificar o fluxo.
 
   async resendConfirmationEmail(email: string): Promise<{ error: AuthError | null }> {
     if (!this.supabase) {
@@ -598,19 +605,24 @@ export class SupabaseService {
 
   async loadUserLikes(userId: string): Promise<void> {
     if (!this.supabase) return;
+    
     try {
       const { data, error } = await this.supabase
         .from('user_activities')
-        // FIX: Alias the JSON property to `music_id` for easier access, fixing a logic bug where liked songs were not loaded.
-        .select('music_id:metadata->>music_id')
+        .select('metadata')
         .eq('user_id', userId)
         .eq('action', 'like_song');
 
       if (error) throw error;
       
-      // FIX: Explicitly specify the Set's type as <string> to resolve the TypeScript error.
-      // The `->>` operator ensures the values are strings.
-      const likedIds = new Set<string>(data.map((item: any) => item.music_id).filter(Boolean));
+      // CORREÇÃO: Extrair corretamente os music_id do metadata
+      const likedIds = new Set<string>();
+      data.forEach((item: any) => {
+        if (item.metadata && item.metadata.music_id) {
+          likedIds.add(item.metadata.music_id);
+        }
+      });
+      
       this.userLikes.set(likedIds);
       console.log(`SupabaseService: Loaded ${likedIds.size} liked songs for user.`);
     } catch (error: any) {
@@ -623,55 +635,69 @@ export class SupabaseService {
     const user = this.currentUser();
     if (!this.supabase || !user) throw new Error('User not authenticated.');
     
+    // CORREÇÃO: Verificar se já curtiu
+    if (this.userLikes().has(musicId)) {
+      console.log('Song already liked');
+      return;
+    }
+
     // Optimistic update for immediate UI feedback
     this.userLikes.update(set => {
       set.add(musicId);
       return new Set(set);
     });
-  
-    // FIX: Use a database function (RPC) to handle liking a song.
-    // This abstracts the database logic, is more secure, and correctly handles
-    // RLS policies by using `auth.uid()` on the backend, which resolves the RLS error.
-    const { error } = await this.supabase.rpc('like_song', {
-      song_id: musicId
-    });
-    
-    if (error) {
-      console.error('SupabaseService: Error calling like_song RPC:', error.message);
+
+    try {
+      const { error } = await this.supabase
+        .from('user_activities')
+        .insert({
+          user_id: user.id,
+          action: 'like_song',
+          metadata: { music_id: musicId }
+        });
+
+      if (error) throw error;
+      
+      console.log('Like added successfully for music:', musicId);
+    } catch (error: any) {
       // Revert optimistic update on failure
       this.userLikes.update(set => {
         set.delete(musicId);
         return new Set(set);
       });
-      // Re-throw the error to be caught by the component
+      console.error('Error adding like:', error.message);
       throw error;
     }
   }
-  
+
   async removeLike(musicId: string): Promise<void> {
     const user = this.currentUser();
     if (!this.supabase || !user) throw new Error('User not authenticated.');
-  
+
     // Optimistic update for immediate UI feedback
     this.userLikes.update(set => {
       set.delete(musicId);
       return new Set(set);
     });
-  
-    // FIX: Use a database function (RPC) to handle unliking a song.
-    // This aligns with the `like_song` RPC approach for consistency and security.
-    const { error } = await this.supabase.rpc('unlike_song', {
-      song_id: musicId
-    });
+
+    try {
+      const { error } = await this.supabase
+        .from('user_activities')
+        .delete()
+        .eq('user_id', user.id)
+        .eq('action', 'like_song')
+        .eq('metadata->>music_id', musicId);
+
+      if (error) throw error;
       
-    if (error) {
-      console.error('SupabaseService: Error calling unlike_song RPC:', error.message);
+      console.log('Like removed successfully for music:', musicId);
+    } catch (error: any) {
       // Revert optimistic update on failure
       this.userLikes.update(set => {
         set.add(musicId);
         return new Set(set);
       });
-      // Re-throw the error to be caught by the component
+      console.error('Error removing like:', error.message);
       throw error;
     }
   }

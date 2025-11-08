@@ -69,19 +69,25 @@ export class AppComponent {
       const currentUrlTree = this.router.parseUrl(this.router.url);
       const currentQueryParams = currentUrlTree.queryParams;
 
-      const onAuthRoute = this.router.isActive('/auth', { paths: 'exact', queryParams: 'ignored', fragment: 'ignored', matrixParams: 'ignored' })
-        || this.router.isActive('/auth/callback', { paths: 'exact', queryParams: 'ignored', fragment: 'ignored', matrixParams: 'ignored' })
-        || this.router.isActive('/', { paths: 'exact', queryParams: 'ignored', fragment: 'ignored', matrixParams: 'ignored' });
-    
+      // Extract the primary Angular hash route (e.g., '/auth', '/feed', '/auth/callback')
+      // This ignores any subsequent hash fragments from Supabase (e.g., #access_token=...)
+      const pathSegments = this.router.url.split('#');
+      const primaryAngularHash = pathSegments.length > 1 ? `/${pathSegments[1].split('?')[0].split('#')[0]}` : '/';
+
+      const onAuthRelatedRoute = 
+        primaryAngularHash === '/auth' || 
+        primaryAngularHash === '/auth/callback' || 
+        primaryAngularHash === '/';
+
       if (user) {
-        if (onAuthRoute) {
+        if (primaryAngularHash !== '/feed') { // If user is logged in and not on feed
           // Redirect to /feed, preserving existing query parameters
-          this.router.navigate(['/feed'], { queryParams: currentQueryParams });
+          this.router.navigate(['/feed'], { queryParams: currentQueryParams, replaceUrl: true });
         }
       } else {
-        if (!onAuthRoute) {
-          // If not on an auth route and no user, navigate to root, preserving existing query parameters
-          this.router.navigate(['/'], { queryParams: currentQueryParams });
+        if (primaryAngularHash !== '/' && primaryAngularHash !== '/auth') { // If no user and not on root or auth page
+          // Navigate to root (login) page, preserving query params
+          this.router.navigate(['/'], { queryParams: currentQueryParams, replaceUrl: true });
         }
       }
     });

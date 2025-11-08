@@ -1,5 +1,8 @@
-import { Component } from '@angular/core';
+import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { Router } from '@angular/router';
+import { SupabaseService } from '../services/supabase.service';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
 @Component({
   selector: 'app-auth-callback',
@@ -14,11 +17,33 @@ import { CommonModule } from '@angular/common';
     </div>
   `,
 })
-export class AuthCallbackComponent {
-  // This component provides a loading screen while Supabase processes the OAuth callback.
-  // The `onAuthStateChange` listener in `SupabaseService` will detect the new session,
-  // and the global `effect` in `AppComponent` will handle redirecting the user to the correct page.
+export class AuthCallbackComponent implements OnInit {
+  private readonly supabaseService = inject(SupabaseService);
+  private readonly router = inject(Router);
+
   constructor() {
     console.log('AuthCallbackComponent: Componente de callback de autenticação carregado.');
+  }
+
+  ngOnInit(): void {
+    // We observe authReady and currentUser to ensure the Supabase client
+    // has processed the OAuth callback and updated the auth state.
+    // The effect in AppComponent will then handle the final redirection,
+    // but this component ensures we wait for auth to be truly ready.
+    this.supabaseService.authReady.pipe(takeUntilDestroyed()).subscribe(async ready => {
+      if (ready) {
+        // Give a very small delay to ensure all auth state is propagated.
+        // This can prevent race conditions where currentUser might not be set immediately.
+        await new Promise(resolve => setTimeout(resolve, 50)); 
+        const user = this.supabaseService.currentUser();
+        if (user) {
+          console.log('AuthCallbackComponent: Usuário autenticado, redirecionando para /feed.');
+          this.router.navigate(['/feed'], { replaceUrl: true });
+        } else {
+          console.log('AuthCallbackComponent: Autenticação falhou ou usuário não logado, redirecionando para /.');
+          this.router.navigate(['/'], { replaceUrl: true });
+        }
+      }
+    });
   }
 }
