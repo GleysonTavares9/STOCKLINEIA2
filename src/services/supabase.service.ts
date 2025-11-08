@@ -351,9 +351,10 @@ export class SupabaseService {
     const { error } = await this.supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        // A correção consiste em redirecionar para a origem base, permitindo que o Supabase
-        // processe o hash do token corretamente, sem o conflito de um hash de rota Angular inicial.
-        redirectTo: window.location.origin,
+        // A correção consiste em redirecionar para uma rota específica do Angular que processa callbacks
+        // com roteamento baseado em hash, permitindo que o Supabase lide com o hash de tokens.
+        // O `/#/` é o prefixo padrão para rotas Angular com `withHashLocation()`.
+        redirectTo: window.location.origin + '/#/auth/callback',
       }
     });
     if (error) {
