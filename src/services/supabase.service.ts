@@ -351,9 +351,9 @@ export class SupabaseService {
     const { error } = await this.supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        // ✅ CORREÇÃO: Redireciona para a rota '/auth/callback' para evitar o conflito de hashes,
-        // permitindo que o Supabase Client capture corretamente o token de sessão.
-        redirectTo: `${window.location.origin}/#/auth/callback`,
+        // A correção consiste em redirecionar para a origem base, permitindo que o Supabase
+        // processe o hash do token corretamente, sem o conflito de um hash de rota Angular inicial.
+        redirectTo: window.location.origin,
       }
     });
     if (error) {
