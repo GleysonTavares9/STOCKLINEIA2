@@ -351,7 +351,10 @@ export class SupabaseService {
     const { error } = await this.supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: `${window.location.origin}/#/auth/callback`,
+        // Fix: Changed redirectTo to remove the hash (#) as Supabase will append its own hash
+        // fragment for the access token, which conflicts with client-side hash routing.
+        // This ensures the OAuth flow correctly returns the session fragment.
+        redirectTo: `${window.location.origin}/auth/callback`,
       }
     });
     if (error) {

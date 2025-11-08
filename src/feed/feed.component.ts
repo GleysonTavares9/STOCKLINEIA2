@@ -143,24 +143,10 @@ export class FeedComponent implements OnInit, OnDestroy { // Implement OnInit an
       url: shareUrl, // The URL for sharing
     };
 
-    // SVG do logo com cor embutida para compartilhamento
-    const logoSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256" fill="#14b8a6"><path d="M224,160V96a16,16,0,0,0-16-16H48A16,16,0,0,0,32,96v64a16,16,0,0,0,16,16H208A16,16,0,0,0,224,160ZM48,96H208l-32,32L144,96H112l32,32L112,160h32l32-32,32,32H48Z"></path></svg>`;
-    const blob = new Blob([logoSvg], { type: 'image/svg+xml' });
-    const logoFile = new File([blob], 'stockline-logo.svg', { type: 'image/svg+xml' });
-
     try {
-      // Usa a Web Share API se disponível
+      // Usa a Web Share API se disponível, focando apenas em texto e URL.
       if (navigator.share) {
-        // Tenta compartilhar com o arquivo do logo se o navegador suportar
-        if (navigator.canShare && navigator.canShare({ files: [logoFile], ...shareData })) { // Include shareData for canShare check
-          await navigator.share({
-            ...shareData,
-            files: [logoFile],
-          });
-        } else {
-          // Fallback para compartilhar apenas texto e URL
-          await navigator.share(shareData);
-        }
+        await navigator.share(shareData);
       } else {
         // Fallback para área de transferência se a Web Share API não for suportada
         await navigator.clipboard.writeText(`${shareData.text}`); // Copy the enhanced text to clipboard
