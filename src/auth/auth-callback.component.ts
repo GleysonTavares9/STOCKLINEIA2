@@ -18,32 +18,17 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
   `,
 })
 export class AuthCallbackComponent implements OnInit {
-  private readonly supabaseService = inject(SupabaseService);
-  private readonly router = inject(Router);
+  // We no longer inject SupabaseService or Router as this component
+  // will only display a loading spinner and rely on AppComponent for navigation.
 
   constructor() {
-    console.log('AuthCallbackComponent: Componente de callback de autenticação carregado.');
+    console.log('AuthCallbackComponent: Componente de callback de autenticação carregado. Aguardando o AppComponent lidar com a navegação.');
   }
 
   ngOnInit(): void {
-    // We observe authReady and currentUser to ensure the Supabase client
-    // has processed the OAuth callback and updated the auth state.
-    // The effect in AppComponent will then handle the final redirection,
-    // but this component ensures we wait for auth to be truly ready.
-    this.supabaseService.authReady.pipe(takeUntilDestroyed()).subscribe(async ready => {
-      if (ready) {
-        // Give a very small delay to ensure all auth state is propagated.
-        // This can prevent race conditions where currentUser might not be set immediately.
-        await new Promise(resolve => setTimeout(resolve, 50)); 
-        const user = this.supabaseService.currentUser();
-        if (user) {
-          console.log('AuthCallbackComponent: Usuário autenticado, redirecionando para /feed.');
-          this.router.navigate(['/feed'], { replaceUrl: true });
-        } else {
-          console.log('AuthCallbackComponent: Autenticação falhou ou usuário não logado, redirecionando para /.');
-          this.router.navigate(['/'], { replaceUrl: true });
-        }
-      }
-    });
+    // This component no longer needs to actively navigate.
+    // The AppComponent's effect will automatically detect the auth state
+    // change (after the Supabase SDK processes the OAuth hash) and redirect.
+    // This prevents potential race conditions between this component and AppComponent.
   }
 }
