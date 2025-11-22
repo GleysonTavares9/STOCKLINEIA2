@@ -59,28 +59,16 @@ export class AppComponent {
   }));
 
   constructor() {
+    // Attempt to manually parse hash for tokens to handle "Double Hash" issue
+    // where Angular Router + Supabase OAuth redirect creates /#/auth/callback#access_token=...
+    this.handleHashSession();
+
     effect(() => {
       const user = this.currentUser();
       const ready = this.authReady();
     
       if (!ready) return;
 
-      // Safety Check: If the URL contains 'access_token' or 'error_description' in the hash, 
-      // it likely means we are in the middle of an OAuth callback that Supabase hasn't fully processed yet.
-      // In HashRouting mode, redirecting now might strip the token before Supabase sees it.
-      // We check this because onAuthChanged fires, but the router might try to redirect based on state.
-      if (window.location.hash.includes('access_token') || window.location.hash.includes('error_description')) {
-          // Exception: If we have a user AND an access_token in hash, it usually means onAuthStateChange already fired
-          // successfully (updating 'user'), so we CAN redirect to clear the hash.
-          if (user) {
-              console.log('AppComponent: OAuth successful, user present. Clearing hash and redirecting to feed.');
-              // Proceed to redirect logic below
-          } else {
-              console.log('AppComponent: OAuth tokens detected in hash but no user yet. Deferring navigation until Supabase processes them.');
-              return;
-          }
-      }
-    
       // Capture current query params, especially 'play_music_id'
       const currentUrlTree = this.router.parseUrl(this.router.url);
       const currentQueryParams = currentUrlTree.queryParams;
@@ -107,6 +95,43 @@ export class AppComponent {
         }
       }
     });
+  }
+
+  private async handleHashSession() {
+    const hash = window.location.hash;
+    // Check if we have access_token in the hash. 
+    // It might be plain #access_token=... (if redirected to root) 
+    // or #/auth/callback#access_token=... (if redirected to callback route)
+    if (hash && hash.includes('access_token=')) {
+        console.log('AppComponent: Detected OAuth tokens in hash. Attempting manual session recovery...');
+        
+        // We need to extract the part starting from access_token=
+        // Regex is robust enough to find it anywhere in the string
+        const accessTokenMatch = hash.match(/access_token=([^&]+)/);
+        const refreshTokenMatch = hash.match(/refresh_token=([^&]+)/);
+        
+        if (accessTokenMatch && refreshTokenMatch) {
+            const accessToken = accessTokenMatch[1];
+            const refreshToken = refreshTokenMatch[1];
+            
+            console.log('AppComponent: Tokens extracted. Calling setSession manually.');
+            
+            // Manually set the session. This bypasses the need for the router 
+            // or supabase-js auto-detection to perfectly match the URL structure.
+            const { error } = await this.supabaseService.setSession(accessToken, refreshToken);
+            
+            if (error) {
+                console.error('AppComponent: Failed to set session manually', error);
+            } else {
+                console.log('AppComponent: Session set successfully manually.');
+                // We don't need to manually navigate here; 
+                // the onAuthStateChange in SupabaseService will fire, updating currentUser signal,
+                // which triggers the effect above to redirect to /feed.
+            }
+        } else {
+          console.warn('AppComponent: access_token detected but failed to parse with regex.');
+        }
+    }
   }
 
   handleKeyDown(event: KeyboardEvent): void {

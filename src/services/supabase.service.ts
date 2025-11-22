@@ -214,6 +214,16 @@ export class SupabaseService {
     return data.session;
   }
 
+  // Allows manual session setting (e.g. from URL parsing in AppComponent)
+  async setSession(access_token: string, refresh_token: string) {
+    if (!this.supabase) {
+      console.error('setSession: Supabase client not initialized.');
+      return { error: { message: 'Supabase client not initialized' } };
+    }
+    console.log('setSession: Manually setting session from tokens.');
+    return await this.supabase.auth.setSession({ access_token, refresh_token });
+  }
+
   async fetchUserProfile(userId: string): Promise<void> {
     if (!this.supabase) {
       console.error('fetchUserProfile: Supabase client not initialized.');
@@ -349,10 +359,10 @@ export class SupabaseService {
     }
     console.log('signInWithGoogle: Attempting to sign in with Google OAuth.');
     
-    // FIX: Use window.location.origin as redirect URL to prevent double-hash issue 
-    // (e.g. /#/auth/callback#access_token=...) which confuses Angular router.
-    // Supabase will return to https://domain.com/#access_token=... which is standard.
-    const redirectUrl = window.location.origin;
+    // Use specific hash path for callback.
+    // This results in: https://domain.com/#/auth/callback#access_token=...
+    // Even if double hash occurs, we will handle it in AppComponent.
+    const redirectUrl = window.location.origin + '/#/auth/callback';
 
     const { error } = await this.supabase.auth.signInWithOAuth({
       provider: 'google',
