@@ -351,9 +351,10 @@ export class SupabaseService {
     const { error } = await this.supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        // Redireciona para a URL base. O Supabase JS SDK irá processar o hash de tokens.
-        // O AuthCallbackComponent irá então reagir à mudança de estado de autenticação.
-        redirectTo: window.location.origin,
+        // IMPORTANT: Explicitly set the redirect to the hash-routed callback URL.
+        // This ensures Angular's HashLocationStrategy can detect the route properly.
+        // Returns to https://domain.com/#/auth/callback
+        redirectTo: `${window.location.origin}/#/auth/callback`,
         queryParams: {
           access_type: 'offline',
           prompt: 'consent'
@@ -365,10 +366,6 @@ export class SupabaseService {
     }
     return { error };
   }
-
-  // NOVO MÉTODO: handleAuthCallback para lidar com o callback do OAuth
-  // Este método não é mais necessário, pois o Supabase SDK e o `onAuthStateChange` lidam com isso automaticamente.
-  // Será removido para simplificar o fluxo.
 
   async resendConfirmationEmail(email: string): Promise<{ error: AuthError | null }> {
     if (!this.supabase) {

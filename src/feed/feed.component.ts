@@ -137,10 +137,16 @@ export class FeedComponent implements OnInit, OnDestroy { // Implement OnInit an
     // Assumes hash-based routing, so the ID is part of the hash fragment
     const shareUrl = `${window.location.origin}/#/?play_music_id=${song.id}`;
 
+    // Only include the text description for the share payload
+    const shareText = `🚀 Criei uma música incrível com IA na STOCKLINE! Ouça "${song.title}" agora e comece a criar suas próprias faixas gratuitamente!`;
+    
+    // Combine for clipboard fallback, but keep separate for navigator.share to prevent duplication
+    const clipboardText = `${shareText} Acesse: ${shareUrl}`;
+
     const shareData = {
       title: `🎶 Ouça "${song.title}" na STOCKLINE AI Music!`,
-      text: `🚀 Criei uma música incrível com IA na STOCKLINE! Ouça "${song.title}" agora e comece a criar suas próprias faixas gratuitamente! Acesse: ${shareUrl}`,
-      url: shareUrl, // The URL for sharing
+      text: shareText,
+      url: shareUrl, 
     };
 
     try {
@@ -149,7 +155,7 @@ export class FeedComponent implements OnInit, OnDestroy { // Implement OnInit an
         await navigator.share(shareData);
       } else {
         // Fallback para área de transferência se a Web Share API não for suportada
-        await navigator.clipboard.writeText(`${shareData.text}`); // Copy the enhanced text to clipboard
+        await navigator.clipboard.writeText(clipboardText);
         alert('Link da música copiado para a área de transferência! Compartilhe e inspire!');
       }
     } catch (error) {
@@ -158,7 +164,7 @@ export class FeedComponent implements OnInit, OnDestroy { // Implement OnInit an
         console.error('Sharing failed:', error);
         // Tenta a área de transferência como último recurso
         try {
-          await navigator.clipboard.writeText(`${shareData.text}`);
+          await navigator.clipboard.writeText(clipboardText);
           alert('O compartilhamento falhou. O link foi copiado para a área de transferência!');
         } catch (copyError) {
           console.error('Clipboard fallback failed:', copyError);

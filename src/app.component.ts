@@ -64,6 +64,14 @@ export class AppComponent {
       const ready = this.authReady();
     
       if (!ready) return;
+
+      // Safety Check: If the URL contains 'access_token' or 'error_description' in the hash, 
+      // it likely means we are in the middle of an OAuth callback that Supabase hasn't fully processed yet.
+      // In HashRouting mode, redirecting now might strip the token before Supabase sees it.
+      if (window.location.hash.includes('access_token') || window.location.hash.includes('error_description')) {
+          console.log('AppComponent: OAuth tokens detected in hash. Deferring navigation until Supabase processes them.');
+          return;
+      }
     
       // Capture current query params, especially 'play_music_id'
       const currentUrlTree = this.router.parseUrl(this.router.url);
@@ -85,7 +93,7 @@ export class AppComponent {
           this.router.navigate(['/feed'], { queryParams: currentQueryParams, replaceUrl: true });
         }
       } else {
-        if (primaryAngularHash !== '/' && primaryAngularHash !== '/auth') { // If no user and not on root or auth page
+        if (primaryAngularHash !== '/' && primaryAngularHash !== '/auth' && primaryAngularHash !== '/auth/callback') { // If no user and not on root, auth, or callback
           // Navigate to root (login) page, preserving query params
           this.router.navigate(['/'], { queryParams: currentQueryParams, replaceUrl: true });
         }
