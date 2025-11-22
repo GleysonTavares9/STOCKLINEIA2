@@ -2,29 +2,20 @@
 @if (isSupabaseConfigured()) {
   @if (authReady()) {
     <!-- UNIFIED APP SHELL -->
-    <div class="min-h-screen text-gray-300 flex flex-col" [class.bg-black/60]="currentUser()">
+    <div class="min-h-screen text-gray-300 flex flex-col bg-black/60">
       
-      @if (currentUser(); as user) {
-        <!-- Background image for logged-in users with music playing -->
-        @if (currentMusic(); as music) {
-          <div 
-            class="fixed inset-0 -z-10 bg-cover bg-center transition-all duration-1000"
-            [style.background-image]="'url(' + getCoverArt(music.title) + ')'">
-            <div class="absolute inset-0 bg-black/80 backdrop-blur-2xl"></div>
-          </div>
-        }
-
-        <!-- Global Header -->
-        <header class="sticky top-0 bg-black/80 backdrop-blur-sm z-30 border-b border-zinc-800">
-          <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex items-center justify-between h-16">
-              <div class="flex items-center">
-                <a routerLink="/feed" class="flex-shrink-0 flex items-center gap-2 text-white font-bold text-xl">
-                  <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-teal-500" fill="currentColor" viewBox="0 0 256 256"><path d="M224,160V96a16,16,0,0,0-16-16H48A16,16,0,0,0,32,96v64a16,16,0,0,0,16,16H208A16,16,0,0,0,224,160ZM48,96H208l-32,32L144,96H112l32,32L112,160h32l32-32,32,32H48Z"></path></svg>
-                  <span>STOCKLINE</span>
-                </a>
-              </div>
-              <div class="flex items-center gap-4">
+      <!-- Global Header (Visible to all) -->
+      <header class="sticky top-0 bg-black/80 backdrop-blur-sm z-30 border-b border-zinc-800">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div class="flex items-center justify-between h-16">
+            <div class="flex items-center">
+              <a [routerLink]="currentUser() ? '/feed' : '/'" class="flex-shrink-0 flex items-center gap-2 text-white font-bold text-xl">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-teal-500" fill="currentColor" viewBox="0 0 256 256"><path d="M224,160V96a16,16,0,0,0-16-16H48A16,16,0,0,0,32,96v64a16,16,0,0,0,16,16H208A16,16,0,0,0,224,160ZM48,96H208l-32,32L144,96H112l32,32L112,160h32l32-32,32,32H48Z"></path></svg>
+                <span>STOCKLINE</span>
+              </a>
+            </div>
+            <div class="flex items-center gap-4">
+              @if (currentUser(); as user) {
                 <!-- Credit Balance -->
                 @if (currentUserProfile(); as profile) {
                   <a routerLink="/subscribe" class="flex items-center gap-2 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 rounded-full px-3 py-1.5 text-sm font-medium text-white transition-colors cursor-pointer" title="Comprar mais créditos">
@@ -76,10 +67,25 @@
                     </div>
                   }
                 </div>
-              </div>
+              } @else {
+                <!-- Guest Menu -->
+                 <a routerLink="/subscribe" class="text-zinc-300 hover:text-white font-medium text-sm px-3 py-2 transition-colors">Planos</a>
+                 <a routerLink="/auth" class="ml-2 bg-teal-600 hover:bg-teal-500 text-white px-4 py-2 rounded-full text-sm font-semibold transition-colors">Entrar</a>
+              }
             </div>
           </div>
-        </header>
+        </div>
+      </header>
+
+      <!-- Background image for logged-in users with music playing -->
+      @if (currentUser()) {
+        @if (currentMusic(); as music) {
+          <div 
+            class="fixed inset-0 -z-10 bg-cover bg-center transition-all duration-1000"
+            [style.background-image]="'url(' + getCoverArt(music.title) + ')'">
+            <div class="absolute inset-0 bg-black/80 backdrop-blur-2xl"></div>
+          </div>
+        }
       }
 
       <!-- Main Content Outlet -->
@@ -127,12 +133,12 @@
               </div>
           </div>
         </nav>
-      }
-    </div>
 
-    <!-- Music Player at the bottom -->
-    <app-music-player />
-    
+        <!-- Music Player at the bottom -->
+        <app-music-player />
+      }
+
+    </div>
   } @else {
     <!-- AUTH NOT READY (INITIAL LOAD) -->
     <div class="fixed inset-0 flex items-center justify-center bg-black">

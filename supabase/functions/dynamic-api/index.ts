@@ -34,7 +34,9 @@ const getSiteUrl = (req: Request): string => {
       siteUrl = refererUrl.origin;
       console.warn(`Stripe Proxy Aviso: A variável de ambiente SITE_URL não está configurada e 'Origin' não foi encontrado. Usando o header 'Referer' como fallback: ${siteUrl}.`);
     } else {
-      throw new Error("A configuração da URL do site (SITE_URL) é necessária para os redirecionamentos, mas não foi encontrada.");
+      // Fallback final para evitar crash se tudo falhar, útil para dev local
+      console.error("A configuração da URL do site (SITE_URL) é necessária para os redirecionamentos, mas não foi encontrada.");
+      siteUrl = origin || 'http://localhost:4200'; 
     }
   }
   return siteUrl;
@@ -344,8 +346,6 @@ serve(async (req) => {
         throw new Error('ERRO DE CONFIGURAÇÃO CRÍTICO: Foi fornecida uma chave publicável (pk_...) em vez da chave secreta (sk_...) no backend.');
     }
 
-    console.log('Stripe Proxy: Chave secreta carregada (terminando em ...' + stripeSecretKey.slice(-4) + ').');
-
     // Verifica se é um webhook do Stripe
     const isWebhook = req.headers.get('stripe-signature') !== null;
     
@@ -359,7 +359,19 @@ serve(async (req) => {
     }
 
     // Processa requisições normais da API
-    const { action, ...body } = await req.json();
+    // SAFE JSON PARSING: Prevent crash on empty/invalid body
+    let reqBody: any = {};
+    try {
+      const rawBody = await req.text();
+      reqBody = rawBody ? JSON.parse(rawBody) : {};
+    } catch (e) {
+      return new Response(JSON.stringify({ error: 'Invalid JSON body in request', details: e.message }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const { action, ...body } = reqBody;
 
     const stripe = new Stripe(stripeSecretKey, {
       // @ts-ignore
@@ -379,7 +391,7 @@ serve(async (req) => {
       case 'process_credits':
         return await handleProcessCredits(stripe, body);
       default:
-        return new Response(JSON.stringify({ error: 'Ação inválida ou não especificada.' }), {
+        return new Response(JSON.stringify({ error: `Ação inválida ou não especificada: ${action}` }), {
           status: 400,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });

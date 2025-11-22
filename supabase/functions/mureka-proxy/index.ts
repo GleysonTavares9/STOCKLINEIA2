@@ -19,6 +19,7 @@ const corsHeaders = {
 const API_BASE_URL = 'https://api.mureka.ai/v1';
 
 serve(async (req) => {
+  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }
@@ -34,13 +35,35 @@ serve(async (req) => {
       });
     }
 
-    console.log('STOCKLINE AI Proxy: Using API Key (last 4 chars):', stocklineAiApiKey.slice(-4));
+    // Parse body safely to avoid 500 on empty/invalid body
+    let parsedBody: any = {};
+    const rawText = await req.text();
     
-    const parsedBody = await req.json();
-    const { apiPath, method, requestBody, queryParams, isFileUpload } = parsedBody;
+    if (rawText && rawText.trim().length > 0) {
+        try {
+            parsedBody = JSON.parse(rawText);
+        } catch (e) {
+            console.error('STOCKLINE AI Proxy: Failed to parse request JSON:', e);
+            return new Response(JSON.stringify({ error: 'Invalid JSON body in request.', details: e.message }), {
+              status: 400,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            });
+        }
+    }
+    
+    // Accept either apiPath (standard) or murekaApiPath (legacy/alternative) to be robust
+    const apiPath = parsedBody.apiPath || parsedBody.murekaApiPath;
+    const method = parsedBody.method;
+    const requestBody = parsedBody.requestBody;
+    const queryParams = parsedBody.queryParams;
+    const isFileUpload = parsedBody.isFileUpload;
 
     if (!apiPath || !method) {
-        return new Response(JSON.stringify({ error: 'Missing apiPath or method in request body for STOCKLINE AI proxy.' }), {
+        console.error('STOCKLINE AI Proxy: Missing apiPath or method. Received body keys:', Object.keys(parsedBody));
+        return new Response(JSON.stringify({ 
+            error: 'Missing apiPath or method in request body for STOCKLINE AI proxy.',
+            received: parsedBody 
+        }), {
             status: 400,
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
@@ -64,25 +87,35 @@ serve(async (req) => {
             });
           }
 
-          const binaryString = atob(fileContent);
-          const len = binaryString.length;
-          const bytes = new Uint8Array(len);
-          for (let i = 0; i < len; i++) {
-              bytes[i] = binaryString.charCodeAt(i);
+          // Reconstruct the file from base64
+          try {
+              const binaryString = atob(fileContent);
+              const len = binaryString.length;
+              const bytes = new Uint8Array(len);
+              for (let i = 0; i < len; i++) {
+                  bytes[i] = binaryString.charCodeAt(i);
+              }
+              const blob = new Blob([bytes], { type: fileType });
+              
+              const formData = new FormData();
+              formData.append('file', blob, fileName);
+              formData.append('purpose', purpose);
+              body = formData;
+              // Do NOT set Content-Type header for FormData, let fetch set it with boundary
+          } catch (e) {
+              console.error('STOCKLINE AI Proxy: Error processing file upload data:', e);
+              return new Response(JSON.stringify({ error: 'Failed to process file data.', details: e.message }), {
+                  status: 400,
+                  headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+              });
           }
-          const blob = new Blob([bytes], { type: fileType });
-          
-          const formData = new FormData();
-          formData.append('file', blob, fileName);
-          formData.append('purpose', purpose);
-          body = formData;
       } else {
-          console.log('STOCKLINE AI Proxy: Handling JSON POST request.');
+          console.log(`STOCKLINE AI Proxy: Handling JSON POST request to ${apiPath}`);
           headers['Content-Type'] = 'application/json';
           body = JSON.stringify(requestBody);
       }
     } else {
-      console.log('STOCKLINE AI Proxy: Handling GET or non-body request.');
+      console.log(`STOCKLINE AI Proxy: Handling ${method} request to ${apiPath}`);
     }
 
     let apiUrl = `${API_BASE_URL}/${apiPath}`;
@@ -91,20 +124,13 @@ serve(async (req) => {
         apiUrl += `?${params.toString()}`;
     }
 
-    console.log(`STOCKLINE AI Proxy: Forwarding ${method} request to URL: ${apiUrl}`);
-    if (body && typeof body === 'string') {
-      console.log('STOCKLINE AI Proxy: Request body:', body);
-    }
-    
     const apiResponse = await fetch(apiUrl, {
         method,
         headers,
         body,
     });
 
-    console.log('STOCKLINE AI Proxy: Raw API response status:', apiResponse.status);
     const rawApiResponseBody = await apiResponse.text();
-    console.log('STOCKLINE AI Proxy: Raw API response body:', rawApiResponseBody);
 
     if (!apiResponse.ok) {
         let apiErrorData;
@@ -113,7 +139,7 @@ serve(async (req) => {
         } catch {
             apiErrorData = { message: rawApiResponseBody || 'Could not parse API error response or empty body.' };
         }
-        console.error(`STOCKLINE AI Proxy: API returned error status ${apiResponse.status}:`, apiErrorData);
+        console.error(`STOCKLINE AI Proxy: Upstream API error (${apiResponse.status}):`, apiErrorData);
         return new Response(JSON.stringify({ 
             error: 'AI API call failed', 
             status: apiResponse.status, 
@@ -124,20 +150,18 @@ serve(async (req) => {
         });
     }
 
-    // Safely parse the JSON body, handling cases where the response might be empty.
-    // This prevents the function from crashing on a successful (2xx) but empty response.
+    // Safely parse the JSON body from the upstream API
     let apiData = {};
     if (rawApiResponseBody.trim()) {
       try {
         apiData = JSON.parse(rawApiResponseBody);
       } catch (e) {
-        console.error('STOCKLINE AI Proxy: Failed to parse successful API response:', e.message);
-        // This is a server-side issue: the proxy's contract with the API is broken.
+        console.error('STOCKLINE AI Proxy: Failed to parse successful upstream response:', e.message);
         return new Response(JSON.stringify({ 
           error: 'The AI API returned a malformed successful response.', 
           details: rawApiResponseBody 
         }), {
-          status: 502, // Bad Gateway, as the upstream response was invalid
+          status: 502,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
@@ -149,8 +173,11 @@ serve(async (req) => {
     });
 
   } catch (error) {
-    console.error('STOCKLINE AI Proxy: Uncaught error:', error);
-    return new Response(JSON.stringify({ error: error.message || 'Internal server error in the AI proxy.' }), {
+    console.error('STOCKLINE AI Proxy: Uncaught Internal Error:', error);
+    return new Response(JSON.stringify({ 
+        error: error.message || 'Internal server error in the AI proxy.',
+        stack: error.stack 
+    }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });

@@ -209,10 +209,17 @@ export class SubscribeComponent implements OnInit, OnDestroy {
   }
 
   async purchase(plan: Plan): Promise<void> {
-    if (!this.isStripeConfigured() || !plan.price_id || !this.currentUser()) {
-      this.purchaseError.set('Não é possível processar a compra: configuração de pagamento incompleta ou usuário não autenticado.');
+    // Redirect to login if not authenticated
+    if (!this.currentUser()) {
+      this.router.navigate(['/auth'], { queryParams: { message: 'Faça login ou cadastre-se para assinar um plano.' } });
       return;
     }
+
+    if (!this.isStripeConfigured() || !plan.price_id) {
+      this.purchaseError.set('Não é possível processar a compra: configuração de pagamento incompleta.');
+      return;
+    }
+
     this.isLoading.set(plan.id);
     this.purchaseError.set(null);
 
@@ -235,7 +242,8 @@ export class SubscribeComponent implements OnInit, OnDestroy {
       }
 
       if (data?.session?.url) {
-        window.location.href = data.session.url;
+        // Use assign to ensure a full redirect
+        window.location.assign(data.session.url);
       } else {
         throw new Error(data?.error || 'Não foi possível iniciar a sessão de checkout do Stripe.');
       }
@@ -357,5 +365,10 @@ export class SubscribeComponent implements OnInit, OnDestroy {
     } finally {
       this.isProcessingPayment.set(false);
     }
+  }
+
+  getSessionIdFromUrl(): string {
+    const urlParams = new URLSearchParams(window.location.hash.split('?')[1]);
+    return urlParams.get('session_id') || '';
   }
 }

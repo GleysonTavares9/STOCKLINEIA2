@@ -73,24 +73,32 @@ export class AppComponent {
       const currentUrlTree = this.router.parseUrl(this.router.url);
       const currentQueryParams = currentUrlTree.queryParams;
 
-      // Extract the primary Angular hash route (e.g., '/auth', '/feed', '/auth/callback')
-      // This ignores any subsequent hash fragments from Supabase (e.g., #access_token=...)
-      const pathSegments = this.router.url.split('#');
-      const primaryAngularHash = pathSegments.length > 1 ? `/${pathSegments[1].split('?')[0].split('#')[0]}` : '/';
+      // Get the active path from Angular Router (strips query params and fragments)
+      // Note: this.router.url returns the full URL including query params.
+      // We clean it to get just the path (e.g. '/subscribe').
+      const fullUrl = this.router.url;
+      const pathWithoutQuery = fullUrl.split('?')[0];
+      const pathWithoutFragment = pathWithoutQuery.split('#')[0];
+      
+      // Normalize path (remove double slashes if any)
+      const normalizedPath = pathWithoutFragment.replace('//', '/');
 
-      const onAuthRelatedRoute = 
-        primaryAngularHash === '/auth' || 
-        primaryAngularHash === '/auth/callback' || 
-        primaryAngularHash === '/';
+      // Routes that logged-in users should NOT see (they get redirected to feed)
+      const authOnlyRoutes = ['/', '/auth', '/auth/callback'];
+      
+      // Routes that public (not logged in) users CAN see
+      const publicRoutes = ['/', '/auth', '/auth/callback', '/subscribe'];
 
       if (user) {
-        if (primaryAngularHash !== '/feed') { // If user is logged in and not on feed
-          // Redirect to /feed, preserving existing query parameters
+        // If user is logged in AND currently on an auth page (like login or root), redirect to feed.
+        // Otherwise, let them stay where they are (e.g., /subscribe, /library, /create).
+        if (authOnlyRoutes.includes(normalizedPath)) {
           this.router.navigate(['/feed'], { queryParams: currentQueryParams, replaceUrl: true });
         }
       } else {
-        if (primaryAngularHash !== '/' && primaryAngularHash !== '/auth' && primaryAngularHash !== '/auth/callback') { // If no user and not on root, auth, or callback
-          // Navigate to root (login) page, preserving query params
+        // If no user AND NOT on a public page, redirect to login.
+        // Example: Trying to access /feed or /library without login.
+        if (!publicRoutes.includes(normalizedPath)) {
           this.router.navigate(['/'], { queryParams: currentQueryParams, replaceUrl: true });
         }
       }

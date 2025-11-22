@@ -23,36 +23,37 @@ serve(async (req) => {
   }
 
   try {
-    // 1. Busca a chave da API Gemini de forma segura a partir dos segredos da Edge Function.
-    //    Tenta usar o nome novo ('GIMINI_AI_API_KEY') e, como fallback, o nome antigo ('GEMINI_API_KEY')
-    //    para garantir retrocompatibilidade com configurações de ambiente antigas.
     const giminiAiApiKey = Deno.env.get('GIMINI_AI_API_KEY');
     const legacyGeminiApiKey = Deno.env.get('GEMINI_API_KEY');
     let geminiApiKey: string | undefined;
-    let apiKeyNameUsed: string;
 
     if (giminiAiApiKey) {
       geminiApiKey = giminiAiApiKey;
-      apiKeyNameUsed = 'GIMINI_AI_API_KEY';
     } else if (legacyGeminiApiKey) {
       geminiApiKey = legacyGeminiApiKey;
-      apiKeyNameUsed = 'GEMINI_API_KEY (legacy fallback)';
-      console.warn('Gemini Proxy Warning: Using legacy environment variable GEMINI_API_KEY. Please update to GIMINI_AI_API_KEY.');
     }
 
     if (!geminiApiKey) {
-      console.error('Gemini Proxy Error: A variável de ambiente GIMINI_AI_API_KEY (ou a antiga GEMINI_API_KEY) não está configurada nos segredos da função.');
-      // A mensagem de erro para o cliente padroniza no nome novo para encorajar a migração.
+      console.error('Gemini Proxy Error: API key not configured.');
       return new Response(JSON.stringify({ error: 'GIMINI_AI_API_KEY not configured on Supabase Edge Function.' }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
-    // 2. Log para confirmar que a chave foi carregada com sucesso (mostrando apenas os 4 últimos caracteres por segurança).
-    console.log(`Gemini Proxy: Chave da API Gemini '${apiKeyNameUsed}' carregada com sucesso (terminando em ...${geminiApiKey.slice(-4)}).`);
 
+    // Safe JSON parse
+    let reqBody: any = {};
+    try {
+        const text = await req.text();
+        reqBody = text ? JSON.parse(text) : {};
+    } catch(e) {
+        return new Response(JSON.stringify({ error: 'Invalid JSON body.' }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+    }
 
-    const { prompt } = await req.json();
+    const { prompt } = reqBody;
 
     if (!prompt || typeof prompt !== 'string') {
       return new Response(JSON.stringify({ error: 'Missing or invalid "prompt" in request body.' }), {

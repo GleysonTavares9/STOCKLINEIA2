@@ -218,7 +218,7 @@ export class SupabaseService {
   async setSession(access_token: string, refresh_token: string) {
     if (!this.supabase) {
       console.error('setSession: Supabase client not initialized.');
-      return { error: { message: 'Supabase client not initialized' } };
+      return { data: { user: null, session: null }, error: { message: 'Supabase client not initialized' } as AuthError };
     }
     console.log('setSession: Manually setting session from tokens.');
     return await this.supabase.auth.setSession({ access_token, refresh_token });
@@ -1089,9 +1089,15 @@ export class SupabaseService {
         return { data: null, error: { message: 'Supabase client not initialized.' } };
     }
     console.log(`invokeFunction: Invoking Supabase Edge Function: ${functionName}`);
+    
     const { data, error } = await this.supabase.functions.invoke(functionName, options);
+    
     if (error) {
-      console.error(`invokeFunction: Error invoking function ${functionName}:`, error.message);
+      console.error(`invokeFunction: Error invoking function ${functionName}:`, error);
+      // Enhanced logging for Edge Function errors
+      if (error instanceof Error && 'context' in error) {
+         console.error('invokeFunction: Edge Function Context:', (error as any).context);
+      }
     } else {
       console.log(`invokeFunction: Function ${functionName} invoked successfully.`);
     }

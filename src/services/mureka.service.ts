@@ -75,6 +75,7 @@ export class StocklineAiService {
       const { data, error: proxyError } = await this.supabase.invokeFunction('mureka-proxy', {
         body: {
           apiPath: 'files/upload',
+          murekaApiPath: 'files/upload', // Compatibility
           method: 'POST',
           isFileUpload: true,
           requestBody: {
@@ -156,7 +157,12 @@ export class StocklineAiService {
       };
 
       const { data, error: proxyError } = await this.supabase.invokeFunction('mureka-proxy', {
-        body: { apiPath: apiPath, method: 'POST', requestBody }
+        body: { 
+          apiPath: apiPath, 
+          murekaApiPath: apiPath, // Compatibility
+          method: 'POST', 
+          requestBody 
+        }
       });
 
       if (proxyError) throw proxyError;
@@ -207,6 +213,7 @@ export class StocklineAiService {
         const { data: describeData, error: describeError } = await this.supabase.invokeFunction('mureka-proxy', {
           body: {
             apiPath: 'song/describe',
+            murekaApiPath: 'song/describe', // Compatibility
             method: 'POST',
             requestBody: { file_id: fileId }
           }
@@ -230,6 +237,7 @@ export class StocklineAiService {
       const { data, error: proxyError } = await this.supabase.invokeFunction('mureka-proxy', {
         body: {
           apiPath: 'instrumental/generate',
+          murekaApiPath: 'instrumental/generate', // Compatibility
           method: 'POST',
           requestBody: {
             file_id: fileId,
@@ -342,6 +350,7 @@ export class StocklineAiService {
       const { data, error: proxyError } = await this.supabase.invokeFunction('mureka-proxy', {
           body: {
               apiPath: 'song/generate',
+              murekaApiPath: 'song/generate', // Compatibility
               method: 'POST',
               requestBody: aiRequestBody,
           }
@@ -406,6 +415,7 @@ export class StocklineAiService {
       const { data, error: proxyError } = await this.supabase.invokeFunction('mureka-proxy', {
           body: {
               apiPath: 'instrumental/generate',
+              murekaApiPath: 'instrumental/generate', // Compatibility
               method: 'POST',
               requestBody: aiRequestBody,
           }
@@ -461,6 +471,7 @@ export class StocklineAiService {
       const { data: uploadData, error: uploadError } = await this.supabase.invokeFunction('mureka-proxy', {
         body: {
           apiPath: 'files/upload',
+          murekaApiPath: 'files/upload', // Compatibility
           method: 'POST',
           isFileUpload: true,
           requestBody: {
@@ -479,6 +490,7 @@ export class StocklineAiService {
       const { data, error: proxyError } = await this.supabase.invokeFunction('mureka-proxy', {
         body: {
           apiPath: 'voice_clone/generate',
+          murekaApiPath: 'voice_clone/generate', // Compatibility
           method: 'POST',
           requestBody: { file_id: fileId, lyrics: lyrics, prompt: style, model: 'auto', n: 1 },
         }
@@ -549,6 +561,7 @@ export class StocklineAiService {
         const { data, error: proxyError } = await this.supabase.invokeFunction('mureka-proxy', {
             body: {
                 apiPath: extendPath,
+                murekaApiPath: extendPath, // Compatibility
                 method: 'POST',
                 requestBody: { id: originalMusic.task_id, duration: durationInSeconds },
             }
@@ -658,9 +671,11 @@ export class StocklineAiService {
   }
 
   private async queryMusicStatus(taskId: string, queryPath: 'song/query' | 'instrumental/query' | 'voice_clone/query' = 'song/query'): Promise<AIQueryResponse> {
+    const apiPath = `${queryPath}/${taskId}`;
     const { data, error: proxyError } = await this.supabase.invokeFunction('mureka-proxy', {
         body: {
-            apiPath: `${queryPath}/${taskId}`,
+            apiPath: apiPath,
+            murekaApiPath: apiPath, // Compatibility
             method: 'GET',
         }
     });
