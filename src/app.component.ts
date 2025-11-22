@@ -68,9 +68,17 @@ export class AppComponent {
       // Safety Check: If the URL contains 'access_token' or 'error_description' in the hash, 
       // it likely means we are in the middle of an OAuth callback that Supabase hasn't fully processed yet.
       // In HashRouting mode, redirecting now might strip the token before Supabase sees it.
+      // We check this because onAuthChanged fires, but the router might try to redirect based on state.
       if (window.location.hash.includes('access_token') || window.location.hash.includes('error_description')) {
-          console.log('AppComponent: OAuth tokens detected in hash. Deferring navigation until Supabase processes them.');
-          return;
+          // Exception: If we have a user AND an access_token in hash, it usually means onAuthStateChange already fired
+          // successfully (updating 'user'), so we CAN redirect to clear the hash.
+          if (user) {
+              console.log('AppComponent: OAuth successful, user present. Clearing hash and redirecting to feed.');
+              // Proceed to redirect logic below
+          } else {
+              console.log('AppComponent: OAuth tokens detected in hash but no user yet. Deferring navigation until Supabase processes them.');
+              return;
+          }
       }
     
       // Capture current query params, especially 'play_music_id'

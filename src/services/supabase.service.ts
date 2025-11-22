@@ -348,13 +348,16 @@ export class SupabaseService {
       return { error: { name: 'InitializationError', message: 'Supabase client not initialized.' } as AuthError };
     }
     console.log('signInWithGoogle: Attempting to sign in with Google OAuth.');
+    
+    // FIX: Use window.location.origin as redirect URL to prevent double-hash issue 
+    // (e.g. /#/auth/callback#access_token=...) which confuses Angular router.
+    // Supabase will return to https://domain.com/#access_token=... which is standard.
+    const redirectUrl = window.location.origin;
+
     const { error } = await this.supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        // IMPORTANT: Explicitly set the redirect to the hash-routed callback URL.
-        // This ensures Angular's HashLocationStrategy can detect the route properly.
-        // Returns to https://domain.com/#/auth/callback
-        redirectTo: `${window.location.origin}/#/auth/callback`,
+        redirectTo: redirectUrl,
         queryParams: {
           access_type: 'offline',
           prompt: 'consent'
