@@ -1,6 +1,6 @@
 import { Component, ChangeDetectionStrategy, signal, inject, effect, computed, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { Router, ActivatedRoute, NavigationEnd } from '@angular/router'; // Add NavigationEnd
+import { Router, ActivatedRoute, NavigationEnd, RouterLink } from '@angular/router'; // Add RouterLink
 import { SupabaseService, Music } from '../services/supabase.service';
 import { MusicPlayerService } from '../services/music-player.service';
 import { Subscription } from 'rxjs'; // Import Subscription
@@ -10,7 +10,7 @@ import { filter } from 'rxjs/operators'; // Import filter
 @Component({
   selector: 'app-auth',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, RouterLink],
   templateUrl: './auth.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
